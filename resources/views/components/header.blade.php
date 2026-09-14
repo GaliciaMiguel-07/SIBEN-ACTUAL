@@ -22,14 +22,14 @@
                         </a>
                         <ul class="dropdown-menu" role="menu">
                             <li>
-                                <a href="#" onclick='window.open("","Primera","toolbar=no,location=no,directories=no,status=no,menubar=no,scrollbars=yes,resizable=no,width=917,height=600"); return false;'>SIBEN</a>
+                                <a href="{{ route('usuarios.login') }}" onclick='window.open(this.href, "Primera", "toolbar=no,location=no,directories=no,status=no,menubar=no,scrollbars=yes,resizable=no,width=917,height=600"); return false;'>SIBEN</a>
                             </li>
                         </ul>
                     </li>
 
                     <li class="last"><a href="{{ route('escuelas.busqueda') }}">Búsqueda</a></li>
                     <li class="last"><a href="{{ route('pages.masinformacion') }}">Más Información</a></li>     
-                    <li class="last"><a href="{{ url('/estadisticas') }}">Estadísticas</a></li>
+                    <li class="last"><a href="{{ route('pages.estadisticasrecientes') }}">Estadísticas</a></li>
                     <li><a class="home_menu" href="http://dgesum.sep.gob.mx" target="_blank" rel="noopener noreferrer">DGESUM</a></li>
                 </ul>
             </div>
