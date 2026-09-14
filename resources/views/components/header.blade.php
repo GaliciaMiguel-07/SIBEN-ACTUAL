@@ -29,7 +29,7 @@
 
                     <li class="last"><a href="{{ route('escuelas.busqueda') }}">Búsqueda</a></li>
                     <li class="last"><a href="{{ route('pages.masinformacion') }}">Más Información</a></li>     
-                    <li class="last"><a href="{{ url('/estadisticas') }}">Estadísticas</a></li>
+                    <li class="last"><a href="{{ route('pages.estadisticasrecientes') }}">Estadísticas</a></li>
                     <li><a class="home_menu" href="http://dgesum.sep.gob.mx" target="_blank" rel="noopener noreferrer">DGESUM</a></li>
                 </ul>
             </div>

@@ -109,7 +109,7 @@
 </td>
 </tr>
 </table>
-    <button class="btn btn-primary pull-right btn-icon-right" type="button">Básico</button>
+    <button class="btn btn-primary pull-right btn-icon-right" type="button">Buscar</button>
 <br/>
 <br/>
 <br/>
