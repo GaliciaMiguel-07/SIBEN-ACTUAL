@@ -9,6 +9,13 @@
 
 </head>
 <body>
+      <div class="container">
+<ol class="breadcrumb">
+  <li><a href="{{ url('/') }}"><i class="icon icon-home"></i></a></li>
+  <li><a href="{{ url('/') }}">Inicio</a></li>
+  <li class="active">Más Información</li>
+</ol>
+</div>
     <div class="container">
   <div class="row">
     <div class="col-sm-8">
@@ -28,7 +35,7 @@
           </div>
       </div>
     </div>
-    
+     <br />
     <div class="col-sm-4">
       <div class="gobmx-docs-sidenav hidden-xs hidden-sm">
           <div class="docs-nav-logo red">
@@ -188,33 +195,34 @@
   Conmutador (55) 3600-2511 ext. 53640.
   </td>
   </tr>
-    <tr class='info' id='t9' style='display:none;'>
+<tr class="info" id="t9" style="display: none;">
     <td>
-    <h4>Manuales</h4>
-    <ul>
-      <li><a href="https://365sep-my.sharepoint.com/:v:/g/personal/lrvera_nube_sep_gob_mx/EchaY6kW-fxChDlh6lFCPM0Bb0u74i6dxodSYNU-w9FCxg?e=Pfoh1Q&nav=eyJyZWZlcnJhbEluZm8iOnsicmVmZXJyYWxBcHAiOiJTdHJlYW1XZWJBcHAiLCJyZWZlcnJhbFZpZXciOiJTaGFyZURpYWxvZy1MaW5rIiwicmVmZXJyYWxBcHBQbGF0Zm9ybSI6IldlYiIsInJlZmVycmFsTW9kZSI6InZpZXcifX0%3D" target=_blank"> Enlace al taller de capacitación del 20/10/25 </a></li>
-    <li><?php echo "Pesentación 2025"."<a href='".$html->url('/files/SIBEN_2025.pptx')."'>".$html->image('pdf.jpg', array('width' => '20px'))."</a>\n"; ?></li>
-    <li><?php echo "Pesentación 2023"."<a href='".$html->url('/files/SIBEN_2023.pdf')."'>".$html->image('pdf.jpg', array('width' => '20px'))."</a>\n"; ?></li>
-
-    <li><?php echo "Pesentación 2022"."<a href='".$html->url('/files/SIBEN_2022.pdf')."'>".$html->image('pdf.jpg', array('width' => '20px'))."</a>\n"; ?></li>
-
-    <li><?php echo "Manual del SIBEN 7 Licenciatura Enlaces Estatales"."<a href='".$html->url('/files/Manual_enlace_SIBEN7.pdf')."'>".$html->image('pdf.jpg', array('width' => '20px'))."</a>\n"; ?></li>
-    <li><?php echo "Manual del SIBEN 7 Licenciatura Supervisores"."<a href='".$html->url('/files/Manual_supervisor_SIBEN7.pdf')."'>".$html->image('pdf.jpg', array('width' => '20px'))."</a>\n"; ?></li>
-    <li><?php echo "Manual del SIBEN 7 Licenciatura Capturistas"."<a href='".$html->url('/files/Manual_Capturista_SIBEN_7.pdf')."'>".$html->image('pdf.jpg', array('width' => '20px'))."</a>\n"; ?></li>
-    <li><?php echo "Manual del SIBEN Posgrados"."<a href='".$html->url('/files/Manual_SIBEN_Posgrados-2026.pdf')."'>".$html->image('pdf.jpg', array('width' => '20px'))."</a>\n"; ?></li>
-    <li><?php echo "Manual del SIBEN Geográfico"."<a href='".$html->url('/files/Manual_SIBEN_Geografico.pdf')."'>".$html->image('pdf.jpg', array('width' => '20px'))."</a>\n"; ?></li>
-    <li><?php echo "Manual Encuesta Académicos"."<a href='".$html->url('/files/Manual encuesta academicos.pdf')."'>".$html->image('pdf.jpg', array('width' => '20px'))."</a>\n"; ?></li>
-    <li><?php echo "Manual Encuesta Alumnos"."<a href='".$html->url('/files/Manual encuesta alumnos.pdf')."'>".$html->image('pdf.jpg', array('width' => '20px'))."</a>\n"; ?></li>
-    <li><?php echo "Pesentación SIBEN 8"."<a href='".$html->url('/files/SIBEN_2016.pptx')."'>".$html->image('pdf.jpg', array('width' => '20px'))."</a>\n"; ?></li>
-    </ul>
+        <h4>Manuales</h4>
+        <ul>
+            <li>
+                <a href="https://365sep-my.sharepoint.com/:v:/g/personal/lrvera_nube_sep_gob_mx/EchaY6kW-fxChDlh6lFCPM0Bb0u74i6dxodSYNU-w9FCxg?e=Pfoh1Q&nav=eyJyZWZlcnJhbEluZm8iOnsicmVmZXJyYWxBcHAiOiJTdHJlYW1XZWJBcHAiLCJyZWZlcnJhbFZpZXciOiJTaGFyZURpYWxvZy1MaW5rIiwicmVmZXJyYWxBcHBQbGF0Zm9ybSI6IldlYiIsInJlZmVycmFsTW9kZSI6InZpZXcifX0%3D" target="_blank">
+                    Enlace al taller de capacitación del 20/10/25
+                </a>
+            </li>
+            <li>Presentación 2025 <a href="https://siben.sep.gob.mx/siben/files/SIBEN_2025.pptx"><img src="https://siben.sep.gob.mx/siben/img/pdf.jpg" width="20" alt="PDF"></a></li>
+            <li>Presentación 2023 <a href="https://siben.sep.gob.mx/siben/files/SIBEN_2023.pdf"><img src="https://siben.sep.gob.mx/siben/img/pdf.jpg" width="20" alt="PDF"></a></li>
+            <li>Presentación 2022 <a href="https://siben.sep.gob.mx/siben/files/SIBEN_2022.pdf"><img src="https://siben.sep.gob.mx/siben/img/pdf.jpg" width="20" alt="PDF"></a></li>
+            <li>Manual del SIBEN 7 Licenciatura Enlaces Estatales <a href="https://siben.sep.gob.mx/siben/files/Manual_enlace_SIBEN7.pdf"><img src="https://siben.sep.gob.mx/siben/img/pdf.jpg" width="20" alt="PDF"></a></li>
+            <li>Manual del SIBEN 7 Licenciatura Supervisores <a href="https://siben.sep.gob.mx/siben/files/Manual_supervisor_SIBEN7.pdf"><img src="https://siben.sep.gob.mx/siben/img/pdf.jpg" width="20" alt="PDF"></a></li>
+            <li>Manual del SIBEN 7 Licenciatura Capturistas <a href="https://siben.sep.gob.mx/siben/files/Manual_Capturista_SIBEN_7.pdf"><img src="https://siben.sep.gob.mx/siben/img/pdf.jpg" width="20" alt="PDF"></a></li>
+            <li>Manual del SIBEN Posgrados <a href="https://siben.sep.gob.mx/siben/files/Manual_SIBEN_Posgrados-2026.pdf"><img src="https://siben.sep.gob.mx/siben/img/pdf.jpg" width="20" alt="PDF"></a></li>
+            <li>Manual del SIBEN Geográfico <a href="https://siben.sep.gob.mx/siben/files/Manual_SIBEN_Geografico.pdf"><img src="https://siben.sep.gob.mx/siben/img/pdf.jpg" width="20" alt="PDF"></a></li>
+            <li>Manual Encuesta Académicos <a href="https://siben.sep.gob.mx/siben/files/Manual_encuesta_academicos.pdf"><img src="https://siben.sep.gob.mx/siben/img/pdf.jpg" width="20" alt="PDF"></a></li>
+            <li>Manual Encuesta Alumnos <a href="https://siben.sep.gob.mx/siben/files/Manual_encuesta_alumnos.pdf"><img src="https://siben.sep.gob.mx/siben/img/pdf.jpg" width="20" alt="PDF"></a></li>
+            <li>Presentación SIBEN 8 <a href="https://siben.sep.gob.mx/siben/files/SIBEN_2016.pptx"><img src="https://siben.sep.gob.mx/siben/img/pdf.jpg" width="20" alt="PDF"></a></li>
+        </ul>
     </td>
-  </tr>
+</tr>
   </table>
 
 </div>
 
 
-<br /><br /><br />
 
 <script type="text/javascript">
 
