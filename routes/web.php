@@ -8,3 +8,4 @@ Route::get('/', function () {
 });
 
 Route::view('/busquedaEscuelas/busqueda', 'layouts.busquedaEscuelas.busqueda')->name('escuelas.busqueda');
+Route::view('/pages/masinformacion', 'layouts.pages.masinformacion')->name('pages.masinformacion');
