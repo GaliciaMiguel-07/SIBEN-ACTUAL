@@ -22,7 +22,7 @@
                         </a>
                         <ul class="dropdown-menu" role="menu">
                             <li>
-                                <a href="#" onclick='window.open("","Primera","toolbar=no,location=no,directories=no,status=no,menubar=no,scrollbars=yes,resizable=no,width=917,height=600"); return false;'>SIBEN</a>
+                                <a href="{{ route('usuarios.login') }}" onclick='window.open(this.href, "Primera", "toolbar=no,location=no,directories=no,status=no,menubar=no,scrollbars=yes,resizable=no,width=917,height=600"); return false;'>SIBEN</a>
                             </li>
                         </ul>
                     </li>
