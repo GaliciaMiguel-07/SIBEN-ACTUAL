@@ -14,17 +14,8 @@
             background-color: #ffffff;
         }
 
-        /* Contenedor de los logos superiores */
-        .header-logos {
-            display: flex;
-            justify-content: space-between;
-            padding: 20px 50px;
-            align-items: center;
-        }
         
-        .header-logos img {
-            max-height: 70px; /* Ajusta este valor según el tamaño real de tus logos */
-        }
+  
 
         /* Barras grises con degradado (arriba y abajo) */
         .barra-degradado {
@@ -118,10 +109,10 @@
 <body>
 
     <!-- Encabezado con logos -->
-    <div class="header-logos">
+    <div>
         <!-- Reemplaza los nombres de archivo por los que subiste -->
         <div class="flag-bannerx" style="background-image: url(https://siben.sep.gob.mx/siben/img/pleca_superior2020.jpg);  background-size: cover;
-  background-position: center; padding: 140px;  margin-bottom: 80px;"></div>
+   padding: 140px;  "></div>
     </div>
 
     <!-- Barra gris superior -->
