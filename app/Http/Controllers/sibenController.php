@@ -137,7 +137,6 @@ class sibenController extends Controller
         $nombreEscuela = session('Usuario.escuela');
         $id_escuela    = session('Usuario.id_escuela');
 
-        
         if ($modulo != 'l') {
         return redirect('/siben');
         }
@@ -173,6 +172,18 @@ class sibenController extends Controller
         ));
     }
     public function editaEscuela(){
+        $id_escuela = session('Usuario.id_escuela');
+        $id_entidad = session('Usuario.id_entidad');
+
+        $escuelaIdInput = $request->input('data.Escuela.id', $request->input('id'));
         
+        if ($id_escuela != $escuelaIdInput){
+            return redirect('/siben');
+        }
+        $domicilioEscuela = DomicilioEscuela::wehere('id_escuela', $id_escuela)->first();
+        $escuela          = Escuela::find($id_escuela);
+        $id_municipio     = $domicilioEscuela ? $domicilioEscuela->cve_mun : null;
+
+        $municipios = Municipio::where('id_entidad');
     }
 }
