@@ -8,6 +8,31 @@ use App\Models\User;
 class usuariosController extends Controller
 {
     /**
+     * Mostrar formulario de inicio de sesión
+     */
+    public function login()
+    {
+        return view('layouts.usuarios.login');
+    }
+
+    /**
+     * Proceso de inicio de sesión 
+     */
+    public function authenticate(Request $request)
+    {
+        $id_usuario = $request->input('id_usuario');
+        $contrasenia = $request->input('contrasenia');
+
+        $usuario = User::where('id_usuario', $id_usuario)->first();
+
+        if (!$usuario) {
+            return back()->with('error', 'Usuario o contraseña incorrectos.');
+        }
+
+        dd($usuario);
+    }
+
+    /**
      * Lista datos
      */
     public function index()
@@ -16,7 +41,7 @@ class usuariosController extends Controller
     }
 
     /**
-     * Muestra un formulario 
+     * Muestra un formulario
      */
     public function create()
     {
