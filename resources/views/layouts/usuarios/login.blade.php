@@ -127,7 +127,7 @@
 
         <div class="login-title">SIBEN</div>
 
-        <form id="login" name="login" method="POST" action="{{ route('usuarios.login') }}">
+        <form id="login" name="login" method="POST" action="{{ route('usuarios.authenticate') }}">
             @csrf
             
             <table class="login-table">
@@ -145,9 +145,9 @@
                 </tr>
             </table>
 
-            @isset($error)
-                <div class="error-msg">{{ $error }}</div>
-            @endisset
+            @if(session('error'))
+            <div class="error-msg">{{session('error')}}</div>
+            @endif
             
             <button type="submit" class="btn-submit">Iniciar Sesión</button>
         </form>
