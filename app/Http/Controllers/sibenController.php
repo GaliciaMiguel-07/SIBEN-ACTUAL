@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use App\Model\Escuela;
+use App\Models\Escuela;
 
 class sibenController extends Controller
 {

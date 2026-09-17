@@ -26,10 +26,37 @@ class usuariosController extends Controller
         $usuario = User::where('id_usuario', $id_usuario)->first();
 
         if (!$usuario) {
-            return back()->with('error', 'Usuario o contraseña incorrectos.');
+            return redirect()
+                ->route('usuarios.login')
+                ->with('error', 'Usuario o contraseña incorrectos.');
         }
 
-        dd($usuario);
+        if (sha1($contrasenia) !== $usuario->contrasenia) {
+            return redirect()
+                ->route('usuarios.login')
+                ->with('error', 'Usuario o contraseña incorrectos.');
+        }
+
+        if ($usuario->status !== 'a') {
+            return redirect()
+                ->route('usuarios.login')
+                ->with('error', 'El usuario no está activo.');
+        }
+
+        session([
+            'Usuario' => [
+                'id' => $usuario->id,
+                'id_usuario' => $usuario->id_usuario,
+                'nombre' => $usuario->nombre,
+                'nivel' => $usuario->nivel,
+                'modulo' => $usuario->modulo,
+                'status' => $usuario->status,
+                'id_escuela' => $usuario->id_escuela,
+                'id_renapo' => $usuario->id_renapo,
+            ]
+        ]);
+
+        return redirect('/siben');
     }
 
     /**
