@@ -6,6 +6,14 @@ use Illuminate\Http\Request;
 use App\Models\Escuela;
 use App\Models\Mensaje;
 use App\Models\MensajeDestino;
+use App\Models\EscuelaStatus;
+use App\Models\DomicilioEscuela;
+use App\Models\Municipio;
+use App\Models\Localidad;
+use App\Models\CaracteristicaEscuela;
+use App\Models\Construccion;
+use App\Models\EscuelaLicenciatura;
+use App\Models\Personal;
 
 class sibenController extends Controller
 {
@@ -49,10 +57,10 @@ class sibenController extends Controller
             $this->getMensajes(['modulo' => $modulo, 'status' => 'a', 'id_tipo' => '3', 'id_destino' => $id_usuario])  
         );
         if ($id_escuela){
-            $mensajes = array_merge($mensajes. $this->getMensajes(['modulo' => $modulo, 'status' => 'a', 'id_tipo' => '2', 'id_destino' => $id_escuela]));
+            $mensajes = array_merge($mensajes, $this->getMensajes(['modulo' => $modulo, 'status' => 'a', 'id_tipo' => '2', 'id_destino' => $id_escuela]));
         }
         if ($id_entidad){
-            $mensajes = array_merge($mensajes. $this->getMensajes(['modulo' => $modulo, 'status' => 'a', 'id_tipo' => '4', 'id_destino' => $id_entidad]));
+            $mensajes = array_merge($mensajes, $this->getMensajes(['modulo' => $modulo, 'status' => 'a', 'id_tipo' => '4', 'id_destino' => $id_entidad]));
         }
         $tipos_mensajes = [
             '1' => 'Nivel',
@@ -67,7 +75,7 @@ class sibenController extends Controller
         }
 
         return view('siben.index', compact(
-            'mensajeCaptura', 'mensajes', 'telefono', 'tipos_materiales',
+            'mensajeCaptura', 'mensajes', 'telefono', 'tipos_mensajes',
             'nivel', 'estructura', 'cuentaDirector', 'cuentaDomicilio', 'archivos'
         ));
     }
@@ -173,7 +181,7 @@ class sibenController extends Controller
             'anterior'
         ));
     }
-    public function editaEscuela(){
+    public function editaEscuela(Request $request){
         $id_escuela = session('Usuario.id_escuela');
         $id_entidad = session('Usuario.id_entidad');
 
@@ -182,7 +190,7 @@ class sibenController extends Controller
         if ($id_escuela != $escuelaIdInput){
             return redirect('/siben');
         }
-        $domicilioEscuela = DomicilioEscuela::wehere('id_escuela', $id_escuela)->first();
+        $domicilioEscuela = DomicilioEscuela::where('id_escuela', $id_escuela)->first();
         $escuela          = Escuela::find($id_escuela);
         $id_municipio     = $domicilioEscuela ? $domicilioEscuela->cve_mun : null;
 
@@ -228,7 +236,7 @@ class sibenController extends Controller
         ));
     }
 
-    public function editaEstructura(){
+    public function editaEstructura(Request $request){
         $id_estructura = $request->input('data.CaracteristicaEscuela.id',$request->input('id'));
 
         $estructura = CaracteristicaEscuela::find($id_estructura);
@@ -263,6 +271,7 @@ class sibenController extends Controller
                 'contador250',
         ));
     }
+
     /* Metodo auxiliar privado para generar arreglos de opciones nuemriacas */
     private function contador(int $max): array{
         return array_combine(range(0, $max),range(0, $max));
@@ -270,8 +279,61 @@ class sibenController extends Controller
 
     public function editaCoordinadores(Request $request){
         $id_escuela = session('Usuario.id_escuela');
+    
+        $escuelaIdInput = $request->input('data.Escuela.id', $request->input('id'));
 
-        $escuelaIdInput = $request->input('data.Escuela.id',$request->input('id'));
+        if ($id_escuela != $escuelaIdInput) {
+        return redirect('/siben');
+        }
+
+        $escuelaLicenciaturas = EscuelaLicenciatura::with(['licenciatura', 'personal'])->where('id_escuela', $id_escuela)->get()->unique('id_licenciatura');
+           
+        $licenciaturas = $escuelaLicenciaturas->mapWithKeys(function ($item) {
+        $nombre = $item->licenciatura ? $item->licenciatura->licenciatura : 'Sin definir';
+        return [$item->id_licenciatura => $nombre];
+        });
+
+        $elegidos = $escuelaLicenciaturas->mapWithKeys(function ($item) {
+            $personalId = $item->personal ? $item->personal->id : $item->id_personal;
+            return [$item->id_licenciatura => $personalId];
+        });
+
+        $coordinadoresData = Personal::where('id_escuela', $id_escuela)->where('id_funcion', 4)->orderBy('apellido_paterno')->orderBy('nombre')->get();
+          
+
+        $coordinadores = $coordinadoresData->mapWithKeys(function ($personal) {
+            $nombreCompleto = trim("{$personal->nombre} {$personal->apellido_paterno} {$personal->apellido_materno}");
+            return [$personal->id => $nombreCompleto];
+        });
+
+        return view('siben.edita_coordinadores', compact(
+            'licenciaturas', 
+            'elegidos', 
+            'coordinadores'
+        ));
     }
 
+    public function guardaEscuela(Request $request){
+        $dataEscuela = $request->input('data.Escuela', $request->input('Escuela'));
+         if(!empty($dataEscuela)){
+            $id_escuela = session('Usuario.id_escuela');
+            $escuela = Escuela::find($id_escuela);
+            if(!$escuela || !$escuela->update($dataEscuela)){
+                return response('Error: no se guardo la información', 400);
+            }
+        }
+        return view('elements.vacio');
+    }
+
+/* Método auxiliar para consultar los mensajes relacionándolos con la tabla pivot */
+    private function getMensajes(array $params): array {
+        return Mensaje::join('mensajes_destinos', 'mensajes.id', '=', 'mensajes_destinos.id_mensaje')
+            ->where('mensajes_destinos.modulo', $params['modulo'])
+            ->where('mensajes_destinos.status', $params['status'])
+            ->where('mensajes_destinos.id_tipo', $params['id_tipo'])
+            ->where('mensajes_destinos.id_destino', $params['id_destino'])
+            ->select('mensajes.*')
+            ->get()
+            ->toArray();
+    }
 }
