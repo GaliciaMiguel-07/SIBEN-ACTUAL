@@ -11,7 +11,7 @@
 <body>
 <div class="flag-bannerx" style="background-image: url(https://siben.sep.gob.mx/siben/img/banner_2024.jpeg);  background-size: cover;
   background-position: center; padding: 140px;  margin-bottom: 80px;"></div>
-  <div style="background:#393c3e; color: white; text-align: center; margin-top: -80px; padding: 14px; font-size: 21px; margin-bottom: 0px; font-weight: bold;">Sistema de Información Básica de la Educación Normal (SIBEN)</div>
+  <div style="color: rgb(188, 149, 92); background-color: rgb(255, 255, 255); text-align: center; margin-top: -80px; padding: 14px; font-size: 1.5em; margin-bottom: 0px; font-weight: bold;">Sistema de Información Básica de la Educación Normal (SIBEN)</div>
   <div class="container">
   <section class="col-md-12">
     <div class="infoColumns">
