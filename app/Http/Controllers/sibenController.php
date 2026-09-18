@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Escuela;
+use App\Models\Mensaje;
+use App\Models\MensajeDestino;
 
 class sibenController extends Controller
 {
