@@ -11,9 +11,6 @@
 <body>
 
     <!-- Encabezado con logos -->
-    <div>
-        <div class="flag-bannerx" style="background-image: url(https://siben.sep.gob.mx/siben/img/pleca_superior2020.jpg); background-size: cover; padding: 140px;"></div>
-    </div>
 
     <!-- Barra gris superior -->
     <div class="barra-degradado"></div>
@@ -21,7 +18,7 @@
     <!-- Área principal del formulario -->
     <div class="container" style="margin-top: 50px; margin-bottom: 80px; max-width: 600px;">
         
-        <h2 class="text-center" style="color: #008040; font-weight: bold; margin-bottom: 30px;">SIBEN</h2>
+        <h2 class="text-center" >SIBEN</h2>
 
         <!-- Manejo de Errores -->
         @isset($mensaje)
