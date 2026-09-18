@@ -184,6 +184,92 @@ class sibenController extends Controller
         $escuela          = Escuela::find($id_escuela);
         $id_municipio     = $domicilioEscuela ? $domicilioEscuela->cve_mun : null;
 
-        $municipios = Municipio::where('id_entidad');
+        $municipios = Municipio::where('id_entidad', $id_entidad)->orderBy('municipio')->pluck('municipio', 'id_municipio');
+
+        $locs = Localidad:: where('id_entidad', $id_entidad)->where('id_municipio', $id_municipio)->pluck('localidad', 'id_localidad');
+        $turnos = ['m'=> 'Matutino', 'v' => 'Vespertino', 'd' => 'Discontinuo', 'n' => 'Nocturno'];
+
+        $vialidad      = ['AMPLIACION'=>'AMPLIACION','ANDADOR'=>'ANDADOR','AVENIDA'=>'AVENIDA',
+                          'BOULEVARD'=>'BOULEVARD','CALLE'=>'CALLE','CALLEJON'=>'CALLEJON',
+                          'CALZADA'=>'CALZADA','CAMINO'=>'CAMINO','CARRETERA'=>'CARRETERA',
+                          'CERRADA'=>'CERRADA','CIRCUITO'=>'CIRCUITO','CIRCUNVALACION'=>'CIRCUNVALACION',
+                          'CONTINUACION'=>'CONTINUACION','CORREDOR'=>'CORREDOR','DIAGONAL'=>'DIAGONAL',
+                          'EJE VIAL'=>'EJE VIAL','PASAJE'=>'PASAJE','PEATONAL'=>'PEATONAL',
+                          'PERIFERICO'=>'PERIFERICO','PRIVADA'=>'PRIVADA','PROLONGACION'=>'PROLONGACION',
+                          'RETORNO'=>'RETORNO','VIADUCTO'=>'VIADUCTO'];
+
+        $asentamientos = [ 'AEROPUERTO'=>'AEROPUERTO', 'AMPLIACION'=>'AMPLIACION', 'BARRIO'=>'BARRIO',
+                            'CANTON'=>'CANTON', 'CIUDAD'=>'CIUDAD', 'CIUDAD INDUSTRIAL'=>'CIUDAD INDUSTRIAL',
+                            'COLONIA'=>'COLONIA', 'CONDOMINIO'=>'CONDOMINIO', 'CONJUNTO HABITACIONAL'=>'CONJUNTO HABITACIONAL',
+                           'CORREDOR INDUSTRIAL'=>'CORREDOR INDUSTRIAL', 'COTO'=>'COTO', 'CUARTEL'=>'CUARTEL',
+                            'EJIDO'=>'EJIDO', 'EXHACIENDA'=>'EXHACIENDA', 'FRACCION'=>'FRACCION',
+                            'FRACCIONAMIENTO'=>'FRACCIONAMIENTO', 'GRANJA'=>'GRANJA', 'HACIENDA'=>'HACIENDA',
+                            'INGENIO'=>'INGENIO', 'MANZANA'=>'MANZANA', 'PARAJE'=>'PARAJE', 'PARQUE INDUSTRIAL'=>'PARQUE INDUSTRIAL',
+                            'PRIVADA'=>'PRIVADA', 'PROLONGACION'=>'PROLONGACION', 'PUEBLO'=>'PUEBLO', 'PUERTO'=>'PUERTO',
+                            'RANCHERIA'=>'RANCHERIA', 'RANCHO'=>'RANCHO', 'REGION'=>'REGION', 'RESIDENCIAL'=>'RESIDENCIAL',
+                            'RINCONADA'=>'RINCONADA', 'SECCION'=>'SECCION', 'SECTOR'=>'SECTOR', 'SUPERMANZANA'=>'SUPERMANZANA',
+                            'UNIDAD'=>'UNIDAD', 'UNIDAD HABITACIONAL'=>'UNIDAD HABITACIONAL', 'VILLA'=>'VILLA',
+                            'ZONA FEDERAL'=>'ZONA FEDERAL', 'ZONA INDUSTRIAL'=>'ZONA INDUSTRIAL', 'ZONA MILITAR'=>'ZONA MILITAR'];
+        return view('siben.edita_escuela', compact(
+            'escuela',
+            'domicilioEscuela',
+            'turnos',
+            'municipios',
+            'asentamientos',
+            'locs',
+            'vialidad',
+            'seguridad_social',
+            'admon',
+            'admon2',
+            'derecho',
+            'margen'
+        ));
     }
+
+    public function editaEstructura(){
+        $id_estructura = $request->input('data.CaracteristicaEscuela.id',$request->input('id'));
+
+        $estructura = CaracteristicaEscuela::find($id_estructura);
+        $tiposPropiedad  = construccion::where('id', '<', 20)->pluck('construccion', 'id');
+        $tiposEstructura = construccion::where('id', '>', 20)->pluck('construccion', 'id');
+
+        $bandaAncha = ['s' => 'Banda Ancha', 'n' => '56kbps'];
+        $sino = ['s' => 'Sí', 'n' => 'No'];
+
+        $contador    = $this->contador(10);
+        $contador20  = $this->contador(20);
+        $contador30  = $this->contador(30);
+        $contador40  = $this->contador(40);
+        $contador50  = $this->contador(50);
+        $contador100 = $this->contador(100);
+        $contador150 = $this->contador(150);
+        $contador250 = $this->contador(250);
+
+        return view('siben.edita_estructura', compact(
+                'estructura',
+                'tiposPropiedad',
+                'tiposEstructura',
+                'bandaAncha',
+                'sino',
+                'contador',
+                'contador20',
+                'contador30',
+                'contador40',
+                'contador50',
+                'contador100',
+                'contador150',
+                'contador250',
+        ));
+    }
+    /* Metodo auxiliar privado para generar arreglos de opciones nuemriacas */
+    private function contador(int $max): array{
+        return array_combine(range(0, $max),range(0, $max));
+    }
+
+    public function editaCoordinadores(Request $request){
+        $id_escuela = session('Usuario.id_escuela');
+
+        $escuelaIdInput = $request->input('data.Escuela.id',$request->input('id'));
+    }
+
 }
