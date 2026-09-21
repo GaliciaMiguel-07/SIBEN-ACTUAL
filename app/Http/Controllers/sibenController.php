@@ -79,6 +79,17 @@ class sibenController extends Controller
             'nivel', 'estructura', 'cuentaDirector', 'cuentaDomicilio', 'archivos'
         ));
     }
+    /* Método auxiliar para consultar los mensajes relacionándolos con la tabla pivot */
+    private function getMensajes(array $params): array {
+        return Mensaje::join('mensajes_destinos', 'mensajes.id', '=', 'mensajes_destinos.id_mensaje')
+            ->where('mensajes_destinos.modulo', $params['modulo'])
+            ->where('mensajes_destinos.status', $params['status'])
+            ->where('mensajes_destinos.id_tipo', $params['id_tipo'])
+            ->where('mensajes_destinos.id_destino', $params['id_destino'])
+            ->select('mensajes.*')
+            ->get()
+            ->toArray();
+    }
     public function archivos(Request $request){
         $anterior = false;
         $clave = null;
@@ -325,15 +336,200 @@ class sibenController extends Controller
         return view('elements.vacio');
     }
 
-/* Método auxiliar para consultar los mensajes relacionándolos con la tabla pivot */
-    private function getMensajes(array $params): array {
-        return Mensaje::join('mensajes_destinos', 'mensajes.id', '=', 'mensajes_destinos.id_mensaje')
-            ->where('mensajes_destinos.modulo', $params['modulo'])
-            ->where('mensajes_destinos.status', $params['status'])
-            ->where('mensajes_destinos.id_tipo', $params['id_tipo'])
-            ->where('mensajes_destinos.id_destino', $params['id_destino'])
-            ->select('mensajes.*')
-            ->get()
-            ->toArray();
+    public function guardaEstructura(Request $request){
+        $dataEstructura = $request->input('data.CaracteristicaEscuela', $request->input('CaracteristicaEscuela'));
+        if (!empty($dataEstructura)){
+        $id_escuela = session('Usuario.id_escuela');
+        $modulo = session('Usuario.modulo');
+        $dataEstructura['id_escuela'] = $id_escuela;
+        $id_Estructura = $dataEstructura['id'] ?? null;
+        $parametros = [
+            'internet_alumno'         =>$dataEstructura['internet_alumno'] ?? null,
+            'computo_alumno'          =>$dataEstructura['computo_alumno'] ?? null,
+            'internet_docente'        =>$dataEstructura['internet_docente'] ?? null,
+            'computo_docente'         =>$dataEstructura['computo_docente'] ?? null,
+            'internet_administrativo' =>$dataEstructura['internet_administrativo'] ?? null,
+            'computo_administrativo'  =>$dataEstructura['computo_administrativo'] ?? null
+        ];
+
+        $CaracteristicaModel = new CaracteristicaEscuela();
+        $errores = $CaracteristicaModel->revisaestructura($parametros);
+        if (empty($errores)){
+            CaracteristicaEscuela::updateOrCreate(
+                ['id'=>$id_Estructura],
+                $dataEstructura
+            );
+            EscuelaStatus::where('id_escuela', $id_escuela)->where('modulo', $modulo)->update(['estructura'=>1]);
+        }else {
+            $mensajes = "";
+            for ($i = 1; $i <= 3; $i++){
+                if (!empty($errores[$i])){
+                    $mensajes .= $errores[$i] . "\n";
+                }
+            }
+            return response($mensajes, 400);
+        }
+        }
+        return view('elements.vacio');
+    }
+
+    public  function guardaCoordinadores (Request $request) {
+        $escuelaLicenciaturas = $request->input('data.EscuelaLicenciatura', $request->input('EscuelaLicenciatura'));
+
+        if(!empty($escuelaLicenciaturas)){
+            $id_escuela = session('Usuario.id_escuela');
+             foreach ($escuelaLicenciaturas as $id => $id_personal) {
+                $lic = explode('-', $id);
+                $id_licenciatura = $lic[1] ?? null;
+
+                if($id_licenciatura){
+                    EscuelaLicenciatura::where('id_escuela', $id_escuela)->where('id_licenciatura', $id_licenciatura)->update(['id_personal' => $id_personal]);
+                }
+             }
+        }
+        return view('elements.vacio');
+    }
+
+    public function editaDatos(Request $request){
+        $nivel   = session('Usuario.nivel');
+        $captura = session('Usuario.captura');
+
+        if ($nivel != 3 || $captura != 1) {
+            return redirect('/siben');
+        }
+
+        $nombreEscuela = session('Usuario.escuela');
+        $id_escuela    = session('Usuario.id_escuela');
+        $id_entidad    = session('Usuario.id_entidad');
+        $modulo        = session('Usuario.modulo');
+
+        $title = 'Edición Datos Generales, ' . $nombreEscuela;
+
+        // 2. Procesamiento si el formulario fue enviado (POST / PUT)
+        if ($request->isMethod('post') || $request->isMethod('put')) {
+            $dataEscuela    = $request->input('Escuela', $request->input('data.Escuela'));
+            $dataEstructura = $request->input('CaracteristicaEscuela', $request->input('data.CaracteristicaEscuela'));
+
+            $escuelaModel = Escuela::findOrFail($id_escuela);
+            $escuelaModel->update($dataEscuela);
+
+            $dataEstructura['id_escuela'] = $id_escuela;
+            CaracteristicaEscuela::updateOrCreate(
+                ['id_escuela' => $id_escuela],
+                $dataEstructura
+            );
+
+            EscuelaStatus::where('id_escuela', $id_escuela)
+                ->where('modulo', $modulo)
+                ->update(['estructura' => '1']);
+
+            return redirect('/siben/datos');
+        }
+
+        $escuela = Escuela::with('caracteristicaEscuela')->find($id_escuela);
+
+        $educacionesAdicionales = EducacionAdicional::where('id_escuela', $id_escuela)->get();
+
+        $licenciaturas = EscuelaLicenciatura::where('id_escuela', $id_escuela)->select('id_licenciatura', \DB::raw('MIN(id) as id'))->groupBy('id_licenciatura')->get();
+            
+        $municipios = Municipio::where('id_entidad', $id_entidad) ->orderBy('municipio')->pluck('municipio', 'id');
+           
+        $turnos         = ['m' => 'Matutino', 'v' => 'Vespertino', 'd' => 'Discontinuo', 'n' => 'Nocturno'];
+        $sostenimientos = ['p' => 'Público', 'q' => 'Particular'];
+        $posgrados      = ['m' => 'Maestria', 'd' => 'Doctorado', 'e' => 'Especialidad', 'c' => 'Educacion Continua', 'i' => 'SEPA Inglés'];
+        $bandaAncha     = ['s' => 'Banda Ancha', 'n' => '56Kbps'];
+        $sino           = ['s' => 'Sí', 'n' => 'No'];
+
+        $tiposPropiedad  = Construccion::where('id', '<', 20)->pluck('construccion', 'id');
+        $tiposEstructura = Construccion::where('id', '>', 20)->pluck('construccion', 'id');
+
+        $contador    = $this->contador(10);
+        $contador20  = $this->contador(20);
+        $contador30  = $this->contador(30);
+        $contador40  = $this->contador(40);
+        $contador50  = $this->contador(50);
+        $contador100 = $this->contador(100);
+        $contador150 = $this->contador(150);
+        $contador250 = $this->contador(250);
+
+        $anterior = '/siben/datosEscuela';
+
+        return view('siben.edita_datos', compact(
+            'title',
+            'escuela',
+            'educacionesAdicionales',
+            'licenciaturas',
+            'municipios',
+            'turnos',
+            'sostenimientos',
+            'posgrados',
+            'bandaAncha',
+            'sino',
+            'tiposPropiedad',
+            'tiposEstructura',
+            'contador',
+            'contador20',
+            'contador30',
+            'contador40',
+            'contador50',
+            'contador100',
+            'contador150',
+            'contador250',
+            'anterior'
+        ));
+    }
+    /**
+   * parametros
+   *
+   * Para editar los parámetros de la escuela (licenciaturas impartidas)
+   */
+    public function parametros (Request $request) {
+        $nivel   = session('Usuario.nivel');
+        $captura = session('Usuario.captura');
+         if ($nivel != 3 || $captura != 1) {
+            return redirect('/siben');
+        }
+        $escuela      = session('Usuario.escuela');
+        $id_escuela   = session('Usuario.id_escuela');
+        $modulo       = session('Usuario.modulo');
+        $cuenta_clave = session('Usuario.cuenta_clave');
+
+        $title = 'Edición Datos Generales, ' . $escuela;
+
+        if ($request->isMethod('post') || $request->isMethod('put')){
+            $status = EscuelaStatus::where('id_escuela', $id_escuela)->where('modulo', $modulo)->first();
+            if($status){
+                $statusData = $request->input('EscuelaStatus', $request->input('data.EscuelaStatus', []));
+                $status->update(Arr::only($statusData, ['cantidad_alumnos', 'cantidad_personal']));
+            }
+            $capturista = Usuario::where('id_escuela', $id_escuela)->where('modulo', $modulo)->where('nivel', 4)->first();
+            if ($capturista){
+                $usuarioData = $request->input('Usuario', $request->input('data.Usuario', []));
+                $usuarioData['status'] = 'a';
+
+                $capturista->update(Arr::only($usuarioData, ['nombre', 'correo_electronico', 'status']));
+            }
+        }
+        $modalidades = ['e' => 'Escolarizada', 'm' => 'Mixta'];
+        $turnos      = ['m' => 'Matutino', 'v' => 'Vespertino', 'n' => 'Nocturno','d'=>'Discontinuo'];
+
+        $licenciaturas = EscuelaLicenciatura::where('id_escuela', $id_escuela)->orderBy('id_liceciatura')->orderBy('id_especialidad')->orderBy('modalidad')->orderBy('turno')->get();
+
+        $capturista = Usuario::where('id_escuela', $id_escuela)->where('modulo', $modulo)->where('nivel', 4)->first();
+
+        $status = EscuelaStatus::where('id_escuela', $id_escuela)->where('modulo', $modulo)->first();
+
+        $mensaje = ($cuentaClave > 0) ? 'Por favor, ingrese una clave de centro de trabajoa cada entrada' : '';
+
+        return view('siben.parametros', compact(
+            'title',
+            'modalidades',
+            'turnos',
+            'licencituras',
+            'capturista',
+            'status',
+            'mensaje'
+        ));
+
     }
 }
