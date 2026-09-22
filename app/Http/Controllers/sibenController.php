@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use App\Models\Escuela;
 use App\Models\Mensaje;
 use App\Models\MensajeDestino;
@@ -519,17 +520,96 @@ class sibenController extends Controller
 
         $status = EscuelaStatus::where('id_escuela', $id_escuela)->where('modulo', $modulo)->first();
 
-        $mensaje = ($cuentaClave > 0) ? 'Por favor, ingrese una clave de centro de trabajoa cada entrada' : '';
+        $mensaje = ($cuenta_clave > 0) ? 'Por favor, ingrese una clave de centro de trabajoa cada entrada' : '';
 
         return view('siben.parametros', compact(
             'title',
             'modalidades',
             'turnos',
-            'licencituras',
+            'licenciaturas',
             'capturista',
             'status',
             'mensaje'
         ));
+    }
+    public function agregaLicenciatura (Request $request) {
+        $escuela = session('Usuario.escuela');
+        $id_escuela = session('Usuario.id_escuela');
+
+        $title    = 'Agregar Licenciatura, ' . $escuela;
+        $anterior = true;
+        if ($request->isMethod('post')){
+            $data = $request->input('EscuelaLicenciatura', $request->all());
+
+            EscuelaLicenciatura::firstOrCreate([
+                'id_escuela'      => $id_escuela,
+                'id_licenciatura' => $data['id_licenciatura'] ?? null,
+                'id_especialidad' => $data['id_especialidad'] ?? null,
+                'modalidad'       => $data['modalidad'] ?? null,
+                'turno'           => $data['turno'] ?? null
+
+            ]);
+            return redirect('/siben/parametros');
+        }
+
+        $licenciaturas = Licenciatura::pluck('licenciatura', 'id');
+        $especialidad  = [];
+        $modalidad     = [];
+        $turnos        = ['m' => 'Matutino', 'v' => 'Vespertino', 'n' => 'Nocturno','d' => 'Discontinuo'];
+
+        return view('siben.agregar_licenciatura', compact(
+            'title',
+            'anterior',
+            'licenciaturas',
+            'especialidad',
+            'modalidades',
+            'turnos'
+        ));
 
     }
+
+    public function editaLicenciatura (Request $request,$id = null) {
+        if(!$id){
+            return redirect()->back();
+        }
+        $escuela    = session('Usuario.escuela');
+        $id_escuela = session('Usuario.id_escuela');
+
+        $title    = 'Agregar Licenciatura, ' . $escuela;
+        $anterior = true;
+
+        if ($request->isMethod('post') || $request->isMethod('put')){
+            $data = $request->input('EscuelaLicenciatura', $request->all());
+            $data['id_escuela'] = $id_escuela;
+
+            $escuelaLicenciaturas = EscuelaLicenciatura::findOrFail($id);
+            $escuelaLicenciaturas->update($data);
+
+            return redirect('/siben/parametros');
+        }
+
+        $escuelaLicenciaturas = EscuelaLicenciatura::findOrFail($id);
+
+        $licenciaturas = Licenciatura::pluck('licenciatura', 'id');
+
+        $especialidad = Especialidad::where('id_licenciatura', $escuelaLicenciaturas->id_licenciatura)->pluck('especialidad', 'id')->toArray();
+
+        if(empty($especialidad)){
+            $especialidad[0] = 'n/a';
+        }
+        $modalidades = ['e' => 'Escolarizada', 'm' => 'Mixta'];
+        $turnos = ['m' => 'Matutino', 'v' => 'Vespertino', 'n' => 'Nocturno','d' => 'Discontinuo'];
+
+        return view('siben.edita_licenciatura', compact(
+            'title',
+            'anterior',
+            'licenciaturas',
+            'especialidad',
+            'modalidades',
+            'turnos',
+            'id',
+            'escuelaLicenciatura'
+        ));
+    }
+
 }
