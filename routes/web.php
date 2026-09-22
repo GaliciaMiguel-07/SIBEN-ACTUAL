@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\usuariosController;
 use App\Http\Controllers\sibenController;
+use Illuminate\Support\Facades\Response;
 
 Route::get('/', function () {
     return view('/layouts/home');
@@ -26,3 +27,13 @@ Route::view('/pages/estadisticasrecientes', 'layouts.pages.estadisticasrecientes
 Route::get('/siben',[sibenController::class,'index'])->name('siben');
 
 Route::resource('usuarios', usuariosController::class);
+
+Route::get('/images/{filename}', function ($filename) {
+    $path = resource_path('images/' . $filename);
+
+    if (!file_exists($path)) {
+        abort(404);
+    }
+
+    return Response::file($path);
+});
