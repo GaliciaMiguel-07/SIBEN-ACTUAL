@@ -17,15 +17,11 @@ class usuariosController extends Controller
         return view('layouts.usuarios.login');
     }
 
-    /**
-     * Proceso de inicio de sesión 
-     */
     public function authenticate(Request $request)
     {
         $id_usuario = $request->input('id_usuario');
         $contrasenia = $request->input('contrasenia');
 
-        // Buscar usuario
         $usuario = User::where('id_usuario', $id_usuario)->first();
 
         if (!$usuario) {
@@ -34,25 +30,18 @@ class usuariosController extends Controller
                 ->with('error', 'Usuario o contraseña incorrectos.');
         }
 
-        // Comprobar contraseña usando SHA-1, igual que CakePHP
         if (sha1($contrasenia) !== $usuario->contrasenia) {
             return redirect()
                 ->route('usuarios.login')
                 ->with('error', 'Usuario o contraseña incorrectos.');
         }
 
-        // Comprobar que el usuario esté activo
         if ($usuario->status !== 'a') {
             return redirect()
                 ->route('usuarios.login')
                 ->with('error', 'El usuario no está activo.');
         }
 
-        /*
-        * Datos básicos del usuario.
-        * Esto corresponde a los Session->write()
-        * que hacía UsuariosController de CakePHP.
-        */
         $datosUsuario = [
             'id' => $usuario->id,
             'id_usuario' => $usuario->id_usuario,
@@ -63,10 +52,6 @@ class usuariosController extends Controller
             'id_renapo' => $usuario->id_renapo,
         ];
 
-        /*
-        * Datos adicionales dependiendo del nivel
-        * del usuario.
-        */
         switch ($usuario->nivel) {
 
             case 2:
@@ -109,8 +94,6 @@ class usuariosController extends Controller
 
 
             case 6:
-                // Consulta
-
                 $entidad = Entidad::where(
                     'id_renapo',
                     $usuario->id_renapo
@@ -126,7 +109,6 @@ class usuariosController extends Controller
 
 
             default:
-                // No se agregan datos adicionales
                 break;
         }
 
@@ -139,28 +121,29 @@ class usuariosController extends Controller
     }
 
 
-    /**
-     * Lista datos
-     */
+    public function logout()
+    {
+        session()->forget('Usuario');
+        session()->flush();
+
+        return redirect()->route('usuarios.login');
+    }
+
+    // Lista datos
     public function index()
     {
         return view('layouts.usuarios.login');
     }
 
-    /**
-     * Muestra un formulario
-     */
+    //Muestra formulario
     public function create()
     {
         return view('layouts.usuarios.create');
     }
 
-    /**
-     * Recibe y guarda datos de formulario
-     */
+    //Recibe y guarda los datos del formulario
     public function store(Request $request)
     {
         return redirect()->route('usuarios.login');
-    }
-
+    }                                
 }

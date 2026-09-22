@@ -514,7 +514,7 @@ class sibenController extends Controller
         $modalidades = ['e' => 'Escolarizada', 'm' => 'Mixta'];
         $turnos      = ['m' => 'Matutino', 'v' => 'Vespertino', 'n' => 'Nocturno','d'=>'Discontinuo'];
 
-        $licenciaturas = EscuelaLicenciatura::where('id_escuela', $id_escuela)->orderBy('id_liceciatura')->orderBy('id_especialidad')->orderBy('modalidad')->orderBy('turno')->get();
+        $licenciaturas = EscuelaLicenciatura::where('id_escuela', $id_escuela)->orderBy('id_licenciatura')->orderBy('id_especialidad')->orderBy('modalidad')->orderBy('turno')->get();
 
         $capturista = Usuario::where('id_escuela', $id_escuela)->where('modulo', $modulo)->where('nivel', 4)->first();
 
@@ -568,7 +568,7 @@ class sibenController extends Controller
 
     }
 
-    public function editaLicenciatura (Request $request,$id = null) {
+    public function editaLicenciatura (Request $request, $id = null) {
         if(!$id){
             return redirect()->back();
         }
@@ -611,5 +611,134 @@ class sibenController extends Controller
             'escuelaLicenciatura'
         ));
     }
+
+    public function eliminaLicenciatura ($id_escuela_licenciatura = null) {
+        if($id_escuela_licenciatura){
+            $escuelaLicenciaturas = EscuelaLicenciatura::where('id', $id_escuela_licenciatura)->where('id_escuela', $id_escuela)->first();
+
+            if($escuelaLicenciaturas){
+                $escuelaLicenciaturas->delete();
+            }
+        }
+        return redirect('/siben/parametros');
+    }
+  /**
+   * supervisores
+   * Para capturar y activar los nombres de los supervisores por
+   * escuela por estado. Esta función está destinada sólo a nivel 1 y
+   * 2
+   */   
+    public function supervisores (Request $request, $id_entidad = null) {
+        $nivel = session('Usuario.nivel');
+        if (in_array($nivel, [2, 6])) { // si el supervisor estatal o el otro supervisor sin privilegios
+            $id_entidad = session('Usuario.id_entidad');
+        }
+        $modulo = session('Usuario.modulo');
+        $escuelas_supervisores = Escuela2::select('id', 'escuela', 'escuela_key')->where('status', 'a')->where('unica', '<', 2)->where('id_entidad', $id_entidad)->where('modulo', $modulo)->with(['usuarios' => function ($query) use ($modulo){
+            $query->where('modulo', $modulo)->where('nivel', 3);
+        }])->get();
+        return view('siben.supervisores', compact(
+            'escuelas_supervisores',
+            'nivel'
+            ));
+
+    }
+    /**
+   * activaSupervisor
+   * Cambiamos el status de 'x' a 'a' en el supervisor
+   * indicado. Además se actualiza el nombre en caso necesario
+   */
+  public function activaSupervisor (Request $request, $id = null) {
+    if ($id && ($request->isMethod('post') || $request->isMethod('put'))){
+        $supervisor = Usuario::find($id);
+        if($supervisor && $supervisor->nivel == 3){
+            $data = $request->input('Usuario', $request->all());
+            $data['status'] = 'a';
+            $supervisor->update($data);
+        }
+    }
+    return redirect()->back();
+  }
+
+   /**
+   * coordinadores
+   * Creamos las relaciones entre coordinadores y licenciaturas
+   */
+  public function coordinadores (Request $request) {
+    $id_escuela = session('Usuario.id_escuela');
+    if($request->isMethod('post') || $request->isMethod('put')){
+        $datosLicenciaturas =  $request->input('EscuelaLicenciatura', $request->input('data.EscuelaLicenciatura'));
+        if(!empty($datosLicenciaturas)){
+            foreach ($datosLicenciaturas as $id => $id_personal) {
+                $lic = explode('-', $id);
+                $id_licenciatura = $lic[1] ?? null;
+                if($id_licenciatura){
+                    EscuelaLicenciatura::where('id_escuela', $id_escuela)->where('id_licenciatura', $id_licenciatura)->update(['id_personal' => $id_personal]);
+                }
+            }
+        }
+        return redirect('/siben/editaDatos');
+    }
+    $anterior = true;
+
+    $escuelaLicenciaturas = EscuelaLicenciatura::with(['licenciatura', 'personal'])->where('id_escuelas', $id_escuela)->get()->unique('id_licenciatura');
+    $licenciaturas = $escuelaLicenciaturas->mapWithKeys(function ($item){
+        $nombre = $item->licenciatura ? $item->licenciatura->licenciatura : 'sin definir';
+        return [$item->id_licenciatura => $nombre];
+    });
+
+    $elegidos = $escuelaLicenciaturas->mapWithKeys(function ($item){
+        $personalId = $item->personal ? $item->personal->id : $item->personal;
+        return [$item->id_licenciatura => $personalId];
+    });
+
+    $coordinadoresData = personal::where('id_escuela', $id_escuela)->where('id_funcion', 4)->orderBy('id_funcion')->get();
+
+    $coordinadores = $coordinadoresData->mapWithKeys(function ($personal){
+        $nombreCompleto = trim("{$personal->nombre} {$personal->apellido_paterno} {$personal->apellido_materno}");
+        return [$personal->id_licenciatura => $nombreCompleto];
+    });
+    return view('siben.coordinadores', compact(
+        'anterior',
+        'licenciaturas',
+        'elegidos',
+        'coordinadores'
+    ));
+  }
+    /**
+   * avancePersonal
+   * Monitorear el avance en la captura del personal por escuela.
+   * Si el id_entidad es nulo, se verifica que sea administrador (dgespe)
+   */
+  public function avancePersonal (Request $request, $id_entidad = null) {
+    $nivel = session('Usuario.nivel');
+
+    if(in_array($nivel, [2, 6])){
+        $id_entidad = session('Usuario.id_entidad');
+    }
+    $modulo = session('Usuario.modulo');
+
+    $escuelas = Escuela2::select('id', 'escuela')->where('id_entidad', $id_entidad)->where('status', 'a')->where('unica', [0,1])->where('modulo', $modulo)->orderBy('escuela')->get();
+
+    $escuelas->transform(function ($escuela) use ($modulo){
+        $status = EscuelaStatus::where('id_escuela', $escuela->id)->where('modulo', $modulo)->first();
+
+        $cantidadPersonal = $status ? $status->cantidad_personal : 0;
+
+        $cuenta = Personal::where('id_escuela', $escuela->id)->where('status', 'a')->distinct('curp')->count('curp');
+
+        $porcentaje = ($cantidadPersonal == 0) ? 0 : round($cuenta / $cantidadPersonal, 2);
+
+        $escuela->cantidad_personal = $cantidadPersonal;
+        $escuela->captura_personal  = $cuenta;
+        $escuela->porcentaje        = $porcentaje;
+        return $escuela;
+    });
+    return view('siben.avance_personal');
+  }
+
+  public function avanceAlumnos ($id_entidad = null) {
+    
+  }
 
 }
