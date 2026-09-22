@@ -24,9 +24,9 @@ Route::post('/usuarios/login', [usuariosController::class, 'authenticate'])
 Route::view('/pages/estadisticasrecientes', 'layouts.pages.estadisticasrecientes')
     ->name('pages.estadisticasrecientes');
 
-Route::get('/siben',[sibenController::class,'index'])->name('siben');
-
-Route::resource('usuarios', usuariosController::class);
+Route::get('/siben', [sibenController::class, 'index'])
+    ->middleware('verificar.sesion')
+    ->name('siben');
 
 Route::get('/images/{filename}', function ($filename) {
     $path = resource_path('images/' . $filename);
@@ -37,3 +37,6 @@ Route::get('/images/{filename}', function ($filename) {
 
     return Response::file($path);
 });
+
+Route::get('/usuarios/logout',[usuariosController::class,'logout'])
+    ->name('usuarios.logout');

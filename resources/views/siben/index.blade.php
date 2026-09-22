@@ -44,4 +44,6 @@
         </div>
     @endif
 
+    <a href="{{route('usuarios.logout')}}">Cerrar sesión</a>
+
 @endsection
