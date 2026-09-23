@@ -737,8 +737,146 @@ class sibenController extends Controller
     return view('siben.avance_personal');
   }
 
-  public function avanceAlumnos ($id_entidad = null) {
-    
-  }
+public function avanceAlumnos(Request $request, $id_entidad = null)
+    {
+        $nivel = session('Usuario.nivel');
 
+        if (in_array($nivel, [2, 6])) {
+            $id_entidad = session('Usuario.id_entidad');
+        }
+
+        $modulo = session('Usuario.modulo');
+
+        $escuelas = Escuela2::select('id', 'escuela')
+            ->where('id_entidad', $id_entidad)
+            ->where('status', 'a')
+            ->whereIn('unica', [0, 1])
+            ->where('modulo', $modulo)
+            ->orderBy('escuela')
+            ->get();
+
+        $escuelas->transform(function ($escuela) use ($modulo) {
+            $status = EscuelaStatus::where('id_escuela', $escuela->id)
+                ->where('modulo', $modulo)
+                ->first();
+
+            $cantidadAlumnos = $status ? $status->cantidad_alumnos : 0;
+
+            $cuenta = Alumno::where('id_escuela', $escuela->id)
+                ->where('status', 'i')
+                ->where('captura', $this->captura_actual)
+                ->distinct('curp')
+                ->count('curp');
+
+            $porcentaje = ($cantidadAlumnos == 0) ? 0 : round($cuenta / $cantidadAlumnos, 2);
+
+            $escuela->cantidad_alumnos = $cantidadAlumnos;
+            $escuela->captura_alumnos  = $cuenta;
+            $escuela->porcentaje       = $porcentaje * 100;
+
+            return $escuela;
+        });
+
+        return view('siben.avance_alumnos', compact('escuelas'));
+    }
+
+    public function avanceEscuela(Request $request)
+    {
+        $id_escuela = session('Usuario.id_escuela');
+        $modulo     = session('Usuario.modulo');
+
+        $escuela = Escuela2::find($id_escuela);
+
+        if (!$escuela) {
+            return redirect()->back();
+        }
+
+        $status = EscuelaStatus::where('id_escuela', $id_escuela)
+            ->where('modulo', $modulo)
+            ->first();
+
+        $cantidadAlumnos = $status ? $status->cantidad_alumnos : 0;
+
+        $cuentaAlumnos = Alumno::where('id_escuela', $id_escuela)
+            ->where('status', 'i')
+            ->where('captura', $this->captura_actual)
+            ->distinct('curp')
+            ->count('curp');
+
+        $porcentajeAlumnos = ($cantidadAlumnos == 0) ? 0 : round($cuentaAlumnos / $cantidadAlumnos, 2);
+
+        $escuela->cantidad_alumnos   = $cantidadAlumnos;
+        $escuela->captura_alumnos    = $cuentaAlumnos;
+        $escuela->porcentaje_alumnos = $porcentajeAlumnos * 100;
+
+        $cantidadPersonal = $status ? $status->cantidad_personal : 0;
+
+        $cuentaPersonal = Personal::where('id_escuela', $id_escuela)
+            ->where('status', 'a')
+            ->distinct('curp')
+            ->count('curp');
+
+        $porcentajePersonal = ($cantidadPersonal == 0) ? 0 : round($cuentaPersonal / $cantidadPersonal, 2);
+
+        $escuela->cantidad_personal   = $cantidadPersonal;
+        $escuela->captura_personal    = $cuentaPersonal;
+        $escuela->porcentaje_personal = $porcentajePersonal * 100;
+
+        $anterior = true;
+
+        return view('siben.avance_escuela', compact('escuela', 'anterior'));
+    }
+
+    public function finalizaCaptura(Request $request)
+    {
+        $nivel = session('Usuario.nivel');
+        if ($nivel != 3) {
+            return redirect()->back();
+        }
+
+        $id_escuela = session('Usuario.id_escuela');
+        $modulo     = session('Usuario.modulo');
+
+        $escuelaStatus = EscuelaStatus::where('id_escuela', $id_escuela)
+            ->where('modulo', $modulo)
+            ->first();
+
+        if ($escuelaStatus) {
+            $escuelaStatus->update([
+                'captura' => '0'
+            ]);
+        }
+
+        return redirect('/siben/listados');
+    }
+
+    public function oficializarInformacion(Request $request)
+    {
+        $nivel = session('Usuario.nivel');
+        if ($nivel != 3) {
+            return redirect()->back();
+        }
+
+        $id_escuela = session('Usuario.id_escuela');
+        $modulo     = session('Usuario.modulo');
+
+        EscuelaStatus::where('id_escuela', $id_escuela)
+            ->where('modulo', $modulo)
+            ->update([
+                'oficializar'       => 1,
+                'oficializar_fecha' => now()->format('Y-m-d'),
+            ]);
+
+        return redirect('/siben/listados');
+    }
+
+    public function especialidades(Request $request)
+    {
+        $id_licenciatura = $request->input('EscuelaLicenciatura.id_licenciatura', $request->input('id_licenciatura'));
+
+        $opciones = Especialidad::where('id_licenciatura', $id_licenciatura)
+            ->pluck('especialidad', 'id');
+
+        return view('elements.opciones', compact('opciones'));
+    }
 }
