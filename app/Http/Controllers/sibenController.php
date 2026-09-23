@@ -968,5 +968,75 @@ public function avanceAlumnos(Request $request, $id_entidad = null)
     }
     return redirect("/siben/captura/{$id_entidad}/{$modulo}");
    }
+   
+   public function captura (Request $request, $id_entidad=null, $modulo =null) {
+     $nivel = session('Usuario.nivel');
+        if ($nivel != 1) {
+          return redirect('/usuarios/logout');
+        }
+        $entidades = Entidad::where('id', '<', 33)->pluck('entidad', 'id');
+        
+        $escuelas = Escuelas2::select('id', 'escuela_key', 'escuela', 'captura')->where('id_entidad')->where('unica', [0, 1])->where('modulo', $modulo)->where('status', 'a')->orderBy('escuela')->get();
 
+        return view('siben.captura', compact(
+            'escuelas',
+            'entidades',
+            'id_entidad',
+            'modulo'
+        ));
+   }
+   /**
+   * imagenEscuela
+   * Subimos una imágen de la escuela en cuestión
+   */
+  public function imagenEscuela (Request $request) {
+    $nivel = session('Usuario.nivel');
+    if ($nivel != 4) {
+    return redirect('/siben');
+    }
+    $id_escuela =session('Usuario.id_escuela');
+    $escuela_key = Escuela2::where('id', $id_escuela)->value('escuela_key');
+
+    $imagenes = [];
+    $indice = 1;
+    $id = 1;
+
+    for($i = 6; $i >= 1; $i--){
+        $rutaImagen = public_path("img/escuelas/big/{$escuela_key}_{$i}.jpg");
+
+        if(file_exists($rutaImagen)){
+            $imagenes[$i] = $i;
+            $indice++;
+        }else {
+            $imagenes[$i] = 0;
+            $id = $i;
+        }
+    }
+    $subir = ($indice <= 6);
+    $anterior = 'datosEscuela';
+
+    ksort($imagenes);
+
+    return view('siben.imagen_escuela', compact(
+        'subir',
+        'escuela_key',
+        'anterior',
+        'imagenes',
+        'id'
+    ));
+  }
+  public function subeImagen (Request $request, $id) {
+    if($request->hasFile('imagen') || $request->isMethod('post')){
+        $id_escuela = session('Usuario.id_escuela');
+        $escuela_key = Escuela2::where('id', $id_escuela)->value('escuela_key');
+
+        if($request->hasFile('imagen') && $escuela_key){
+            $file = $request->file('imagen');
+            $nombreArchivo = "{$escuela_key}_{$id}.jpg";
+
+            $file->move(public_path('img/escuelas/big'), $nombreArchivo);
+        }
+    }
+    return redirect('/siben/imagenEscuela');
+  }
 }
