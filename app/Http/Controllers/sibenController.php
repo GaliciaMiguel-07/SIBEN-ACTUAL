@@ -869,7 +869,10 @@ public function avanceAlumnos(Request $request, $id_entidad = null)
 
         return redirect('/siben/listados');
     }
-
+  /**
+   * especialidades
+   * Actualiza la lista de especialidades... para ajax
+   */
     public function especialidades(Request $request)
     {
         $id_licenciatura = $request->input('EscuelaLicenciatura.id_licenciatura', $request->input('id_licenciatura'));
@@ -879,4 +882,91 @@ public function avanceAlumnos(Request $request, $id_entidad = null)
 
         return view('elements.opciones', compact('opciones'));
     }
+      /**
+   * modalidades
+   * Para actualizar la lista de modalidades usando ajax
+   */
+   public function modalidades (Request $request) {
+        $id_licenciatura = $request->input('EscuelaLicenciatura.id_licenciatura', $request->input('id_licenciatura'));
+
+        $opciones = ['e' => 'Escolarizada'];
+
+        if(in_array($id_licenciatura, [6, 11, 14])){ // secundaria, docencia tecnológica y artística escolar pueden darse en mixta
+            $opciones['m'] = 'mixta';
+        }
+        return view('elements.opciones', compact('opciones'));
+   }
+   public function statusUsuario (Request $request, $id_usuario = null, $status = null) {
+     $nivel = session('Usuario.nivel');
+     if ($nivel != 1) {
+      return redirect('/usuarios/logout');
+    }
+    if($id_usuario){
+        $usuario = Usuario::find($id_usuario);
+
+        if($usuario){
+            if(!$status){
+                $status = ($usuario->status === 'a') ? 'x' : 'a';
+            }
+            $usuario->update(['status' => $status]);
+        }
+    }
+    return redirect()->back();
+   }
+   public function nombreUsuario (Request $request) {
+    $nivel = session('Usuario.nivel');
+    if ($nivel != 1) {
+      return redirect('/usuarios/logout');
+    }
+    if ($request->isMethod('post') || $request->isMethod('put')) {
+        $id     = $request->input('Usuario.id', $request->input('id'));
+        $nombre = $request->input('Usuario.nombre', $request->input('nombre'));
+
+        if($id && $nombre){
+            $usuario = Usuario::find($id);
+            if($usuario){
+                $usuario->update([
+                    'nombre'             => $nombre,
+                    'correo_electronico' => $request->input('Usuario.correo_electronico', $request->input('correo_electronico'))
+                ]);
+            }
+        }
+    }
+    return redirect()->back();
+   }
+   public function listaUsuarios (Request $request, $id_renapo = 'DF') {
+    $nivel =session('Usuario.nivel');
+     if ($nivel != 1) {
+      return redirect('/usuarios/logout');
+    }
+    $modulo = session('Usuario.modulo');
+
+    $entidades = Entidad::pluck('entidad', 'id_renapo');
+
+    $query = Ususario::where('modulo', $modulo)->orderBy('id_usuario');
+
+    if($id_renapo ==='NE'){
+        $query->whereIn('nivel', [2]);
+    } else {
+        $query->whereIn('nivel', [2,3,4])->where('id_renapo', $id_renapo);
+    }
+    $usuario = $query->get();
+
+    return view('siben.lista_usuarios', compact('usuarios', 'entidades'));
+   }
+   public function cambiaCaptura (Request $request, $id_escuela = null, $captura = null,$modulo =null,$id_entidad=null) {
+    if($id_escuela){
+        $query = EscuelaStatus::where('id_escuela', $id_escuela)->where('modulo', $modulo);
+        if($captura !== null){
+            $query->where('captura', $captura);
+        }
+        $status = $query->first();
+        if($status){
+            $nuevaCaptura = ($status->captura == 0) ? 1 : 0;
+            $status->update(['captura' => $nuevaCaptura]);
+        }
+    }
+    return redirect("/siben/captura/{$id_entidad}/{$modulo}");
+   }
+
 }
