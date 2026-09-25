@@ -1039,4 +1039,87 @@ public function avanceAlumnos(Request $request, $id_entidad = null)
     }
     return redirect('/siben/imagenEscuela');
   }
+
+  public function borraImagen (Request $request, $id) {
+    $id_escuela = session('Usuario.id_escuela');
+    $escuela_key = Escuela2::where('id', $id_escuela)->value('escuela_key');
+    if($escuela_key){
+        $rutaImagenBig = public_path("img/escuelas/big/{$escuela_key}_{$id}.jpg");
+        if(File::exist($rutaImagenBig)){
+            File::delete($rutaImagenBig);
+        }
+    }
+    return redirect('/siben/imagenEscuela');
+  }
+  public function curpAlumno (Request $request, $id_alumno = null) {
+    $id_escuela = session('Usuario.id_escuela');
+    $alumno = Alumno::select('id', 'nombre', 'apellido_paterno', 'apellido_materno', 'curp')->where('id', $id_alumno)->firstOrFail();
+
+    if($request->isMethod('post') || $request->isMethod('put')){
+        $request->validate(['curp' => 'required|string|size:18']);
+        $alumno->update(['curp' => strtoupper($request->input('curp'))]);
+        return redirect()->back()->with('success', 'La CURP ha sido actualizada correctamente.');
+    }
+    return view('alumnos.curp_emergencia', compact('alumno'));
+  }
+  public function listaAlumnos (Request $request, $semestre = null) {
+    $id_escuela = session('usuario.id_escuela');
+    
+    $alumnos = collect();
+
+    if($semestre){
+        $alumnos = Alumno::select([
+            'id',
+            'curp',
+            'nombre',
+            'apellido_paterno',
+            'apellido_materno',
+            'semestre',
+            'id_licenciatura',
+            'status'
+        ])->where('id_escuela', $id_escuela)->where('status', '!=', 'e')->where('semestre', $semestre)->orderBy('semestre', 'asc')->orderBy('apellido_paterno', 'asc')->orderBy('apellido_materno'. 'asc')->orderBy('nombre', 'asc')->get();
+    }
+    $semestres = ['1' => '1', '2' => '2', '3' => '3', '4' => '4', '5' => '5', '6' => '6', '7' => '7', '8' => '8', '9' => '9', '10' => '10', '11' => '11',];
+
+    return view('alumnos.lista', compact(
+        'alumnos',
+        'semestres',
+        'semestre'
+    ));
+  }
+
+  public function pruebaVerhoeff (Request $request) {
+    $idCalculado = null;
+    $valido      = null;
+
+    if($request->has('Alumno.id')){
+        $i = $request->input('alumno.id');
+        $longitud = strlen($id);
+
+        if($longitud == 7){
+            $idCalculado = $id . Alumno::calculaVerhoeff($id);
+        }else if($longitud == 8){
+            $valido = Alumno::validoVerhoeff($id);
+        }
+    }
+    return view('alumnos.prueba_verhoeff', compact(
+        'idCalculado',
+        'valido'
+        ));
+  }
+
+  public function editaAlumno () {
+    $nivel = session('Usuario.nivel');
+
+    if($nivel != 1){
+        return redirect('/siben');
+    }
+    $entidades = Entidad::where('id', '<', 33)->pluck('entidad', 'id');
+
+    $semestres = [1 => 1, 2 => 2, 3 => 3, 4 => 4, 5 => 5, 6 => 6, 7 => 7, 8 => 8, 9 => 9, 10 => 10, 11 => 11, 12 => 12, 13 => 13];
+    return view('alumnos.edita_alumno', compact(
+        'semestres',
+        'entidades'
+    ));
+  }
 }
