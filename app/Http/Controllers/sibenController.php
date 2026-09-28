@@ -2,67 +2,180 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use Illuminate\Support\Arr;
-use App\Models\Escuela;
-use App\Models\Mensaje;
-use App\Models\MensajeDestino;
-use App\Models\EscuelaStatus;
-use App\Models\DomicilioEscuela;
-use App\Models\Municipio;
-use App\Models\Localidad;
+use App\Models\Alumno;
 use App\Models\CaracteristicaEscuela;
 use App\Models\Construccion;
+use App\Models\DomicilioEscuela;
+use App\Models\EducacionAdicional;
+use App\Models\Entidad;
+use App\Models\Escuela;
+use App\Models\Escuela2;
 use App\Models\EscuelaLicenciatura;
+use App\Models\EscuelaStatus;
+use App\Models\Especialidad;
+use App\Models\Licenciatura;
+use App\Models\Localidad;
+use App\Models\Mensaje;
+use App\Models\MensajeDestino;
+use App\Models\Municipio;
 use App\Models\Personal;
+use App\Models\SeguridadSocial;
+use App\Models\Usuario;
+use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 
 class sibenController extends Controller
 {
-    public function index(){
-        $captura          = session('Usuario.captura');
-        $nivel            = session('Usuario.nivel');
-        $cuenta_clave     = session('Usuario.cuenta_clave');
-        $estructura       = session('Usuario.estructura');
-	    $modulo           = session('Usuario.modulo');
-	    $cuentaDirector   = session('Usuario.cuenta_director');
-        $cuentaDomicilio  = session('Usuario.cuenta_domicilio');
-	    $id_escuela       = session('Usuario.id_escuela');
-        $id_usuario       = session('Usuario.id');
+    /**
+     * Ciclo de captura vigente (igual que en el sistema original).
+     * Actualizar en cada ciclo: 20261, 20262, ...
+     */
+    protected string $captura_actual = '20252';
 
-        $escuela = Escuela::select('telefono1')->find($id_escuela);
-        $telefono = $escuela ? $escuela->telefono1 :'';
+    /** Contexto del usuario autenticado, calculado una sola vez por petición. */
+    private ?array $contexto = null;
+
+    /**
+     * Reemplaza a session('Usuario.*') del sistema CakePHP.
+     * Calcula los datos del usuario autenticado directamente desde la base
+     * (auth()->user() + consultas), sin depender de un middleware ni de
+     * claves de sesión previamente escritas.
+     */
+    private function contexto(): array
+    {
+        if ($this->contexto !== null) {
+            return $this->contexto;
+        }
+
+        $usuario   = auth()->user();
+        $nivel     = $usuario?->nivel;
+        $modulo    = $usuario?->modulo;
+        $idEscuela = $usuario?->id_escuela;
+
+        $ctx = [
+            'id'               => $usuario?->id,
+            'id_usuario'       => $usuario?->id_usuario,
+            'nombre'           => $usuario?->nombre,
+            'nivel'            => $nivel,
+            'modulo'           => $modulo,
+            'id_renapo'        => $usuario?->id_renapo,
+            'id_escuela'       => $idEscuela,
+            'escuela'          => null,
+            'id_entidad'       => null,
+            'entidad'          => null,
+            'captura'          => null,
+            'estructura'       => null,
+            'status'           => null,
+            'cuenta_clave'     => 0,
+            'cuenta_director'  => 0,
+            'cuenta_domicilio' => 0,
+        ];
+
+        // Nivel 1 (DGESPE): la captura siempre está abierta.
+        if ($nivel == 1) {
+            $ctx['captura'] = 1;
+        }
+
+        // Niveles 3 y 4: escuela + entidad a partir de usuarios.id_escuela.
+        if (in_array($nivel, [3, 4]) && $idEscuela) {
+            $escuela = Escuela::select('id', 'escuela', 'id_entidad')->find($idEscuela);
+            if ($escuela) {
+                $ctx['escuela']    = $escuela->escuela;
+                $ctx['id_entidad'] = $escuela->id_entidad;
+            }
+        }
+
+        // Niveles 2 y 6: entidad a partir de usuarios.id_renapo.
+        if (in_array($nivel, [2, 6]) && $usuario?->id_renapo) {
+            $entidad = Entidad::select('id', 'entidad')->where('id_renapo', $usuario->id_renapo)->first();
+            if ($entidad) {
+                $ctx['id_entidad'] = $entidad->id;
+                $ctx['entidad']    = $entidad->entidad;
+            }
+        }
+
+        // Si ya tenemos id_entidad pero no el nombre, lo buscamos.
+        if ($ctx['id_entidad'] && !$ctx['entidad']) {
+            $ctx['entidad'] = Entidad::where('id', $ctx['id_entidad'])->value('entidad');
+        }
+
+        // Estado de captura de la escuela (escuelas_status).
+        if ($idEscuela && $modulo) {
+            $status = EscuelaStatus::where('id_escuela', $idEscuela)->where('modulo', $modulo)->first();
+            if ($status) {
+                $ctx['status']     = $status->status;
+                $ctx['captura']    = $status->captura;
+                $ctx['estructura'] = $status->estructura;
+            }
+        }
+
+        // Cuenta de licenciaturas sin clave de centro de trabajo.
+        if ($idEscuela) {
+            $ctx['cuenta_clave'] = EscuelaLicenciatura::where('id_escuela', $idEscuela)->where('clave', '')->count();
+        }
+
+        // Cuenta de directores activos (id_funcion 1, status 'a').
+        if ($idEscuela) {
+            $ctx['cuenta_director'] = Personal::where('id_escuela', $idEscuela)->where('id_funcion', 1)->where('status', 'a')->count();
+        }
+
+        // Cuenta de domicilios capturados.
+        if ($idEscuela) {
+            $ctx['cuenta_domicilio'] = DomicilioEscuela::where('id_escuela', $idEscuela)->count();
+        }
+
+        return $this->contexto = $ctx;
+    }
+
+    public function index()
+    {
+        $ctx = $this->contexto();
+
+        $nivel           = $ctx['nivel'];
+        $captura         = $ctx['captura'];
+        $cuenta_clave    = $ctx['cuenta_clave'];
+        $estructura      = $ctx['estructura'];
+        $modulo          = $ctx['modulo'];
+        $cuentaDirector  = $ctx['cuenta_director'];
+        $cuentaDomicilio = $ctx['cuenta_domicilio'];
+        $id_escuela      = $ctx['id_escuela'];
+        $id_usuario      = $ctx['id'];
+        $id_entidad      = $ctx['id_entidad'];
+
+        $escuela  = Escuela::select('telefono1')->find($id_escuela);
+        $telefono = $escuela ? $escuela->telefono1 : '';
 
         $mensajeCaptura = null;
 
-        if($nivel >=3 && $nivel<=4){
-            if($captura == 0){
+        if ($nivel >= 3 && $nivel <= 4) {
+            if ($captura == 0) {
                 $mensajeCaptura = 'La captura está finalizada';
-            }elseif($captura == 2){
+            } elseif ($captura == 2) {
                 $mensajeCaptura = 'Demasiadas conexiones, por favor intente más tarde';
-            }elseif($estructura == 0 && $modulo == 1){
+            } elseif ($estructura == 0 && $modulo == 1) {
                 $mensajeCaptura = 'Por favor, actualice los Datos Generales';
-            }elseif($cuenta_clave>0){
+            } elseif ($cuenta_clave > 0) {
                 $mensajeCaptura = 'Por favor, ingrese sus claves de centro de trabajo';
-            }elseif($cuentaDirector == 0 && $modulo == 'l'){
+            } elseif ($cuentaDirector == 0 && $modulo == 'l') {
                 $mensajeCaptura = 'Por favor agregue o active al director de la escuela';
-            }elseif($telefono == '' && $modulo == 'l'){
+            } elseif ($telefono == '' && $modulo == 'l') {
                 $mensajeCaptura = 'Por favor actualice la información adicional(telefono,correo)';
             }
         }
-        
-        $id_usuario = session('Usuario.id');
-        $id_entidad = session('Usuario.id_entidad');
 
         $mensajes = array_merge(
             $this->getMensajes(['modulo' => $modulo, 'status' => 'a', 'id_tipo' => '1', 'id_destino' => $nivel]),
-            $this->getMensajes(['modulo' => $modulo, 'status' => 'a', 'id_tipo' => '3', 'id_destino' => $id_usuario])  
+            $this->getMensajes(['modulo' => $modulo, 'status' => 'a', 'id_tipo' => '3', 'id_destino' => $id_usuario])
         );
-        if ($id_escuela){
+        if ($id_escuela) {
             $mensajes = array_merge($mensajes, $this->getMensajes(['modulo' => $modulo, 'status' => 'a', 'id_tipo' => '2', 'id_destino' => $id_escuela]));
         }
-        if ($id_entidad){
+        if ($id_entidad) {
             $mensajes = array_merge($mensajes, $this->getMensajes(['modulo' => $modulo, 'status' => 'a', 'id_tipo' => '4', 'id_destino' => $id_entidad]));
         }
+
         $tipos_mensajes = [
             '1' => 'Nivel',
             '2' => 'Escuela',
@@ -70,18 +183,17 @@ class sibenController extends Controller
             '4' => 'Entidad',
         ];
 
-        $archivos = false;
-        if (in_array($nivel,[2,3,4])){
-            $archivos = true;
-        }
+        $archivos = in_array($nivel, [2, 3, 4]);
 
         return view('siben.index', compact(
             'mensajeCaptura', 'mensajes', 'telefono', 'tipos_mensajes',
             'nivel', 'estructura', 'cuentaDirector', 'cuentaDomicilio', 'archivos'
         ));
     }
+
     /* Método auxiliar para consultar los mensajes relacionándolos con la tabla pivot */
-    private function getMensajes(array $params): array {
+    private function getMensajes(array $params): array
+    {
         return Mensaje::join('mensajes_destinos', 'mensajes.id', '=', 'mensajes_destinos.id_mensaje')
             ->where('mensajes_destinos.modulo', $params['modulo'])
             ->where('mensajes_destinos.status', $params['status'])
@@ -91,42 +203,49 @@ class sibenController extends Controller
             ->get()
             ->toArray();
     }
-    public function archivos(Request $request){
+
+    public function archivos(Request $request)
+    {
         $anterior = false;
-        $clave = null;
-        if ($request->filled('Escuela.escuela_key') || $request->filled('escuela_key')){
-            $clave = $request->input('Escuela.escuela_key', $request->input('escuela_key'));
+        $clave    = null;
+
+        if ($request->filled('Escuela.escuela_key') || $request->filled('escuela_key')) {
+            $clave    = $request->input('Escuela.escuela_key', $request->input('escuela_key'));
             $anterior = true;
         } else {
-            $nivel = session('Usuario.nivel');
-            switch ($nivel) {
+            $ctx = $this->contexto();
+            switch ($ctx['nivel']) {
                 case 2:
-                    $clave = session('Usuario.nivel');
+                    $clave = $ctx['id_renapo'];
                     break;
                 case 3:
                 case 4:
-                    $id_escuela = session('Usuario.id_escuela');
-                    $escuela = Escuela::select('escuela_key')->find($id_escuela);
-                    $clave = $escuela ? $escuela->escuela_key : null;
+                    $escuela = Escuela::select('escuela_key')->find($ctx['id_escuela']);
+                    $clave   = $escuela ? $escuela->escuela_key : null;
                     break;
             }
         }
+
         return view('siben.archivos', compact('clave', 'anterior'));
     }
-    public function listados(){
-        $id_escuela = session('Usuario.id_escuela');
-        $modulo     = session('Usuario.modulo');
-        $escuelaStatus = EscuelaStatus::where('id_escuela', $id_escuela)->where('modulo', $modulo)->first();
-        $oficializar = $escuelaStatus ? $escuelaStatus->oficializar : 0;
 
-        $nivel         = session('Usuario.nivel');
-        $captura       = session('Usuario.captura');
-        $nombreEntidad = session('Usuario.id_renapo');
+    public function listados()
+    {
+        $ctx = $this->contexto();
+
+        $id_escuela    = $ctx['id_escuela'];
+        $modulo        = $ctx['modulo'];
+        $nivel         = $ctx['nivel'];
+        $captura       = $ctx['captura'];
+        $nombreEntidad = $ctx['id_renapo'];
+
+        $escuelaStatus = EscuelaStatus::where('id_escuela', $id_escuela)->where('modulo', $modulo)->first();
+        $oficializar   = $escuelaStatus ? $escuelaStatus->oficializar : 0;
 
         $opcionesMenu  = [];
         $opcionesMenu2 = [];
 
-        if ($nivel == 3){
+        if ($nivel == 3) {
             $opcionesMenu[] = ['siben', 'Ver Avance', 'avanceEscuela', 0];
         }
 
@@ -142,25 +261,30 @@ class sibenController extends Controller
         $opcionesMenu2[] = ['informes', 'Asignaturas Docente', 'listadoAsignatura', 1];
         $opcionesMenu2[] = ['informes', 'Alumnos No egresados', 'listadoEgresados', 1];
 
-        if ($nivel == 3 && $nombreEntidad == 'GT'){
+        if ($nivel == 3 && $nombreEntidad == 'GT') {
             $opcionesMenu[] = ['siben', 'Finalizar Captura', 'finalizaCaptura', 0];
         }
-        if ($nivel == 3 && $captura){
+        if ($nivel == 3 && $captura) {
             $opcionesMenu[] = ['siben', 'Finalizar Captura', 'finalizaCaptura', 0];
         }
-        if ($nivel == 3 && $captura == 0){
-            $opcionesMenu[] = ['siben', 'Oficializar Informaci&oacute;n', 'oficializarInformacion', 0, null ,$oficializar];
+        if ($nivel == 3 && $captura == 0) {
+            $opcionesMenu[] = ['siben', 'Oficializar Informaci&oacute;n', 'oficializarInformacion', 0, null, $oficializar];
         }
+
         return view('siben.listados', compact('opcionesMenu', 'opcionesMenu2'));
     }
-    public function datosEscuela(){
-        $modulo        = session('Usuario.modulo');
-        $nivel         = session('Usuario.nivel');
-        $nombreEscuela = session('Usuario.escuela');
-        $id_escuela    = session('Usuario.id_escuela');
+
+    public function datosEscuela()
+    {
+        $ctx = $this->contexto();
+
+        $modulo        = $ctx['modulo'];
+        $nivel         = $ctx['nivel'];
+        $nombreEscuela = $ctx['escuela'];
+        $id_escuela    = $ctx['id_escuela'];
 
         if ($modulo != 'l') {
-        return redirect('/siben');
+            return redirect()->route('siben.index');
         }
 
         $escuela  = Escuela::find($id_escuela);
@@ -170,19 +294,22 @@ class sibenController extends Controller
         $turnos         = ['m' => 'Matutino', 'v' => 'Vespertino', 'd' => 'Discontinuo', 'n' => 'Nocturno'];
         $sostenimientos = ['p' => 'Público', 'q' => 'Particular'];
 
-        $urls['escuelas'] = url('/siben/editaAdicionales');
-        $textos['escuela']           = 'Editar';
-        $parametros['escuela']       = "data[Escuela][id]={$id_escuela}";
-        $eventos['escuela']          = "consultaAjax('{$urls['escuela']}', '{$parametros['escuela']}', muestraOverlay, muestraOcupado)";
-	    $evento_domicilio = "locacion(\'".url('/siben')."')";
-        $botones;
-        switch ($nivel){
+        $urls['escuela']       = url('/siben/editaAdicionales');
+        $textos['escuela']     = 'Editar';
+        $parametros['escuela'] = "data[Escuela][id]={$id_escuela}";
+        $eventos['escuela']    = "consultaAjax('{$urls['escuela']}', '{$parametros['escuela']}', muestraOverlay, muestraOcupado)";
+        $evento_domicilio      = "locacion('" . url('/siben') . "')";
+
+        $botones = [];
+        switch ($nivel) {
             case 3:
-                $botones['escuela'] = "<input id='e_{$id_escuela}' type='button' value='{$textos['escuela']}' onclick=\"{$eventos['escuela']}\" />";
-                $botones['terminar'] = "<input type='button' value='Terminar' onclick=\"{$eventos_domicilio}\" />";
+                $botones['escuela']  = "<input id='e_{$id_escuela}' type='button' value='{$textos['escuela']}' onclick=\"{$eventos['escuela']}\" />";
+                $botones['terminar'] = "<input type='button' value='Terminar' onclick=\"{$evento_domicilio}\" />";
                 break;
         }
+
         $anterior = true;
+
         return view('siben.datos_escuela', compact(
             'title',
             'escuela',
@@ -193,45 +320,62 @@ class sibenController extends Controller
             'anterior'
         ));
     }
-    public function editaEscuela(Request $request){
-        $id_escuela = session('Usuario.id_escuela');
-        $id_entidad = session('Usuario.id_entidad');
+
+    public function editaEscuela(Request $request)
+    {
+        $ctx = $this->contexto();
+
+        $id_escuela = $ctx['id_escuela'];
+        $id_entidad = $ctx['id_entidad'];
 
         $escuelaIdInput = $request->input('data.Escuela.id', $request->input('id'));
-        
-        if ($id_escuela != $escuelaIdInput){
-            return redirect('/siben');
+
+        if ($id_escuela != $escuelaIdInput) {
+            return redirect()->route('siben.index');
         }
+
         $domicilioEscuela = DomicilioEscuela::where('id_escuela', $id_escuela)->first();
         $escuela          = Escuela::find($id_escuela);
         $id_municipio     = $domicilioEscuela ? $domicilioEscuela->cve_mun : null;
 
         $municipios = Municipio::where('id_entidad', $id_entidad)->orderBy('municipio')->pluck('municipio', 'id_municipio');
 
-        $locs = Localidad:: where('id_entidad', $id_entidad)->where('id_municipio', $id_municipio)->pluck('localidad', 'id_localidad');
-        $turnos = ['m'=> 'Matutino', 'v' => 'Vespertino', 'd' => 'Discontinuo', 'n' => 'Nocturno'];
+        $locs = Localidad::where('id_entidad', $id_entidad)->where('id_municipio', $id_municipio)->pluck('localidad', 'id_localidad');
 
-        $vialidad      = ['AMPLIACION'=>'AMPLIACION','ANDADOR'=>'ANDADOR','AVENIDA'=>'AVENIDA',
-                          'BOULEVARD'=>'BOULEVARD','CALLE'=>'CALLE','CALLEJON'=>'CALLEJON',
-                          'CALZADA'=>'CALZADA','CAMINO'=>'CAMINO','CARRETERA'=>'CARRETERA',
-                          'CERRADA'=>'CERRADA','CIRCUITO'=>'CIRCUITO','CIRCUNVALACION'=>'CIRCUNVALACION',
-                          'CONTINUACION'=>'CONTINUACION','CORREDOR'=>'CORREDOR','DIAGONAL'=>'DIAGONAL',
-                          'EJE VIAL'=>'EJE VIAL','PASAJE'=>'PASAJE','PEATONAL'=>'PEATONAL',
-                          'PERIFERICO'=>'PERIFERICO','PRIVADA'=>'PRIVADA','PROLONGACION'=>'PROLONGACION',
-                          'RETORNO'=>'RETORNO','VIADUCTO'=>'VIADUCTO'];
+        $turnos = ['m' => 'Matutino', 'v' => 'Vespertino', 'd' => 'Discontinuo', 'n' => 'Nocturno'];
 
-        $asentamientos = [ 'AEROPUERTO'=>'AEROPUERTO', 'AMPLIACION'=>'AMPLIACION', 'BARRIO'=>'BARRIO',
-                            'CANTON'=>'CANTON', 'CIUDAD'=>'CIUDAD', 'CIUDAD INDUSTRIAL'=>'CIUDAD INDUSTRIAL',
-                            'COLONIA'=>'COLONIA', 'CONDOMINIO'=>'CONDOMINIO', 'CONJUNTO HABITACIONAL'=>'CONJUNTO HABITACIONAL',
-                           'CORREDOR INDUSTRIAL'=>'CORREDOR INDUSTRIAL', 'COTO'=>'COTO', 'CUARTEL'=>'CUARTEL',
-                            'EJIDO'=>'EJIDO', 'EXHACIENDA'=>'EXHACIENDA', 'FRACCION'=>'FRACCION',
-                            'FRACCIONAMIENTO'=>'FRACCIONAMIENTO', 'GRANJA'=>'GRANJA', 'HACIENDA'=>'HACIENDA',
-                            'INGENIO'=>'INGENIO', 'MANZANA'=>'MANZANA', 'PARAJE'=>'PARAJE', 'PARQUE INDUSTRIAL'=>'PARQUE INDUSTRIAL',
-                            'PRIVADA'=>'PRIVADA', 'PROLONGACION'=>'PROLONGACION', 'PUEBLO'=>'PUEBLO', 'PUERTO'=>'PUERTO',
-                            'RANCHERIA'=>'RANCHERIA', 'RANCHO'=>'RANCHO', 'REGION'=>'REGION', 'RESIDENCIAL'=>'RESIDENCIAL',
-                            'RINCONADA'=>'RINCONADA', 'SECCION'=>'SECCION', 'SECTOR'=>'SECTOR', 'SUPERMANZANA'=>'SUPERMANZANA',
-                            'UNIDAD'=>'UNIDAD', 'UNIDAD HABITACIONAL'=>'UNIDAD HABITACIONAL', 'VILLA'=>'VILLA',
-                            'ZONA FEDERAL'=>'ZONA FEDERAL', 'ZONA INDUSTRIAL'=>'ZONA INDUSTRIAL', 'ZONA MILITAR'=>'ZONA MILITAR'];
+        $vialidad = [
+            'AMPLIACION' => 'AMPLIACION', 'ANDADOR' => 'ANDADOR', 'AVENIDA' => 'AVENIDA',
+            'BOULEVARD' => 'BOULEVARD', 'CALLE' => 'CALLE', 'CALLEJON' => 'CALLEJON',
+            'CALZADA' => 'CALZADA', 'CAMINO' => 'CAMINO', 'CARRETERA' => 'CARRETERA',
+            'CERRADA' => 'CERRADA', 'CIRCUITO' => 'CIRCUITO', 'CIRCUNVALACION' => 'CIRCUNVALACION',
+            'CONTINUACION' => 'CONTINUACION', 'CORREDOR' => 'CORREDOR', 'DIAGONAL' => 'DIAGONAL',
+            'EJE VIAL' => 'EJE VIAL', 'PASAJE' => 'PASAJE', 'PEATONAL' => 'PEATONAL',
+            'PERIFERICO' => 'PERIFERICO', 'PRIVADA' => 'PRIVADA', 'PROLONGACION' => 'PROLONGACION',
+            'RETORNO' => 'RETORNO', 'VIADUCTO' => 'VIADUCTO',
+        ];
+
+        $asentamientos = [
+            'AEROPUERTO' => 'AEROPUERTO', 'AMPLIACION' => 'AMPLIACION', 'BARRIO' => 'BARRIO',
+            'CANTON' => 'CANTON', 'CIUDAD' => 'CIUDAD', 'CIUDAD INDUSTRIAL' => 'CIUDAD INDUSTRIAL',
+            'COLONIA' => 'COLONIA', 'CONDOMINIO' => 'CONDOMINIO', 'CONJUNTO HABITACIONAL' => 'CONJUNTO HABITACIONAL',
+            'CORREDOR INDUSTRIAL' => 'CORREDOR INDUSTRIAL', 'COTO' => 'COTO', 'CUARTEL' => 'CUARTEL',
+            'EJIDO' => 'EJIDO', 'EXHACIENDA' => 'EXHACIENDA', 'FRACCION' => 'FRACCION',
+            'FRACCIONAMIENTO' => 'FRACCIONAMIENTO', 'GRANJA' => 'GRANJA', 'HACIENDA' => 'HACIENDA',
+            'INGENIO' => 'INGENIO', 'MANZANA' => 'MANZANA', 'PARAJE' => 'PARAJE', 'PARQUE INDUSTRIAL' => 'PARQUE INDUSTRIAL',
+            'PRIVADA' => 'PRIVADA', 'PROLONGACION' => 'PROLONGACION', 'PUEBLO' => 'PUEBLO', 'PUERTO' => 'PUERTO',
+            'RANCHERIA' => 'RANCHERIA', 'RANCHO' => 'RANCHO', 'REGION' => 'REGION', 'RESIDENCIAL' => 'RESIDENCIAL',
+            'RINCONADA' => 'RINCONADA', 'SECCION' => 'SECCION', 'SECTOR' => 'SECTOR', 'SUPERMANZANA' => 'SUPERMANZANA',
+            'UNIDAD' => 'UNIDAD', 'UNIDAD HABITACIONAL' => 'UNIDAD HABITACIONAL', 'VILLA' => 'VILLA',
+            'ZONA FEDERAL' => 'ZONA FEDERAL', 'ZONA INDUSTRIAL' => 'ZONA INDUSTRIAL', 'ZONA MILITAR' => 'ZONA MILITAR',
+        ];
+
+        $seguridad_social = SeguridadSocial::pluck('regimen', 'id');
+        $admon            = ['ESTATAL' => 'ESTATAL', 'FEDERAL' => 'FEDERAL'];
+        $derecho          = ['DE CUOTA' => 'DE CUOTA', 'LIBRE' => 'LIBRE'];
+        $admon2           = ['BRECHA' => 'BRECHA', 'CAMINO' => 'CAMINO', 'TERRACERIA' => 'TERRACERIA', 'VEREDA' => 'VEREDA'];
+        $margen           = ['DERECHO' => 'DERECHO', 'IZQUIERO' => 'IZQUIERDO'];
+
         return view('siben.edita_escuela', compact(
             'escuela',
             'domicilioEscuela',
@@ -248,15 +392,16 @@ class sibenController extends Controller
         ));
     }
 
-    public function editaEstructura(Request $request){
-        $id_estructura = $request->input('data.CaracteristicaEscuela.id',$request->input('id'));
+    public function editaEstructura(Request $request)
+    {
+        $id_estructura = $request->input('data.CaracteristicaEscuela.id', $request->input('id'));
 
-        $estructura = CaracteristicaEscuela::find($id_estructura);
-        $tiposPropiedad  = construccion::where('id', '<', 20)->pluck('construccion', 'id');
-        $tiposEstructura = construccion::where('id', '>', 20)->pluck('construccion', 'id');
+        $estructura      = CaracteristicaEscuela::find($id_estructura);
+        $tiposPropiedad  = Construccion::where('id', '<', 20)->pluck('construccion', 'id');
+        $tiposEstructura = Construccion::where('id', '>', 20)->pluck('construccion', 'id');
 
         $bandaAncha = ['s' => 'Banda Ancha', 'n' => '56kbps'];
-        $sino = ['s' => 'Sí', 'n' => 'No'];
+        $sino       = ['s' => 'Sí', 'n' => 'No'];
 
         $contador    = $this->contador(10);
         $contador20  = $this->contador(20);
@@ -268,41 +413,46 @@ class sibenController extends Controller
         $contador250 = $this->contador(250);
 
         return view('siben.edita_estructura', compact(
-                'estructura',
-                'tiposPropiedad',
-                'tiposEstructura',
-                'bandaAncha',
-                'sino',
-                'contador',
-                'contador20',
-                'contador30',
-                'contador40',
-                'contador50',
-                'contador100',
-                'contador150',
-                'contador250',
+            'estructura',
+            'tiposPropiedad',
+            'tiposEstructura',
+            'bandaAncha',
+            'sino',
+            'contador',
+            'contador20',
+            'contador30',
+            'contador40',
+            'contador50',
+            'contador100',
+            'contador150',
+            'contador250',
         ));
     }
 
-    /* Metodo auxiliar privado para generar arreglos de opciones nuemriacas */
-    private function contador(int $max): array{
-        return array_combine(range(0, $max),range(0, $max));
+    /* Metodo auxiliar privado para generar arreglos de opciones numericas */
+    private function contador(int $max): array
+    {
+        return array_combine(range(0, $max), range(0, $max));
     }
 
-    public function editaCoordinadores(Request $request){
-        $id_escuela = session('Usuario.id_escuela');
-    
+    public function editaCoordinadores(Request $request)
+    {
+        $id_escuela = $this->contexto()['id_escuela'];
+
         $escuelaIdInput = $request->input('data.Escuela.id', $request->input('id'));
 
         if ($id_escuela != $escuelaIdInput) {
-        return redirect('/siben');
+            return redirect()->route('siben.index');
         }
 
-        $escuelaLicenciaturas = EscuelaLicenciatura::with(['licenciatura', 'personal'])->where('id_escuela', $id_escuela)->get()->unique('id_licenciatura');
-           
+        $escuelaLicenciaturas = EscuelaLicenciatura::with(['licenciatura', 'personal'])
+            ->where('id_escuela', $id_escuela)
+            ->get()
+            ->unique('id_licenciatura');
+
         $licenciaturas = $escuelaLicenciaturas->mapWithKeys(function ($item) {
-        $nombre = $item->licenciatura ? $item->licenciatura->licenciatura : 'Sin definir';
-        return [$item->id_licenciatura => $nombre];
+            $nombre = $item->licenciatura ? $item->licenciatura->licenciatura : 'Sin definir';
+            return [$item->id_licenciatura => $nombre];
         });
 
         $elegidos = $escuelaLicenciaturas->mapWithKeys(function ($item) {
@@ -310,8 +460,11 @@ class sibenController extends Controller
             return [$item->id_licenciatura => $personalId];
         });
 
-        $coordinadoresData = Personal::where('id_escuela', $id_escuela)->where('id_funcion', 4)->orderBy('apellido_paterno')->orderBy('nombre')->get();
-          
+        $coordinadoresData = Personal::where('id_escuela', $id_escuela)
+            ->where('id_funcion', 4)
+            ->orderBy('apellido_paterno')
+            ->orderBy('nombre')
+            ->get();
 
         $coordinadores = $coordinadoresData->mapWithKeys(function ($personal) {
             $nombreCompleto = trim("{$personal->nombre} {$personal->apellido_paterno} {$personal->apellido_materno}");
@@ -319,90 +472,116 @@ class sibenController extends Controller
         });
 
         return view('siben.edita_coordinadores', compact(
-            'licenciaturas', 
-            'elegidos', 
+            'licenciaturas',
+            'elegidos',
             'coordinadores'
         ));
     }
 
-    public function guardaEscuela(Request $request){
+    public function guardaEscuela(Request $request)
+    {
         $dataEscuela = $request->input('data.Escuela', $request->input('Escuela'));
-         if(!empty($dataEscuela)){
-            $id_escuela = session('Usuario.id_escuela');
-            $escuela = Escuela::find($id_escuela);
-            if(!$escuela || !$escuela->update($dataEscuela)){
+
+        if (!empty($dataEscuela)) {
+            $id_escuela = $this->contexto()['id_escuela'];
+            $escuela    = Escuela::find($id_escuela);
+
+            if (!$escuela || !$escuela->update($dataEscuela)) {
                 return response('Error: no se guardo la información', 400);
             }
         }
+
         return view('elements.vacio');
     }
 
-    public function guardaEstructura(Request $request){
+    public function guardaEstructura(Request $request)
+    {
         $dataEstructura = $request->input('data.CaracteristicaEscuela', $request->input('CaracteristicaEscuela'));
-        if (!empty($dataEstructura)){
-        $id_escuela = session('Usuario.id_escuela');
-        $modulo = session('Usuario.modulo');
-        $dataEstructura['id_escuela'] = $id_escuela;
-        $id_Estructura = $dataEstructura['id'] ?? null;
-        $parametros = [
-            'internet_alumno'         =>$dataEstructura['internet_alumno'] ?? null,
-            'computo_alumno'          =>$dataEstructura['computo_alumno'] ?? null,
-            'internet_docente'        =>$dataEstructura['internet_docente'] ?? null,
-            'computo_docente'         =>$dataEstructura['computo_docente'] ?? null,
-            'internet_administrativo' =>$dataEstructura['internet_administrativo'] ?? null,
-            'computo_administrativo'  =>$dataEstructura['computo_administrativo'] ?? null
-        ];
 
-        $CaracteristicaModel = new CaracteristicaEscuela();
-        $errores = $CaracteristicaModel->revisaestructura($parametros);
-        if (empty($errores)){
-            CaracteristicaEscuela::updateOrCreate(
-                ['id'=>$id_Estructura],
-                $dataEstructura
-            );
-            EscuelaStatus::where('id_escuela', $id_escuela)->where('modulo', $modulo)->update(['estructura'=>1]);
-        }else {
-            $mensajes = "";
-            for ($i = 1; $i <= 3; $i++){
-                if (!empty($errores[$i])){
-                    $mensajes .= $errores[$i] . "\n";
-                }
+        if (!empty($dataEstructura)) {
+            $ctx = $this->contexto();
+
+            $id_escuela = $ctx['id_escuela'];
+            $modulo     = $ctx['modulo'];
+
+            $dataEstructura['id_escuela'] = $id_escuela;
+            $idEstructura                 = $dataEstructura['id'] ?? null;
+
+            $parametros = [
+                'internet_alumnos'        => $dataEstructura['internet_alumnos'] ?? null,
+                'computo_alumnos'         => $dataEstructura['computo_alumnos'] ?? null,
+                'internet_docentes'       => $dataEstructura['internet_docentes'] ?? null,
+                'computo_docentes'        => $dataEstructura['computo_docentes'] ?? null,
+                'internet_administrativo' => $dataEstructura['internet_administrativo'] ?? null,
+                'computo_administrativo'  => $dataEstructura['computo_administrativo'] ?? null,
+            ];
+
+            // Validación equivalente a CaracteristicaEscuela::revisaestructura()
+            $errores = [];
+            if (($parametros['internet_alumnos'] ?? 0) > ($parametros['computo_alumnos'] ?? 0)) {
+                $errores[1] = 'Error 1: El número de Computadoras con Internet para Alumnos no debe ser mayor al número de computadoras para Alumnos.';
             }
-            return response($mensajes, 400);
+            if (($parametros['internet_docentes'] ?? 0) > ($parametros['computo_docentes'] ?? 0)) {
+                $errores[2] = 'Error 2: El número de Computadoras con Internet para Docentes no debe ser mayor al número de computadoras para Docentes.';
+            }
+            if (($parametros['internet_administrativo'] ?? 0) > ($parametros['computo_administrativo'] ?? 0)) {
+                $errores[3] = 'Error 3: El número de Computadoras con Internet para Administrativos no debe ser mayor al número de computadoras para Administrativos.';
+            }
+
+            if (empty($errores)) {
+                CaracteristicaEscuela::updateOrCreate(['id' => $idEstructura], $dataEstructura);
+                EscuelaStatus::where('id_escuela', $id_escuela)->where('modulo', $modulo)->update(['estructura' => 1]);
+            } else {
+                $mensajes = '';
+                for ($i = 1; $i <= 3; $i++) {
+                    if (!empty($errores[$i])) {
+                        $mensajes .= $errores[$i] . "\n";
+                    }
+                }
+                return response($mensajes, 400);
+            }
         }
-        }
+
         return view('elements.vacio');
     }
 
-    public  function guardaCoordinadores (Request $request) {
+    public function guardaCoordinadores(Request $request)
+    {
         $escuelaLicenciaturas = $request->input('data.EscuelaLicenciatura', $request->input('EscuelaLicenciatura'));
 
-        if(!empty($escuelaLicenciaturas)){
-            $id_escuela = session('Usuario.id_escuela');
-             foreach ($escuelaLicenciaturas as $id => $id_personal) {
-                $lic = explode('-', $id);
+        if (!empty($escuelaLicenciaturas)) {
+            $id_escuela = $this->contexto()['id_escuela'];
+
+            foreach ($escuelaLicenciaturas as $id => $id_personal) {
+                $lic             = explode('-', $id);
                 $id_licenciatura = $lic[1] ?? null;
 
-                if($id_licenciatura){
-                    EscuelaLicenciatura::where('id_escuela', $id_escuela)->where('id_licenciatura', $id_licenciatura)->update(['id_personal' => $id_personal]);
+                if ($id_licenciatura) {
+                    EscuelaLicenciatura::where('id_escuela', $id_escuela)
+                        ->where('id_licenciatura', $id_licenciatura)
+                        ->update(['id_personal' => $id_personal]);
                 }
-             }
+            }
         }
+
         return view('elements.vacio');
     }
 
-    public function editaDatos(Request $request){
-        $nivel   = session('Usuario.nivel');
-        $captura = session('Usuario.captura');
+    public function editaDatos(Request $request)
+    {
+        $ctx = $this->contexto();
+
+        $nivel   = $ctx['nivel'];
+        $captura = $ctx['captura'];
 
         if ($nivel != 3 || $captura != 1) {
-            return redirect('/siben');
+            return redirect()->route('siben.index');
         }
 
-        $nombreEscuela = session('Usuario.escuela');
-        $id_escuela    = session('Usuario.id_escuela');
-        $id_entidad    = session('Usuario.id_entidad');
-        $modulo        = session('Usuario.modulo');
+        $nombreEscuela = $ctx['escuela'];
+        $id_escuela    = $ctx['id_escuela'];
+        $id_entidad    = $ctx['id_entidad'];
+        $modulo        = $ctx['modulo'];
 
         $title = 'Edición Datos Generales, ' . $nombreEscuela;
 
@@ -424,17 +603,20 @@ class sibenController extends Controller
                 ->where('modulo', $modulo)
                 ->update(['estructura' => '1']);
 
-            return redirect('/siben/datos');
+            return redirect()->route('siben.datosEscuela');
         }
 
         $escuela = Escuela::with('caracteristicaEscuela')->find($id_escuela);
 
         $educacionesAdicionales = EducacionAdicional::where('id_escuela', $id_escuela)->get();
 
-        $licenciaturas = EscuelaLicenciatura::where('id_escuela', $id_escuela)->select('id_licenciatura', \DB::raw('MIN(id) as id'))->groupBy('id_licenciatura')->get();
-            
-        $municipios = Municipio::where('id_entidad', $id_entidad) ->orderBy('municipio')->pluck('municipio', 'id');
-           
+        $licenciaturas = EscuelaLicenciatura::where('id_escuela', $id_escuela)
+            ->select('id_licenciatura', DB::raw('MIN(id) as id'))
+            ->groupBy('id_licenciatura')
+            ->get();
+
+        $municipios = Municipio::where('id_entidad', $id_entidad)->orderBy('municipio')->pluck('municipio', 'id_municipio');
+
         $turnos         = ['m' => 'Matutino', 'v' => 'Vespertino', 'd' => 'Discontinuo', 'n' => 'Nocturno'];
         $sostenimientos = ['p' => 'Público', 'q' => 'Particular'];
         $posgrados      = ['m' => 'Maestria', 'd' => 'Doctorado', 'e' => 'Especialidad', 'c' => 'Educacion Continua', 'i' => 'SEPA Inglés'];
@@ -479,42 +661,55 @@ class sibenController extends Controller
             'anterior'
         ));
     }
+
     /**
-   * parametros
-   *
-   * Para editar los parámetros de la escuela (licenciaturas impartidas)
-   */
-    public function parametros (Request $request) {
-        $nivel   = session('Usuario.nivel');
-        $captura = session('Usuario.captura');
-         if ($nivel != 3 || $captura != 1) {
-            return redirect('/siben');
+     * parametros
+     *
+     * Para editar los parámetros de la escuela (licenciaturas impartidas)
+     */
+    public function parametros(Request $request)
+    {
+        $ctx = $this->contexto();
+
+        $nivel   = $ctx['nivel'];
+        $captura = $ctx['captura'];
+
+        if ($nivel != 3 || $captura != 1) {
+            return redirect()->route('siben.index');
         }
-        $escuela      = session('Usuario.escuela');
-        $id_escuela   = session('Usuario.id_escuela');
-        $modulo       = session('Usuario.modulo');
-        $cuenta_clave = session('Usuario.cuenta_clave');
+
+        $escuela      = $ctx['escuela'];
+        $id_escuela   = $ctx['id_escuela'];
+        $modulo       = $ctx['modulo'];
+        $cuenta_clave = $ctx['cuenta_clave'];
 
         $title = 'Edición Datos Generales, ' . $escuela;
 
-        if ($request->isMethod('post') || $request->isMethod('put')){
+        if ($request->isMethod('post') || $request->isMethod('put')) {
             $status = EscuelaStatus::where('id_escuela', $id_escuela)->where('modulo', $modulo)->first();
-            if($status){
+            if ($status) {
                 $statusData = $request->input('EscuelaStatus', $request->input('data.EscuelaStatus', []));
                 $status->update(Arr::only($statusData, ['cantidad_alumnos', 'cantidad_personal']));
             }
+
             $capturista = Usuario::where('id_escuela', $id_escuela)->where('modulo', $modulo)->where('nivel', 4)->first();
-            if ($capturista){
+            if ($capturista) {
                 $usuarioData = $request->input('Usuario', $request->input('data.Usuario', []));
                 $usuarioData['status'] = 'a';
 
                 $capturista->update(Arr::only($usuarioData, ['nombre', 'correo_electronico', 'status']));
             }
         }
-        $modalidades = ['e' => 'Escolarizada', 'm' => 'Mixta'];
-        $turnos      = ['m' => 'Matutino', 'v' => 'Vespertino', 'n' => 'Nocturno','d'=>'Discontinuo'];
 
-        $licenciaturas = EscuelaLicenciatura::where('id_escuela', $id_escuela)->orderBy('id_licenciatura')->orderBy('id_especialidad')->orderBy('modalidad')->orderBy('turno')->get();
+        $modalidades = ['e' => 'Escolarizada', 'm' => 'Mixta'];
+        $turnos      = ['m' => 'Matutino', 'v' => 'Vespertino', 'n' => 'Nocturno', 'd' => 'Discontinuo'];
+
+        $licenciaturas = EscuelaLicenciatura::where('id_escuela', $id_escuela)
+            ->orderBy('id_licenciatura')
+            ->orderBy('id_especialidad')
+            ->orderBy('modalidad')
+            ->orderBy('turno')
+            ->get();
 
         $capturista = Usuario::where('id_escuela', $id_escuela)->where('modulo', $modulo)->where('nivel', 4)->first();
 
@@ -532,30 +727,35 @@ class sibenController extends Controller
             'mensaje'
         ));
     }
-    public function agregaLicenciatura (Request $request) {
-        $escuela = session('Usuario.escuela');
-        $id_escuela = session('Usuario.id_escuela');
+
+    public function agregaLicenciatura(Request $request)
+    {
+        $ctx = $this->contexto();
+
+        $escuela    = $ctx['escuela'];
+        $id_escuela = $ctx['id_escuela'];
 
         $title    = 'Agregar Licenciatura, ' . $escuela;
         $anterior = true;
-        if ($request->isMethod('post')){
-            $data = $request->input('EscuelaLicenciatura', $request->all());
+
+        if ($request->isMethod('post')) {
+            $data = $request->input('EscuelaLicenciatura', $request->except('_token'));
 
             EscuelaLicenciatura::firstOrCreate([
                 'id_escuela'      => $id_escuela,
                 'id_licenciatura' => $data['id_licenciatura'] ?? null,
                 'id_especialidad' => $data['id_especialidad'] ?? null,
                 'modalidad'       => $data['modalidad'] ?? null,
-                'turno'           => $data['turno'] ?? null
-
+                'turno'           => $data['turno'] ?? null,
             ]);
-            return redirect('/siben/parametros');
+
+            return redirect()->route('siben.parametros');
         }
 
         $licenciaturas = Licenciatura::pluck('licenciatura', 'id');
         $especialidad  = [];
-        $modalidad     = [];
-        $turnos        = ['m' => 'Matutino', 'v' => 'Vespertino', 'n' => 'Nocturno','d' => 'Discontinuo'];
+        $modalidades   = ['e' => 'Escolarizada', 'm' => 'Mixta'];
+        $turnos        = ['m' => 'Matutino', 'v' => 'Vespertino', 'n' => 'Nocturno', 'd' => 'Discontinuo'];
 
         return view('siben.agregar_licenciatura', compact(
             'title',
@@ -565,40 +765,46 @@ class sibenController extends Controller
             'modalidades',
             'turnos'
         ));
-
     }
 
-    public function editaLicenciatura (Request $request, $id = null) {
-        if(!$id){
+    public function editaLicenciatura(Request $request, $id = null)
+    {
+        if (!$id) {
             return redirect()->back();
         }
-        $escuela    = session('Usuario.escuela');
-        $id_escuela = session('Usuario.id_escuela');
+
+        $ctx = $this->contexto();
+
+        $escuela    = $ctx['escuela'];
+        $id_escuela = $ctx['id_escuela'];
 
         $title    = 'Agregar Licenciatura, ' . $escuela;
         $anterior = true;
 
-        if ($request->isMethod('post') || $request->isMethod('put')){
-            $data = $request->input('EscuelaLicenciatura', $request->all());
+        if ($request->isMethod('post') || $request->isMethod('put')) {
+            $data = $request->input('EscuelaLicenciatura', $request->except('_token'));
             $data['id_escuela'] = $id_escuela;
 
             $escuelaLicenciaturas = EscuelaLicenciatura::findOrFail($id);
             $escuelaLicenciaturas->update($data);
 
-            return redirect('/siben/parametros');
+            return redirect()->route('siben.parametros');
         }
 
         $escuelaLicenciaturas = EscuelaLicenciatura::findOrFail($id);
 
         $licenciaturas = Licenciatura::pluck('licenciatura', 'id');
 
-        $especialidad = Especialidad::where('id_licenciatura', $escuelaLicenciaturas->id_licenciatura)->pluck('especialidad', 'id')->toArray();
+        $especialidad = Especialidad::where('id_licenciatura', $escuelaLicenciaturas->id_licenciatura)
+            ->pluck('especialidad', 'id')
+            ->toArray();
 
-        if(empty($especialidad)){
+        if (empty($especialidad)) {
             $especialidad[0] = 'n/a';
         }
+
         $modalidades = ['e' => 'Escolarizada', 'm' => 'Mixta'];
-        $turnos = ['m' => 'Matutino', 'v' => 'Vespertino', 'n' => 'Nocturno','d' => 'Discontinuo'];
+        $turnos      = ['m' => 'Matutino', 'v' => 'Vespertino', 'n' => 'Nocturno', 'd' => 'Discontinuo'];
 
         return view('siben.edita_licenciatura', compact(
             'title',
@@ -608,144 +814,198 @@ class sibenController extends Controller
             'modalidades',
             'turnos',
             'id',
-            'escuelaLicenciatura'
+            'escuelaLicenciaturas'
         ));
     }
 
-    public function eliminaLicenciatura ($id_escuela_licenciatura = null) {
-        if($id_escuela_licenciatura){
-            $escuelaLicenciaturas = EscuelaLicenciatura::where('id', $id_escuela_licenciatura)->where('id_escuela', $id_escuela)->first();
+    public function eliminaLicenciatura($id_escuela_licenciatura = null)
+    {
+        if ($id_escuela_licenciatura) {
+            $id_escuela = $this->contexto()['id_escuela'];
 
-            if($escuelaLicenciaturas){
+            $escuelaLicenciaturas = EscuelaLicenciatura::where('id', $id_escuela_licenciatura)
+                ->where('id_escuela', $id_escuela)
+                ->first();
+
+            if ($escuelaLicenciaturas) {
                 $escuelaLicenciaturas->delete();
             }
         }
-        return redirect('/siben/parametros');
+
+        return redirect()->route('siben.parametros');
     }
-  /**
-   * supervisores
-   * Para capturar y activar los nombres de los supervisores por
-   * escuela por estado. Esta función está destinada sólo a nivel 1 y
-   * 2
-   */   
-    public function supervisores (Request $request, $id_entidad = null) {
-        $nivel = session('Usuario.nivel');
+
+    /**
+     * supervisores
+     * Para capturar y activar los nombres de los supervisores por
+     * escuela por estado. Esta función está destinada sólo a nivel 1 y 2
+     */
+    public function supervisores(Request $request, $id_entidad = null)
+    {
+        $ctx = $this->contexto();
+
+        $nivel = $ctx['nivel'];
         if (in_array($nivel, [2, 6])) { // si el supervisor estatal o el otro supervisor sin privilegios
-            $id_entidad = session('Usuario.id_entidad');
+            $id_entidad = $ctx['id_entidad'];
         }
-        $modulo = session('Usuario.modulo');
-        $escuelas_supervisores = Escuela2::select('id', 'escuela', 'escuela_key')->where('status', 'a')->where('unica', '<', 2)->where('id_entidad', $id_entidad)->where('modulo', $modulo)->with(['usuarios' => function ($query) use ($modulo){
-            $query->where('modulo', $modulo)->where('nivel', 3);
-        }])->get();
+
+        $modulo = $ctx['modulo'];
+
+        $escuelas_supervisores = Escuela2::select('id', 'escuela', 'escuela_key')
+            ->where('status', 'a')
+            ->where('unica', '<', 2)
+            ->where('id_entidad', $id_entidad)
+            ->where('modulo', $modulo)
+            ->with(['usuarios' => function ($query) use ($modulo) {
+                $query->where('modulo', $modulo)->where('nivel', 3);
+            }])
+            ->get();
+
         return view('siben.supervisores', compact(
             'escuelas_supervisores',
             'nivel'
-            ));
-
+        ));
     }
+
     /**
-   * activaSupervisor
-   * Cambiamos el status de 'x' a 'a' en el supervisor
-   * indicado. Además se actualiza el nombre en caso necesario
-   */
-  public function activaSupervisor (Request $request, $id = null) {
-    if ($id && ($request->isMethod('post') || $request->isMethod('put'))){
-        $supervisor = Usuario::find($id);
-        if($supervisor && $supervisor->nivel == 3){
-            $data = $request->input('Usuario', $request->all());
-            $data['status'] = 'a';
-            $supervisor->update($data);
-        }
-    }
-    return redirect()->back();
-  }
-
-   /**
-   * coordinadores
-   * Creamos las relaciones entre coordinadores y licenciaturas
-   */
-  public function coordinadores (Request $request) {
-    $id_escuela = session('Usuario.id_escuela');
-    if($request->isMethod('post') || $request->isMethod('put')){
-        $datosLicenciaturas =  $request->input('EscuelaLicenciatura', $request->input('data.EscuelaLicenciatura'));
-        if(!empty($datosLicenciaturas)){
-            foreach ($datosLicenciaturas as $id => $id_personal) {
-                $lic = explode('-', $id);
-                $id_licenciatura = $lic[1] ?? null;
-                if($id_licenciatura){
-                    EscuelaLicenciatura::where('id_escuela', $id_escuela)->where('id_licenciatura', $id_licenciatura)->update(['id_personal' => $id_personal]);
-                }
+     * activaSupervisor
+     * Cambiamos el status de 'x' a 'a' en el supervisor
+     * indicado. Además se actualiza el nombre en caso necesario
+     */
+    public function activaSupervisor(Request $request, $id = null)
+    {
+        if ($id && ($request->isMethod('post') || $request->isMethod('put'))) {
+            $supervisor = Usuario::find($id);
+            if ($supervisor && $supervisor->nivel == 3) {
+                $data = $request->input('Usuario', $request->all());
+                $data['status'] = 'a';
+                $supervisor->update($data);
             }
         }
-        return redirect('/siben/editaDatos');
+
+        return redirect()->back();
     }
-    $anterior = true;
 
-    $escuelaLicenciaturas = EscuelaLicenciatura::with(['licenciatura', 'personal'])->where('id_escuelas', $id_escuela)->get()->unique('id_licenciatura');
-    $licenciaturas = $escuelaLicenciaturas->mapWithKeys(function ($item){
-        $nombre = $item->licenciatura ? $item->licenciatura->licenciatura : 'sin definir';
-        return [$item->id_licenciatura => $nombre];
-    });
-
-    $elegidos = $escuelaLicenciaturas->mapWithKeys(function ($item){
-        $personalId = $item->personal ? $item->personal->id : $item->personal;
-        return [$item->id_licenciatura => $personalId];
-    });
-
-    $coordinadoresData = personal::where('id_escuela', $id_escuela)->where('id_funcion', 4)->orderBy('id_funcion')->get();
-
-    $coordinadores = $coordinadoresData->mapWithKeys(function ($personal){
-        $nombreCompleto = trim("{$personal->nombre} {$personal->apellido_paterno} {$personal->apellido_materno}");
-        return [$personal->id_licenciatura => $nombreCompleto];
-    });
-    return view('siben.coordinadores', compact(
-        'anterior',
-        'licenciaturas',
-        'elegidos',
-        'coordinadores'
-    ));
-  }
     /**
-   * avancePersonal
-   * Monitorear el avance en la captura del personal por escuela.
-   * Si el id_entidad es nulo, se verifica que sea administrador (dgespe)
-   */
-  public function avancePersonal (Request $request, $id_entidad = null) {
-    $nivel = session('Usuario.nivel');
-
-    if(in_array($nivel, [2, 6])){
-        $id_entidad = session('Usuario.id_entidad');
-    }
-    $modulo = session('Usuario.modulo');
-
-    $escuelas = Escuela2::select('id', 'escuela')->where('id_entidad', $id_entidad)->where('status', 'a')->where('unica', [0,1])->where('modulo', $modulo)->orderBy('escuela')->get();
-
-    $escuelas->transform(function ($escuela) use ($modulo){
-        $status = EscuelaStatus::where('id_escuela', $escuela->id)->where('modulo', $modulo)->first();
-
-        $cantidadPersonal = $status ? $status->cantidad_personal : 0;
-
-        $cuenta = Personal::where('id_escuela', $escuela->id)->where('status', 'a')->distinct('curp')->count('curp');
-
-        $porcentaje = ($cantidadPersonal == 0) ? 0 : round($cuenta / $cantidadPersonal, 2);
-
-        $escuela->cantidad_personal = $cantidadPersonal;
-        $escuela->captura_personal  = $cuenta;
-        $escuela->porcentaje        = $porcentaje;
-        return $escuela;
-    });
-    return view('siben.avance_personal');
-  }
-
-public function avanceAlumnos(Request $request, $id_entidad = null)
+     * coordinadores
+     * Creamos las relaciones entre coordinadores y licenciaturas
+     */
+    public function coordinadores(Request $request)
     {
-        $nivel = session('Usuario.nivel');
+        $id_escuela = $this->contexto()['id_escuela'];
 
-        if (in_array($nivel, [2, 6])) {
-            $id_entidad = session('Usuario.id_entidad');
+        if ($request->isMethod('post') || $request->isMethod('put')) {
+            $datosLicenciaturas = $request->input('EscuelaLicenciatura', $request->input('data.EscuelaLicenciatura'));
+
+            if (!empty($datosLicenciaturas)) {
+                foreach ($datosLicenciaturas as $id => $id_personal) {
+                    $lic             = explode('-', $id);
+                    $id_licenciatura = $lic[1] ?? null;
+
+                    if ($id_licenciatura) {
+                        EscuelaLicenciatura::where('id_escuela', $id_escuela)
+                            ->where('id_licenciatura', $id_licenciatura)
+                            ->update(['id_personal' => $id_personal]);
+                    }
+                }
+            }
+
+            return redirect()->route('siben.editaDatos');
         }
 
-        $modulo = session('Usuario.modulo');
+        $anterior = true;
+
+        $escuelaLicenciaturas = EscuelaLicenciatura::with(['licenciatura', 'personal'])
+            ->where('id_escuela', $id_escuela)
+            ->get()
+            ->unique('id_licenciatura');
+
+        $licenciaturas = $escuelaLicenciaturas->mapWithKeys(function ($item) {
+            $nombre = $item->licenciatura ? $item->licenciatura->licenciatura : 'sin definir';
+            return [$item->id_licenciatura => $nombre];
+        });
+
+        $elegidos = $escuelaLicenciaturas->mapWithKeys(function ($item) {
+            $personalId = $item->personal ? $item->personal->id : $item->id_personal;
+            return [$item->id_licenciatura => $personalId];
+        });
+
+        $coordinadoresData = Personal::where('id_escuela', $id_escuela)
+            ->where('id_funcion', 4)
+            ->orderBy('id_funcion')
+            ->get();
+
+        $coordinadores = $coordinadoresData->mapWithKeys(function ($personal) {
+            $nombreCompleto = trim("{$personal->nombre} {$personal->apellido_paterno} {$personal->apellido_materno}");
+            return [$personal->id => $nombreCompleto];
+        });
+
+        return view('siben.coordinadores', compact(
+            'anterior',
+            'licenciaturas',
+            'elegidos',
+            'coordinadores'
+        ));
+    }
+
+    /**
+     * avancePersonal
+     * Monitorear el avance en la captura del personal por escuela.
+     * Si el id_entidad es nulo, se verifica que sea administrador (dgespe)
+     */
+    public function avancePersonal(Request $request, $id_entidad = null)
+    {
+        $ctx = $this->contexto();
+
+        $nivel = $ctx['nivel'];
+        if (in_array($nivel, [2, 6])) {
+            $id_entidad = $ctx['id_entidad'];
+        }
+
+        $modulo = $ctx['modulo'];
+
+        $escuelas = Escuela2::select('id', 'escuela')
+            ->where('id_entidad', $id_entidad)
+            ->where('status', 'a')
+            ->whereIn('unica', [0, 1])
+            ->where('modulo', $modulo)
+            ->orderBy('escuela')
+            ->get();
+
+        $escuelas->transform(function ($escuela) use ($modulo) {
+            $status = EscuelaStatus::where('id_escuela', $escuela->id)
+                ->where('modulo', $modulo)
+                ->first();
+
+            $cantidadPersonal = $status ? $status->cantidad_personal : 0;
+
+            $cuenta = Personal::where('id_escuela', $escuela->id)
+                ->where('status', 'a')
+                ->distinct('curp')
+                ->count('curp');
+
+            $porcentaje = ($cantidadPersonal == 0) ? 0 : round($cuenta / $cantidadPersonal, 2);
+
+            $escuela->cantidad_personal = $cantidadPersonal;
+            $escuela->captura_personal  = $cuenta;
+            $escuela->porcentaje        = $porcentaje * 100;
+
+            return $escuela;
+        });
+
+        return view('siben.avance_personal', compact('escuelas'));
+    }
+
+    public function avanceAlumnos(Request $request, $id_entidad = null)
+    {
+        $ctx = $this->contexto();
+
+        $nivel = $ctx['nivel'];
+        if (in_array($nivel, [2, 6])) {
+            $id_entidad = $ctx['id_entidad'];
+        }
+
+        $modulo = $ctx['modulo'];
 
         $escuelas = Escuela2::select('id', 'escuela')
             ->where('id_entidad', $id_entidad)
@@ -782,8 +1042,10 @@ public function avanceAlumnos(Request $request, $id_entidad = null)
 
     public function avanceEscuela(Request $request)
     {
-        $id_escuela = session('Usuario.id_escuela');
-        $modulo     = session('Usuario.modulo');
+        $ctx = $this->contexto();
+
+        $id_escuela = $ctx['id_escuela'];
+        $modulo     = $ctx['modulo'];
 
         $escuela = Escuela2::find($id_escuela);
 
@@ -829,36 +1091,38 @@ public function avanceAlumnos(Request $request, $id_entidad = null)
 
     public function finalizaCaptura(Request $request)
     {
-        $nivel = session('Usuario.nivel');
+        $ctx = $this->contexto();
+
+        $nivel = $ctx['nivel'];
         if ($nivel != 3) {
             return redirect()->back();
         }
 
-        $id_escuela = session('Usuario.id_escuela');
-        $modulo     = session('Usuario.modulo');
+        $id_escuela = $ctx['id_escuela'];
+        $modulo     = $ctx['modulo'];
 
         $escuelaStatus = EscuelaStatus::where('id_escuela', $id_escuela)
             ->where('modulo', $modulo)
             ->first();
 
         if ($escuelaStatus) {
-            $escuelaStatus->update([
-                'captura' => '0'
-            ]);
+            $escuelaStatus->update(['captura' => '0']);
         }
 
-        return redirect('/siben/listados');
+        return redirect()->route('siben.listados');
     }
 
     public function oficializarInformacion(Request $request)
     {
-        $nivel = session('Usuario.nivel');
+        $ctx = $this->contexto();
+
+        $nivel = $ctx['nivel'];
         if ($nivel != 3) {
             return redirect()->back();
         }
 
-        $id_escuela = session('Usuario.id_escuela');
-        $modulo     = session('Usuario.modulo');
+        $id_escuela = $ctx['id_escuela'];
+        $modulo     = $ctx['modulo'];
 
         EscuelaStatus::where('id_escuela', $id_escuela)
             ->where('modulo', $modulo)
@@ -867,12 +1131,13 @@ public function avanceAlumnos(Request $request, $id_entidad = null)
                 'oficializar_fecha' => now()->format('Y-m-d'),
             ]);
 
-        return redirect('/siben/listados');
+        return redirect()->route('siben.listados');
     }
-  /**
-   * especialidades
-   * Actualiza la lista de especialidades... para ajax
-   */
+
+    /**
+     * especialidades
+     * Actualiza la lista de especialidades... para ajax
+     */
     public function especialidades(Request $request)
     {
         $id_licenciatura = $request->input('EscuelaLicenciatura.id_licenciatura', $request->input('id_licenciatura'));
@@ -882,101 +1147,127 @@ public function avanceAlumnos(Request $request, $id_entidad = null)
 
         return view('elements.opciones', compact('opciones'));
     }
-      /**
-   * modalidades
-   * Para actualizar la lista de modalidades usando ajax
-   */
-   public function modalidades (Request $request) {
+
+    /**
+     * modalidades
+     * Para actualizar la lista de modalidades usando ajax
+     */
+    public function modalidades(Request $request)
+    {
         $id_licenciatura = $request->input('EscuelaLicenciatura.id_licenciatura', $request->input('id_licenciatura'));
 
         $opciones = ['e' => 'Escolarizada'];
 
-        if(in_array($id_licenciatura, [6, 11, 14])){ // secundaria, docencia tecnológica y artística escolar pueden darse en mixta
+        if (in_array($id_licenciatura, [6, 11, 14])) { // secundaria, docencia tecnológica y artística escolar pueden darse en mixta
             $opciones['m'] = 'mixta';
         }
+
         return view('elements.opciones', compact('opciones'));
-   }
-   public function statusUsuario (Request $request, $id_usuario = null, $status = null) {
-     $nivel = session('Usuario.nivel');
-     if ($nivel != 1) {
-      return redirect()->route('login');
     }
-    if($id_usuario){
-        $usuario = Usuario::find($id_usuario);
 
-        if($usuario){
-            if(!$status){
-                $status = ($usuario->status === 'a') ? 'x' : 'a';
-            }
-            $usuario->update(['status' => $status]);
-        }
-    }
-    return redirect()->back();
-   }
-   public function nombreUsuario (Request $request) {
-    $nivel = session('Usuario.nivel');
-    if ($nivel != 1) {
-      return redirect()->route('login');
-    }
-    if ($request->isMethod('post') || $request->isMethod('put')) {
-        $id     = $request->input('Usuario.id', $request->input('id'));
-        $nombre = $request->input('Usuario.nombre', $request->input('nombre'));
-
-        if($id && $nombre){
-            $usuario = Usuario::find($id);
-            if($usuario){
-                $usuario->update([
-                    'nombre'             => $nombre,
-                    'correo_electronico' => $request->input('Usuario.correo_electronico', $request->input('correo_electronico'))
-                ]);
-            }
-        }
-    }
-    return redirect()->back();
-   }
-   public function listaUsuarios (Request $request, $id_renapo = 'DF') {
-    $nivel =session('Usuario.nivel');
-     if ($nivel != 1) {
-      return redirect()->route('login');
-    }
-    $modulo = session('Usuario.modulo');
-
-    $entidades = Entidad::pluck('entidad', 'id_renapo');
-
-    $query = Ususario::where('modulo', $modulo)->orderBy('id_usuario');
-
-    if($id_renapo ==='NE'){
-        $query->whereIn('nivel', [2]);
-    } else {
-        $query->whereIn('nivel', [2,3,4])->where('id_renapo', $id_renapo);
-    }
-    $usuario = $query->get();
-
-    return view('siben.lista_usuarios', compact('usuarios', 'entidades'));
-   }
-   public function cambiaCaptura (Request $request, $id_escuela = null, $captura = null,$modulo =null,$id_entidad=null) {
-    if($id_escuela){
-        $query = EscuelaStatus::where('id_escuela', $id_escuela)->where('modulo', $modulo);
-        if($captura !== null){
-            $query->where('captura', $captura);
-        }
-        $status = $query->first();
-        if($status){
-            $nuevaCaptura = ($status->captura == 0) ? 1 : 0;
-            $status->update(['captura' => $nuevaCaptura]);
-        }
-    }
-    return redirect("/siben/captura/{$id_entidad}/{$modulo}");
-   }
-   
-   public function captura (Request $request, $id_entidad=null, $modulo =null) {
-     $nivel = session('Usuario.nivel');
+    public function statusUsuario(Request $request, $id_usuario = null, $status = null)
+    {
+        $nivel = $this->contexto()['nivel'];
         if ($nivel != 1) {
-          return redirect()->route('login');
+            return redirect()->route('login');
         }
+
+        if ($id_usuario) {
+            $usuario = Usuario::find($id_usuario);
+
+            if ($usuario) {
+                if (!$status) {
+                    $status = ($usuario->status === 'a') ? 'x' : 'a';
+                }
+                $usuario->update(['status' => $status]);
+            }
+        }
+
+        return redirect()->back();
+    }
+
+    public function nombreUsuario(Request $request)
+    {
+        $nivel = $this->contexto()['nivel'];
+        if ($nivel != 1) {
+            return redirect()->route('login');
+        }
+
+        if ($request->isMethod('post') || $request->isMethod('put')) {
+            $id     = $request->input('Usuario.id', $request->input('id'));
+            $nombre = $request->input('Usuario.nombre', $request->input('nombre'));
+
+            if ($id && $nombre) {
+                $usuario = Usuario::find($id);
+                if ($usuario) {
+                    $usuario->update([
+                        'nombre'             => $nombre,
+                        'correo_electronico' => $request->input('Usuario.correo_electronico', $request->input('correo_electronico')),
+                    ]);
+                }
+            }
+        }
+
+        return redirect()->back();
+    }
+
+    public function listaUsuarios(Request $request, $id_renapo = 'DF')
+    {
+        $nivel = $this->contexto()['nivel'];
+        if ($nivel != 1) {
+            return redirect()->route('login');
+        }
+
+        $modulo = $this->contexto()['modulo'];
+
+        $entidades = Entidad::pluck('entidad', 'id_renapo');
+
+        $query = Usuario::where('modulo', $modulo)->orderBy('id_usuario');
+
+        if ($id_renapo === 'NE') {
+            $query->whereIn('nivel', [2]);
+        } else {
+            $query->whereIn('nivel', [2, 3, 4])->where('id_renapo', $id_renapo);
+        }
+
+        $usuarios = $query->get();
+
+        return view('siben.lista_usuarios', compact('usuarios', 'entidades'));
+    }
+
+    public function cambiaCaptura(Request $request, $id_escuela = null, $captura = null, $modulo = null, $id_entidad = null)
+    {
+        if ($id_escuela) {
+            $query = EscuelaStatus::where('id_escuela', $id_escuela)->where('modulo', $modulo);
+            if ($captura !== null) {
+                $query->where('captura', $captura);
+            }
+            $status = $query->first();
+            if ($status) {
+                $nuevaCaptura = ($status->captura == 0) ? 1 : 0;
+                $status->update(['captura' => $nuevaCaptura]);
+            }
+        }
+
+        return redirect()->route('siben.captura', ['id_entidad' => $id_entidad, 'modulo' => $modulo]);
+    }
+
+    public function captura(Request $request, $id_entidad = null, $modulo = null)
+    {
+        $nivel = $this->contexto()['nivel'];
+        if ($nivel != 1) {
+            return redirect()->route('login');
+        }
+
         $entidades = Entidad::where('id', '<', 33)->pluck('entidad', 'id');
-        
-        $escuelas = Escuelas2::select('id', 'escuela_key', 'escuela', 'captura')->where('id_entidad')->where('unica', [0, 1])->where('modulo', $modulo)->where('status', 'a')->orderBy('escuela')->get();
+
+        $escuelas = Escuela2::select('id', 'escuela_key', 'escuela', 'captura')
+            ->where('id_entidad', $id_entidad)
+            ->whereIn('unica', [0, 1])
+            ->where('modulo', $modulo)
+            ->where('status', 'a')
+            ->orderBy('escuela')
+            ->get();
 
         return view('siben.captura', compact(
             'escuelas',
@@ -984,142 +1275,175 @@ public function avanceAlumnos(Request $request, $id_entidad = null)
             'id_entidad',
             'modulo'
         ));
-   }
-   /**
-   * imagenEscuela
-   * Subimos una imágen de la escuela en cuestión
-   */
-  public function imagenEscuela (Request $request) {
-    $nivel = session('Usuario.nivel');
-    if ($nivel != 4) {
-    return redirect('/siben');
     }
-    $id_escuela =session('Usuario.id_escuela');
-    $escuela_key = Escuela2::where('id', $id_escuela)->value('escuela_key');
 
-    $imagenes = [];
-    $indice = 1;
-    $id = 1;
-
-    for($i = 6; $i >= 1; $i--){
-        $rutaImagen = public_path("img/escuelas/big/{$escuela_key}_{$i}.jpg");
-
-        if(file_exists($rutaImagen)){
-            $imagenes[$i] = $i;
-            $indice++;
-        }else {
-            $imagenes[$i] = 0;
-            $id = $i;
+    /**
+     * imagenEscuela
+     * Subimos una imágen de la escuela en cuestión
+     */
+    public function imagenEscuela(Request $request)
+    {
+        $nivel = $this->contexto()['nivel'];
+        if ($nivel != 4) {
+            return redirect()->route('siben.index');
         }
-    }
-    $subir = ($indice <= 6);
-    $anterior = 'datosEscuela';
 
-    ksort($imagenes);
-
-    return view('siben.imagen_escuela', compact(
-        'subir',
-        'escuela_key',
-        'anterior',
-        'imagenes',
-        'id'
-    ));
-  }
-  public function subeImagen (Request $request, $id) {
-    if($request->hasFile('imagen') || $request->isMethod('post')){
-        $id_escuela = session('Usuario.id_escuela');
+        $id_escuela = $this->contexto()['id_escuela'];
         $escuela_key = Escuela2::where('id', $id_escuela)->value('escuela_key');
 
-        if($request->hasFile('imagen') && $escuela_key){
-            $file = $request->file('imagen');
-            $nombreArchivo = "{$escuela_key}_{$id}.jpg";
+        $imagenes = [];
+        $indice   = 1;
+        $id       = 1;
 
-            $file->move(public_path('img/escuelas/big'), $nombreArchivo);
+        for ($i = 6; $i >= 1; $i--) {
+            $rutaImagen = public_path("img/escuelas/big/{$escuela_key}_{$i}.jpg");
+
+            if (file_exists($rutaImagen)) {
+                $imagenes[$i] = $i;
+                $indice++;
+            } else {
+                $imagenes[$i] = 0;
+                $id = $i;
+            }
         }
-    }
-    return redirect('/siben/imagenEscuela');
-  }
 
-  public function borraImagen (Request $request, $id) {
-    $id_escuela = session('Usuario.id_escuela');
-    $escuela_key = Escuela2::where('id', $id_escuela)->value('escuela_key');
-    if($escuela_key){
-        $rutaImagenBig = public_path("img/escuelas/big/{$escuela_key}_{$id}.jpg");
-        if(File::exist($rutaImagenBig)){
-            File::delete($rutaImagenBig);
-        }
-    }
-    return redirect('/siben/imagenEscuela');
-  }
-  public function curpAlumno (Request $request, $id_alumno = null) {
-    $id_escuela = session('Usuario.id_escuela');
-    $alumno = Alumno::select('id', 'nombre', 'apellido_paterno', 'apellido_materno', 'curp')->where('id', $id_alumno)->firstOrFail();
+        $subir    = ($indice <= 6);
+        $anterior = 'datosEscuela';
 
-    if($request->isMethod('post') || $request->isMethod('put')){
-        $request->validate(['curp' => 'required|string|size:18']);
-        $alumno->update(['curp' => strtoupper($request->input('curp'))]);
-        return redirect()->back()->with('success', 'La CURP ha sido actualizada correctamente.');
-    }
-    return view('alumnos.curp_emergencia', compact('alumno'));
-  }
-  public function listaAlumnos (Request $request, $semestre = null) {
-    $id_escuela = session('usuario.id_escuela');
-    
-    $alumnos = collect();
+        ksort($imagenes);
 
-    if($semestre){
-        $alumnos = Alumno::select([
-            'id',
-            'curp',
-            'nombre',
-            'apellido_paterno',
-            'apellido_materno',
-            'semestre',
-            'id_licenciatura',
-            'status'
-        ])->where('id_escuela', $id_escuela)->where('status', '!=', 'e')->where('semestre', $semestre)->orderBy('semestre', 'asc')->orderBy('apellido_paterno', 'asc')->orderBy('apellido_materno'. 'asc')->orderBy('nombre', 'asc')->get();
-    }
-    $semestres = ['1' => '1', '2' => '2', '3' => '3', '4' => '4', '5' => '5', '6' => '6', '7' => '7', '8' => '8', '9' => '9', '10' => '10', '11' => '11',];
-
-    return view('alumnos.lista', compact(
-        'alumnos',
-        'semestres',
-        'semestre'
-    ));
-  }
-
-  public function pruebaVerhoeff (Request $request) {
-    $idCalculado = null;
-    $valido      = null;
-
-    if($request->has('Alumno.id')){
-        $i = $request->input('alumno.id');
-        $longitud = strlen($id);
-
-        if($longitud == 7){
-            $idCalculado = $id . Alumno::calculaVerhoeff($id);
-        }else if($longitud == 8){
-            $valido = Alumno::validoVerhoeff($id);
-        }
-    }
-    return view('alumnos.prueba_verhoeff', compact(
-        'idCalculado',
-        'valido'
+        return view('siben.imagen_escuela', compact(
+            'subir',
+            'escuela_key',
+            'anterior',
+            'imagenes',
+            'id'
         ));
-  }
-
-  public function editaAlumno () {
-    $nivel = session('Usuario.nivel');
-
-    if($nivel != 1){
-        return redirect('/siben');
     }
-    $entidades = Entidad::where('id', '<', 33)->pluck('entidad', 'id');
 
-    $semestres = [1 => 1, 2 => 2, 3 => 3, 4 => 4, 5 => 5, 6 => 6, 7 => 7, 8 => 8, 9 => 9, 10 => 10, 11 => 11, 12 => 12, 13 => 13];
-    return view('alumnos.edita_alumno', compact(
-        'semestres',
-        'entidades'
-    ));
-  }
+    public function subeImagen(Request $request, $id)
+    {
+        if ($request->hasFile('imagen') || $request->isMethod('post')) {
+            $id_escuela = $this->contexto()['id_escuela'];
+            $escuela_key = Escuela2::where('id', $id_escuela)->value('escuela_key');
+
+            if ($request->hasFile('imagen') && $escuela_key) {
+                $file         = $request->file('imagen');
+                $nombreArchivo = "{$escuela_key}_{$id}.jpg";
+
+                $file->move(public_path('img/escuelas/big'), $nombreArchivo);
+            }
+        }
+
+        return redirect()->route('siben.imagenEscuela');
+    }
+
+    public function borraImagen(Request $request, $id)
+    {
+        $id_escuela = $this->contexto()['id_escuela'];
+        $escuela_key = Escuela2::where('id', $id_escuela)->value('escuela_key');
+
+        if ($escuela_key) {
+            $rutaImagenBig = public_path("img/escuelas/big/{$escuela_key}_{$id}.jpg");
+            if (File::exists($rutaImagenBig)) {
+                File::delete($rutaImagenBig);
+            }
+        }
+
+        return redirect()->route('siben.imagenEscuela');
+    }
+
+    public function curpAlumno(Request $request, $id_alumno = null)
+    {
+        $id_escuela = $this->contexto()['id_escuela'];
+
+        $alumno = Alumno::select('id', 'nombre', 'apellido_paterno', 'apellido_materno', 'curp')
+            ->where('id', $id_alumno)
+            ->firstOrFail();
+
+        if ($request->isMethod('post') || $request->isMethod('put')) {
+            $request->validate(['curp' => 'required|string|size:18']);
+            $alumno->update(['curp' => strtoupper($request->input('curp'))]);
+
+            return redirect()->back()->with('success', 'La CURP ha sido actualizada correctamente.');
+        }
+
+        return view('alumnos.curp_emergencia', compact('alumno'));
+    }
+
+    public function listaAlumnos(Request $request, $semestre = null)
+    {
+        $id_escuela = $this->contexto()['id_escuela'];
+
+        $alumnos = collect();
+
+        if ($semestre) {
+            $alumnos = Alumno::select([
+                'id',
+                'curp',
+                'nombre',
+                'apellido_paterno',
+                'apellido_materno',
+                'semestre',
+                'id_licenciatura',
+                'status',
+            ])
+                ->where('id_escuela', $id_escuela)
+                ->where('status', '!=', 'e')
+                ->where('semestre', $semestre)
+                ->orderBy('semestre', 'asc')
+                ->orderBy('apellido_paterno', 'asc')
+                ->orderBy('apellido_materno', 'asc')
+                ->orderBy('nombre', 'asc')
+                ->get();
+        }
+
+        $semestres = ['1' => '1', '2' => '2', '3' => '3', '4' => '4', '5' => '5', '6' => '6', '7' => '7', '8' => '8', '9' => '9', '10' => '10', '11' => '11'];
+
+        return view('alumnos.lista', compact(
+            'alumnos',
+            'semestres',
+            'semestre'
+        ));
+    }
+
+    public function pruebaVerhoeff(Request $request)
+    {
+        $idCalculado = null;
+        $valido      = null;
+
+        if ($request->has('Alumno.id')) {
+            $id       = $request->input('Alumno.id');
+            $longitud = strlen($id);
+
+            if ($longitud == 7) {
+                $idCalculado = $id . Alumno::calculaVerhoeff($id);
+            } elseif ($longitud == 8) {
+                $valido = Alumno::validoVerhoeff($id);
+            }
+        }
+
+        return view('alumnos.prueba_verhoeff', compact(
+            'idCalculado',
+            'valido'
+        ));
+    }
+
+    public function editaAlumno()
+    {
+        $nivel = $this->contexto()['nivel'];
+
+        if ($nivel != 1) {
+            return redirect()->route('siben.index');
+        }
+
+        $entidades = Entidad::where('id', '<', 33)->pluck('entidad', 'id');
+
+        $semestres = [1 => 1, 2 => 2, 3 => 3, 4 => 4, 5 => 5, 6 => 6, 7 => 7, 8 => 8, 9 => 9, 10 => 10, 11 => 11, 12 => 12, 13 => 13];
+
+        return view('alumnos.edita_alumno', compact(
+            'semestres',
+            'entidades'
+        ));
+    }
 }
