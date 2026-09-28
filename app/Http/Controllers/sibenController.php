@@ -899,7 +899,7 @@ public function avanceAlumnos(Request $request, $id_entidad = null)
    public function statusUsuario (Request $request, $id_usuario = null, $status = null) {
      $nivel = session('Usuario.nivel');
      if ($nivel != 1) {
-      return redirect('/usuarios/logout');
+      return redirect()->route('login');
     }
     if($id_usuario){
         $usuario = Usuario::find($id_usuario);
@@ -916,7 +916,7 @@ public function avanceAlumnos(Request $request, $id_entidad = null)
    public function nombreUsuario (Request $request) {
     $nivel = session('Usuario.nivel');
     if ($nivel != 1) {
-      return redirect('/usuarios/logout');
+      return redirect()->route('login');
     }
     if ($request->isMethod('post') || $request->isMethod('put')) {
         $id     = $request->input('Usuario.id', $request->input('id'));
@@ -937,7 +937,7 @@ public function avanceAlumnos(Request $request, $id_entidad = null)
    public function listaUsuarios (Request $request, $id_renapo = 'DF') {
     $nivel =session('Usuario.nivel');
      if ($nivel != 1) {
-      return redirect('/usuarios/logout');
+      return redirect()->route('login');
     }
     $modulo = session('Usuario.modulo');
 
@@ -972,7 +972,7 @@ public function avanceAlumnos(Request $request, $id_entidad = null)
    public function captura (Request $request, $id_entidad=null, $modulo =null) {
      $nivel = session('Usuario.nivel');
         if ($nivel != 1) {
-          return redirect('/usuarios/logout');
+          return redirect()->route('login');
         }
         $entidades = Entidad::where('id', '<', 33)->pluck('entidad', 'id');
         

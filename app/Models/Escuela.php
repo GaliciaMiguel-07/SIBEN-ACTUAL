@@ -1,5 +1,4 @@
 <?php
-
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
@@ -38,4 +37,15 @@ class Escuela extends Model
         'turno',
         'origen',
     ];
+
+    // ─── Relaciones ──────────────────────────────────────────────────────────
+
+    /**
+     * Entidad a la que pertenece la escuela.
+     * Clave foránea: escuelas.id_entidad → cat_entidades.id
+     */
+    public function entidad()
+    {
+        return $this->belongsTo(Entidad::class, 'id_entidad');
+    }
 }

@@ -36,4 +36,8 @@ class User extends Authenticatable
     {
         return $this->contrasenia;
     }
+    public function escuela()
+{
+    return $this->belongsTo(Escuela::class, 'id_escuela', 'id');
+}
 }

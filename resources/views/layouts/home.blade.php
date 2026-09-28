@@ -4,35 +4,58 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    
-<x-header />
-
+    <title>SIBEN — Sistema de Información Básica de Escuelas Normales</title>
 </head>
 <body>
-<div class="flag-bannerx" style="background-image: url(https://siben.sep.gob.mx/siben/img/banner_2024.jpeg);  background-size: cover;
-  background-position: center; padding: 140px;  margin-bottom: 80px;"></div>
-  <div style="color: rgb(188, 149, 92); background-color: rgb(255, 255, 255); text-align: center; margin-top: -80px; padding: 14px; font-size: 1.5em; margin-bottom: 0px; font-weight: bold;">Sistema de Información Básica de la Educación Normal (SIBEN)</div>
-  <div class="container">
-  <section class="col-md-12">
-    <div class="infoColumns">
-        <div class="column">
-        <h2>Avisos</h2>
-        <hr class="red">
-        <ul>
-          <li>
-            <b>Estimados usuarios:</b>	<br />
 
-             <br />Les informamos que la captura de SIBEN LICENCIATURAS será del 09 al 27 de marzo de 2026. <br/> 
-			
-          </li>
-      
-                 <br /> Para comunicarse, llamar al conmutador (0155 3600 2511) y marcar la extensión 53640.
-          
-        </ul>
-      </div>
-    </div>
-  </section>
+{{--
+    <x-header /> DEBE ir dentro de <body>, nunca dentro de <head>.
+    En el original estaba dentro de <head>, lo que causaba que el HTML del
+    nav se inyectara en el encabezado del documento (inválido y roto visualmente).
+--}}
+<x-header />
+
+{{--
+    Banner: antes apuntaba a siben.sep.gob.mx (externo, puede cambiar o bloquearse).
+    Ahora usa url('/images/...') que sirve el archivo de resources/images/
+    a través de la ruta /images/{filename} definida en web.php.
+--}}
+<div class="flag-bannerx"
+     style="background-image: url({{ url('/images/banner_2024.jpeg') }});
+            background-size: cover;
+            background-position: center;
+            padding: 140px;
+            margin-bottom: 80px;">
 </div>
+
+<div style="color: rgb(188,149,92); background-color: rgb(255,255,255);
+            text-align: center; margin-top: -80px; padding: 14px;
+            font-size: 1.5em; margin-bottom: 0px; font-weight: bold;">
+    Sistema de Información Básica de la Educación Normal (SIBEN)
+</div>
+
+<div class="container">
+    <section class="col-md-12">
+        <div class="infoColumns">
+            <div class="column">
+                <h2>Avisos</h2>
+                <hr class="red">
+                <ul>
+                    <li>
+                        <b>Estimados usuarios:</b><br><br>
+                        Les informamos que la captura de SIBEN LICENCIATURAS será del
+                        09 al 27 de marzo de 2026.<br>
+                    </li>
+                    <br>
+                    Para comunicarse, llamar al conmutador (0155 3600 2511)
+                    y marcar la extensión 53640.
+                </ul>
+            </div>
+        </div>
+    </section>
+</div>
+
 <x-footer />
+
 </body>
 </html>
