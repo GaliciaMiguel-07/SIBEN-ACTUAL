@@ -12,9 +12,13 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-    $middleware->alias([
-        'verificar.sesion' => VerificarSesion::class,
-    ]);
+        $middleware->alias([
+            'verificar.sesion' => VerificarSesion::class,
+            'nivel'            => \App\Http\Middleware\CheckNivel::class,
+            // CheckModulo y CheckCaptura no existen aún — comentados hasta implementarlos
+            // 'modulo'  => \App\Http\Middleware\CheckModulo::class,
+            // 'captura' => \App\Http\Middleware\CheckCaptura::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

@@ -11,7 +11,7 @@ class VerificarSesion
     public function handle(Request $request, Closure $next): Response
     {
         if (!session()->has('Usuario')) {
-            return redirect()->route('usuarios.login');
+            return redirect()->route('login');        
         }
 
         return $next($request);
