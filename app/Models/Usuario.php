@@ -16,6 +16,7 @@ class Usuario extends Authenticatable
     protected $fillable = [
         'id_usuario',   // login del sistema (varchar)
         'contrasenia',  // contraseña (sha1 o bcrypt)
+        'google2fa_secret',
         'nivel',
         'modulo',
         'id_escuela',
@@ -26,7 +27,7 @@ class Usuario extends Authenticatable
     ];
 
     // Ocultar la contraseña al serializar (ej. en JSON o logs)
-    protected $hidden = ['contrasenia'];
+    protected $hidden = ['contrasenia','google2fa_secret'];
 
     // ─── Autenticación (Laravel Auth) ────────────────────────────────────────
 

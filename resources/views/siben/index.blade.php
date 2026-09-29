@@ -6,6 +6,17 @@
 
 <h3>Bienvenido, {{ auth()->user()->nombre }}</h3>
 
+{{-- Mensajes flash de acciones (2FA, cambio de contraseña, etc.) --}}
+@if (session('ok'))
+    <div class="alert alert-success text-center" style="margin-top: 15px;">
+        {{ session('ok') }}
+    </div>
+@endif
+@if (session('error'))
+    <div class="alert alert-danger text-center" style="margin-top: 15px;">
+        {{ session('error') }}
+    </div>
+@endif
 
 @include('layouts.siben.menu')
 

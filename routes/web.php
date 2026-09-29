@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Response;
 use App\Http\Controllers\Admin\UsuarioController;
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\Auth\TwoFactorController;
 use App\Http\Controllers\DashboardController;
 
 // ─── Rutas públicas ──────────────────────────────────────────────────────────
@@ -15,6 +16,18 @@ Route::get('/', fn() => view('layouts.home'))->name('home');
 Route::get ('/login',  [LoginController::class, 'showForm'])->name('login');
 Route::post('/login',  [LoginController::class, 'login']);
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
+
+// ─── 2FA ─────────────────────────────────────────────────────────────────────
+// Verificación del código (usuario aún NO autenticado)
+Route::get ('/2fa/verificar', [TwoFactorController::class, 'showVerifyForm'])->name('2fa.verificar');
+Route::post('/2fa/verificar', [TwoFactorController::class, 'verify'])->name('2fa.verificar.post');
+
+// Configuración (requiere sesión activa)
+Route::middleware('auth')->group(function () {
+    Route::get ('/2fa/configurar', [TwoFactorController::class, 'showSetup'])->name('2fa.configurar');
+    Route::post('/2fa/configurar', [TwoFactorController::class, 'enable'])->name('2fa.configurar.post');
+    Route::post('/2fa/desactivar', [TwoFactorController::class, 'disable'])->name('2fa.desactivar');
+});
 
 // Imágenes en resources/images/ (fuera de public/) — asset() no las alcanza
 Route::get('/images/{filename}', function (string $filename) {

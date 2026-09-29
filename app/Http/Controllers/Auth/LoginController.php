@@ -71,6 +71,12 @@ class LoginController extends Controller
                 'login' => 'La contraseña es incorrecta.',
             ])->withInput();
         }
+        if ($usuario->google2fa_secret){
+            session(['2fa_pending_user' => $usuario->id]);
+            $request->session()->regenerate();
+
+            return redirect()->route('2fa.verificar');
+        }
 
         Auth::login($usuario, $request->boolean('remember'));
         $request->session()->regenerate();
@@ -85,5 +91,6 @@ class LoginController extends Controller
         $request->session()->regenerateToken();
 
         return redirect()->route('login');
+
     }
 }
