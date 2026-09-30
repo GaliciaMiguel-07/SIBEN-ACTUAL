@@ -1682,4 +1682,676 @@ class sibenController extends Controller
         }
         return redirect()->route('siben.editaDomicilio');
     }
+    public function eligeTipo() {
+        $entidades = Entidad::where('id', '<', 33)->pluck('entidad', 'id');
+
+        $modulo = [
+            'l' => 'licenciatura',
+            'p' => 'posgrado'
+        ];
+        $anterior = true;
+
+        return view('siben.elige_tipo', compact(
+            'modulo',
+            'entidades',
+            'anterior'
+        ));
+    }
+    public function listaEscuelas(Request $request) {
+        $ctx = $this->contexto();
+        $nivel = $ctx['nivel'];
+
+        if($nivel != 1){
+            return redirect()->route('logout');
+        }
+
+        $id_entidad = $request->input('Escuela.id_entidad', $request->input('id_entidad'));
+        $modulo     = $request->input('Escuela.modulo', $request->input('modulo'));
+
+        $escuelas = Escuelas2::select('id', 'escuela', 'escuela_key', 'modulo', 'captura')
+            ->where('id_entidad', $id_entidad)
+            ->whereIn('unica', ['0', '1'])
+            ->where('modulo', $modulo)
+            ->where('status', 'a')
+            ->orderBy('id')
+            ->orderBy('escuela')
+            ->get();
+        $cabeceras = ['No.', 'Escuela', 'Clave', 'modulo', 'Status'];
+        $renglones = [];
+
+        foreach($escuelas as $escuela){
+            $titulo = ($escuela->captura == '1') ? 'Cerrar' : 'Abrir';
+
+            $urlCambiaCaptura = route('siben.cambiaCaptura', [
+                'id'      => $escuela->id,
+                'captura' => $escuela->captura,
+                'modulo'  => $escuela->modulo,
+            ]);
+            $evento = "locacion('{$urlCambiaCaptura}')";
+            $boton = '<input type ="button" id="b_' . $escuela->id . '"onclick="' . $evento .'" value="' . $titulo . '"/>';
+
+            $renglones[$escuela->id] = [
+                'escuela' => $escuela->escuela,
+                'escuela_key' => $escuela->escuela_key,
+                'modulo' => $escuela->modulo,
+                'captura' => $boton,
+            ];
+        }
+        return view('elements.tablaAjax', compact(
+            'cabeceras',
+            'renglones'
+        ));
+    }
+
+    public function directoresEscuela(Request $request, $opc = null) {
+        $ctx = $this->contexto();
+
+        $modulo        = $ctx['modulo'];
+        $nivel         = $ctx['nivel'];
+        $id_escuela    = $ctx['id_escuela'];
+        $nombreEscuela = session('Usuario.escuela');
+
+        if ($modulo != 'l') {
+            return redirect()->route('siben.index');
+        }
+
+        $title = 'Datos Generales, ' . $nombreEscuela;
+
+        $cuentaDirector = session('Usuario.cuenta_director', 0);
+        $mensaje = '';
+        if ($cuentaDirector >= 2) {
+            $mensaje = '.:: Solo debe haber un director por escuela, elimine los directores no activos ::.';
+        }
+
+        $escuela = Escuela::find($id_escuela);
+
+        $directivos = Personal::with('funcion:id,funcion')
+            ->where('id_escuela', $id_escuela)
+            ->where('id_funcion', 1)
+            ->where('status', 'a')
+            ->orderBy('id_funcion')
+            ->get(['id', 'nombre', 'apellido_paterno', 'apellido_materno', 'correo_electronico', 'id_funcion']);
+
+        // Consultar coordinadores por licenciatura
+        $licenciaturas = EscuelaLicenciatura::with([
+                'licenciatura:id,licenciatura',
+                'personal:id,nombre,apellido_paterno,apellido_materno,correo_electronico'
+            ])
+            ->where('id_escuela', $id_escuela)
+            ->groupBy('id_licenciatura')
+            ->get();
+
+        // URLs para eventos AJAX / Redirecciones
+        $urlCoordinadores = route('siben.editaCoordinadores');
+        $urlDirector      = route('siben.busquedaDirector');
+
+        $parametrosCoordinadores = "data[Escuela][id]={$id_escuela}";
+        $eventoCoordinadores     = "consultaAjax('{$urlCoordinadores}', '{$parametrosCoordinadores}', muestraOverlay, muestraOcupado)";
+
+        // Construcción de botones según el nivel de usuario
+        $botones = [];
+        switch ($nivel) {
+            case 3:
+                $botones['coordinadores'] = "<input id='c_{$id_escuela}' type='button' value='Editar' onclick=\"{$eventoCoordinadores}\" />";
+                $botones['director']      = "<input id='c_{$id_escuela}' type='button' value='Activar director' onclick=\"window.location.href='{$urlDirector}'\" />";
+                break;
+            case 4:
+                $botones['coordinadores'] = '';
+                $botones['director']      = '';
+                break;
+        }
+
+        // Control de botones de navegación (Siguiente / Atrás)
+        $anterior = false;
+        if ($opc == 'e') {
+            $eventoAtras    = "locacion('" . route('siben.matricula') . "')";
+            $eventoAdelante = "locacion('" . route('siben.editaDomicilio') . "')";
+
+            $botones['atras']    = "<input type='button' value='Atras' onclick=\"{$eventoAtras}\" />";
+            $botones['adelante'] = "<input type='button' value='Siguiente' onclick=\"{$eventoAdelante}\" />";
+        } else {
+            $botones['adelante'] = '';
+            $botones['atras']    = '';
+            $anterior            = true;
+        }
+
+        return view('siben.directores_escuela', compact(
+            'title',
+            'escuela',
+            'mensaje',
+            'directivos',
+            'licenciaturas',
+            'botones',
+            'anterior'
+        ));
+    }
+    public function matricula (Request $request) {
+        $ctx = $this->contexto();
+
+        $nivel   = $ctx['nivel'];
+        $captura = $ctx['captura'];
+
+        if($nivel != 3 || $captura != 1) {
+            return redirect()->route('siben.index');
+        }
+        $id_escuela  = $ctx['id_escuela'];
+        $modulo      = $ctx['modulo'];
+        $escuela     = session('Usuario.escuela');
+        $cuentaClave = session('Usuario.cuenta_clave', 0);
+
+        $title = 'Edición Datos Generales, ' . $escuela;
+
+        if($request->isMethod('post') || $request->isMethod('put')){
+            $capturista = Usuario::where('d_escuela', $id_escuela)->where('modulo', $modulo)->where('nivel', '4')->first();
+
+            $status = EscuelaStatus::where('id_escuela', $id_escula)->where('modulo', $modulo)->first();
+
+            if($status){
+                $datosStatus = $request->input('EscuelaStatus', $request->input('data.EscuelaStatus', []));
+
+                $statusUpdate = \Illuminate\Support\Arr::only($datosStatus, ['cantidad_alumnos', 'cantidad_personal']);
+
+                if(!empty($statusUpdate)){
+                    $capturista->update($usuarioUpdate);
+                }
+            }
+        }
+        $capturista = Usuario::where('id_escuela', $id_escuela)->where('modulo', $modulo)->first();
+
+        $mensaje= ($cuentaClave > 0) ? 'Por favor, ingrese una clave de centro de trabajo a cada entrada' : '';
+
+        return view('siben.matricula', compact(
+            'title',
+            'capturista',
+            'status',
+            'mensaje'
+        ));
+    }
+    /**
+     * Realiza la baja lógica (status = 'x') de un directivo de la escuela.
+     */
+    public function eliminaDirectivo($id = null) {
+        if ($id) {
+            $id_escuela = $this->contexto()['id_escuela'];
+
+            // Se verifica que el registro exista y pertenezca a la escuela actual
+            $personal = Personal::where('id', $id)
+                ->where('id_escuela', $id_escuela)
+                ->first();
+
+            if ($personal) {
+                try {
+                    // Actualización segura utilizando Eloquent en lugar de consulta SQL directa
+                    $personal->update(['status' => 'x']);
+                } catch (\Exception $e) {
+                    return response('Error: Inténtelo de nuevo, por favor', 400);
+                }
+            }
+        }
+
+        return redirect()->route('siben.directoresEscuela', ['opc' => 'e']);
+    }
+    /**
+     * Consulta la infraestructura, datos físicos, licenciaturas e imágenes de la escuela.
+     */
+    public function estructuraEscuela(Request $request, $opc = null) {
+        $ctx = $this->contexto();
+
+        $modulo            = $ctx['modulo'];
+        $nivel             = $ctx['nivel'];
+        $id_escuela        = $ctx['id_escuela'];
+        $nombreEscuela     = session('Usuario.escuela');
+        $estado_estructura = session('Usuario.estructura');
+
+        // Redirección si no pertenece al módulo de licenciaturas
+        if ($modulo != 'l') {
+            return redirect()->route('siben.index');
+        }
+
+        $title = 'Datos Generales, ' . $nombreEscuela;
+
+        // Consultar la escuela con su relación de características/estructura
+        $escuela       = Escuela::with('caracteristicaEscuela')->find($id_escuela);
+        $escuela_key   = $escuela ? $escuela->escuela_key : '';
+        $estructura    = $escuela ? $escuela->caracteristicaEscuela : null;
+        $id_estructura = $estructura ? $estructura->id : null;
+
+        $mensaje = '';
+
+        // Consultar licenciaturas asociadas
+        $licenciaturas = EscuelaLicenciatura::with([
+                'licenciatura:id,licenciatura',
+                'personal:id,nombre,apellido_paterno,apellido_materno,correo_electronico'
+            ])
+            ->where('id_escuela', $id_escuela)
+            ->groupBy('id_licenciatura')
+            ->get();
+
+        $turnos         = ['m' => 'Matutino', 'v' => 'Vespertino', 'd' => 'Discontinuo', 'n' => 'Nocturno'];
+        $sostenimientos = ['p' => 'Público', 'q' => 'Particular'];
+        $posgrados      = ['m' => 'Maestría', 'd' => 'Doctorado', 'e' => 'Especialidad', 'c' => 'Educación Continua', 'i' => 'SEPA Inglés'];
+        $bandaAncha     = ['s' => 'Banda Ancha', 'n' => '56Kbps'];
+        $sino           = ['s' => 'Sí', 'n' => 'No'];
+
+        $tiposPropiedad  = Construccion::where('id', '<', 20)->pluck('construccion', 'id');
+        $tiposEstructura = Construccion::where('id', '>', 20)->pluck('construccion', 'id');
+        $localidad = null;
+        if ($escuela && $escuela->id_localidad) {
+            $localidad = Localidad::find($escuela->id_localidad);
+        }
+
+        $imagenes = [];
+        for ($i = 1; $i <= 6; $i++) {
+            $pathImagen = public_path("img/escuelas/big/{$escuela_key}_{$i}.jpg");
+            $imagenes[$i] = file_exists($pathImagen) ? $i : 0;
+        }
+
+        // Generación de URLs y parámetros
+        $urlEscuela    = route('siben.editaEscuela');
+        $urlEstructura = route('siben.editaEstructura');
+        $urlImagenes   = route('siben.imagenEscuela');
+
+        $paramEscuela    = "data[Escuela][id]={$id_escuela}";
+        $paramEstructura = "data[CaracteristicaEscuela][id]={$id_estructura}";
+
+        $eventoEscuela    = "consultaAjax('{$urlEscuela}', '{$paramEscuela}', muestraOverlay, muestraOcupado)";
+        $eventoEstructura = "consultaAjax('{$urlEstructura}', '{$paramEstructura}', muestraOverlay, muestraOcupado)";
+
+        $botones = [];
+        switch ($nivel) {
+            case 3:
+                $botones['escuela']    = "<input id='e_{$id_escuela}' type='button' value='Editar' onclick=\"{$eventoEscuela}\" />";
+                $botones['estructura'] = "<input id='s_{$id_estructura}' type='button' value='Editar' onclick=\"{$eventoEstructura}\" />";
+                $botones['imagenes']   = '';
+                break;
+            case 4:
+                $botones['escuela']    = '';
+                $botones['estructura'] = '';
+                $botones['imagenes']   = "<input id='f_{$id_escuela}' type='button' value='Subir fotos' onclick=\"locacion('{$urlImagenes}')\" />";
+                break;
+        }
+
+        // Configuración de botones de flujo / navegación ($opc == 'e')
+        $anterior = false;
+        if ($opc == 'e') {
+            $eventoAtras     = "locacion('" . route('siben.editaDomicilio') . "')";
+            $eventoSiguiente = "locacion('" . route('siben.datosEscuela') . "')";
+            $eventoDomicilio = "locacion('" . route('siben.index') . "')";
+
+            $botones['atras']     = "<input type='button' value='Anterior' onclick=\"{$eventoAtras}\" />";
+            $botones['siguiente'] = "<input type='button' value='Siguiente' onclick=\"{$eventoSiguiente}\" />";
+            $botones['terminar']  = "<input type='button' value='Terminar' onclick=\"{$eventoDomicilio}\" />";
+        } else {
+            $botones['terminar']  = '';
+            $botones['atras']     = '';
+            $botones['siguiente'] = '';
+            $anterior             = true;
+        }
+
+        return view('siben.estructura_escuela', compact(
+            'title',
+            'escuela',
+            'escuela_key',
+            'estado_estructura',
+            'estructura',
+            'mensaje',
+            'localidad',
+            'licenciaturas',
+            'turnos',
+            'sostenimientos',
+            'posgrados',
+            'bandaAncha',
+            'sino',
+            'tiposPropiedad',
+            'tiposEstructura',
+            'imagenes',
+            'botones',
+            'anterior'
+        ));
+    }
+
+    public function busquedaDirector () {
+        $ctx = $this->contexto();
+        $id_entidad = $ctx['id_esntidad'];
+
+        $escuelaEstado = Escuela2::where('status', 'a')
+            ->where('unica', '<', 2)
+            ->where('id_entidad', $id_entidad)
+            ->where('captuea', '1')
+            ->pluck('escuela', 'id');
+        $tituloTabla = [
+            'd' => 'Para la bajadefinitivas',
+            't' => 'Para las bajas temporales',
+        ];
+        $tituloPag = [
+            'd' => 'DEFINITIVAS',
+            't' => 'TEMPORALES',
+        ];
+
+        $url = route('siben.listaDirector');
+        $antes = url('/alumnos');
+
+        return view('siben.busqueda_director', compact(
+            'url',
+            'tituloTabla',
+            'tituloPag',
+            'escuelaEstado',
+            'anterior'
+        ));
+    }
+    /**
+     * Filtra el personal directivo según los criterios de búsqueda y devuelve una tabla AJAX.
+     */
+    public function listasDirector(Request $request) {
+        $ctx = $this->contexto();
+        $nivel = $ctx['nivel'];
+
+        $id_escuela = ($nivel == 3) ? $ctx['id_escuela'] : $request->input('Busca.id_escuela', $ctx['id_escuela']);
+
+        $busca = $request->input('Busca', $request->input('data.Busca', []));
+
+        $contadorVacios = 0;
+        foreach ($busca as $valor) {
+            if (empty($valor)) {
+                $contadorVacios++;
+            }
+        }
+
+        $renglones = [];
+        $cabeceras = ['No.', 'Primer Apellido', 'Segundo Apellido', 'Nombre', 'CURP', 'Estado', 'Acción'];
+
+        if (!empty($busca) && $contadorVacios < 5) {
+            $query = Personal::select('id', 'apellido_paterno', 'apellido_materno', 'nombre', 'curp', 'status');
+
+            if ($id_escuela) {
+                $query->where('id_escuela', $id_escuela);
+            }
+
+            foreach ($busca as $campo => $valor) {
+                if (!empty($valor)) {
+                    $query->where($campo, $valor);
+                }
+            }
+
+            $personal = $query->orderBy('apellido_paterno')
+                ->orderBy('apellido_materno')
+                ->orderBy('nombre')
+                ->get();
+
+            foreach ($personal as $persona) {
+                $urlGuardaDirector = route('siben.guardaDirector', ['id' => $persona->id]);
+                $parametros = "data[Personal][id]={$persona->id}";
+                $evento = "locacion('{$urlGuardaDirector}', '{$parametros}', muestraOverlay, muestraOcupado);";
+
+                $boton = '<input id="b_' . $persona->id . '" type="button" value="Activar" onclick="' . $evento . '" />';
+
+                $estilo = '';
+                $estado = '';
+                switch ($persona->status) {
+                    case 'x':
+                        $estilo = 'text-align:center;background-color:#cc0000;color:#ffcccc;font-weight:bold;';
+                        $estado = 'Inactivo';
+                        break;
+                    case 'a':
+                        $estilo = 'text-align:center;background-color:#054205;color:#ccffcc;font-weight:bold;';
+                        $estado = 'Activo';
+                        break;
+                }
+
+                $statusHtml = "<div style='{$estilo}'>{$estado}</div>";
+
+                $renglones[$persona->id] = [
+                    'apellido_paterno' => $persona->apellido_paterno,
+                    'apellido_materno' => $persona->apellido_materno,
+                    'nombre'           => $persona->nombre,
+                    'curp'             => $persona->curp,
+                    'status'           => $statusHtml,
+                    'accion'           => $boton,
+                ];
+            }
+        }
+
+        return view('elements.tablaAjax', compact('renglones', 'cabeceras'));
+    }
+    public function guardaDirector (Request $request, $id=null) {
+        if($id){
+            $id_escuela = $this->contexto()['id_escuela'];
+
+            $personal = Personal::where('id', $id)->where('id_escuela', $id_escuela)->first();
+
+            if($personal){
+                try{
+                    $datosActualizar = [
+                        'status' => 'a',
+                        'id_funcion' => '1'
+                    ];
+                    $datosFormulario = $request->input('Personal', $request->input('data.Personal', []));
+                    if(!empty($datosFormulario)){
+                        $datosActualizar = array_merge($datosFormulario, $datosActualizar);
+                    }
+                    $personal->update($datosActualizar);
+                } catch (\Exeption $e){
+                    return response('Error: Inténtelo de nuevo, por favor', 400);
+                }
+            }
+        }
+        return redirect()->route('siben.directoresEscuela', ['opc' => 'e']);
+    }
+    public function editaUsuario()
+    {
+        $id_usuario = session('Usuario.id');
+        $usuario    = Usuario::find($id_usuario);
+        $title      = 'Editar Información personal';
+
+        return view('siben.edita_usuario', compact('title', 'usuario'));
+    }
+
+    public function guardaEnlace(Request $request)
+    {
+        $id_usuario = session('Usuario.id');
+        $usuario    = Usuario::find($id_usuario);
+
+        if (!$usuario) {
+            return response('Error: no se guardó la información', 400);
+        }
+
+        $datos = $request->input('Usuario', $request->input('data.Usuario', []));
+        $datos['status'] = 'a';
+
+        $datosUpdate = \Illuminate\Support\Arr::only($datos, ['nombre', 'correo_electronico', 'status']);
+
+        try {
+            $usuario->update($datosUpdate);
+        } catch (\Exception $e) {
+            return response('Error: no se guardó la información', 400);
+        }
+
+        return redirect()->to('/directorios/entidad');
+    }
+
+    public function menuDatos()
+    {
+        $ctx            = $this->contexto();
+        $nivel          = $ctx['nivel'];
+        $captura        = $ctx['captura'];
+        $cuentaDirector = session('Usuario.cuenta_director', 0);
+
+        if (!$captura) {
+            $mensaje = 'La captura está finalizada';
+        } else {
+            $mensaje = ($cuentaDirector == 0) ? 'Por favor agregue o active al director de la escuela' : '';
+        }
+
+        if (in_array($nivel, [3, 4])) {
+            $opcionesMenu = [
+                ['siben', 'Domicilio', 'domicilioEscuela', 0],
+                ['siben', 'Informacion adicional', 'datosEscuela', 0],
+                ['siben', 'Infraestructura', 'estructuraEscuela/v', 0],
+                ['siben', 'Directivos', 'directoresEscuela/v', 0],
+            ];
+        } else {
+            return redirect('/');
+        }
+
+        return view('siben.menu_datos', compact('opcionesMenu', 'mensaje'));
+    }
+
+    public function editaAdicionales(Request $request)
+    {
+        $ctx                = $this->contexto();
+        $id_escuela_session = $ctx['id_escuela'];
+        $id_entidad         = $ctx['id_entidad'];
+
+        $id_escuela_req = $request->input('Escuela.id', $request->input('data.Escuela.id'));
+
+        if ($id_escuela_session != $id_escuela_req) {
+            return redirect()->route('siben.index');
+        }
+
+        $escuela = Escuela::find($id_escuela_session);
+        $turnos  = ['m' => 'Matutino', 'v' => 'Vespertino', 'd' => 'Discontinuo', 'n' => 'Nocturno'];
+
+        $municipios = Municipio::where('id_entidad', $id_entidad)
+            ->orderBy('municipio')
+            ->pluck('municipio', 'id');
+
+        $localidades = Localidad::where('id_municipio2', $escuela ? $escuela->id_municipio : null)
+            ->orderBy('localidad')
+            ->pluck('localidad', 'id');
+
+        return view('siben.edita_adicionales', compact('escuela', 'turnos', 'municipios', 'localidades'));
+    }
+
+    public function directores()
+    {
+        $ctx   = $this->contexto();
+        $nivel = $ctx['nivel'];
+
+        $id_entidad = in_array($nivel, [2, 6]) ? $ctx['id_entidad'] : null;
+
+        $escuelas_directores = \Illuminate\Support\Facades\DB::select("
+            SELECT directores.id_escuela, escuelas2.escuela, personal2.nombre, 
+                   personal2.apellido_paterno, personal2.apellido_materno, directores.curp
+            FROM escuelas2 
+            JOIN directores ON (escuelas2.id = directores.id_escuela)
+            LEFT JOIN personal2 ON (directores.id_personal = personal2.id)
+            WHERE escuelas2.unica < 2
+              AND escuelas2.status = 'a'
+              AND escuelas2.id_entidad = :id_entidad
+            GROUP BY directores.id_escuela, escuelas2.escuela, personal2.nombre, 
+                     personal2.apellido_paterno, personal2.apellido_materno, directores.curp
+            ORDER BY directores.id_escuela
+        ", ['id_entidad' => $id_entidad]);
+
+        return view('siben.directores', compact('escuelas_directores', 'nivel'));
+    }
+
+    public function buscaDirector($id_escuela = null)
+    {
+        $id_entidad = $this->contexto()['id_entidad'];
+
+        $escuelasEstado = Escuela2::where('status', 'a')
+            ->where('unica', '<', 2)
+            ->where('id_entidad', $id_entidad)
+            ->where('id', $id_escuela)
+            ->pluck('escuela', 'id');
+
+        $url = route('siben.listasDirector2', ['id_escuela' => $id_escuela]);
+
+        return view('siben.busca_director', compact('url', 'escuelasEstado'));
+    }
+
+    public function listasDirector2(Request $request, $id_escuela = null)
+    {
+        $busca = $request->input('Busca', $request->input('data.Busca', []));
+
+        $contadorVacios = 0;
+        foreach ($busca as $valor) {
+            if (empty($valor)) {
+                $contadorVacios++;
+            }
+        }
+
+        $renglones = [];
+        $cabeceras = ['No.', 'Primer Apellido', 'Segundo Apellido', 'Nombre', 'CURP', 'Estado', 'Acción'];
+
+        if (!empty($busca) && $contadorVacios < 5) {
+            $query = Personal::select('id', 'apellido_paterno', 'apellido_materno', 'nombre', 'curp', 'status');
+
+            foreach ($busca as $campo => $valor) {
+                if (!empty($valor)) {
+                    $query->where($campo, $valor);
+                }
+            }
+
+            $personal = $query->orderBy('apellido_paterno')
+                ->orderBy('apellido_materno')
+                ->orderBy('nombre')
+                ->get();
+
+            foreach ($personal as $persona) {
+                $urlGuarda = route('siben.guardaDirector2', [
+                    'id'         => $persona->id,
+                    'id_escuela' => $id_escuela,
+                    'curp'       => $persona->curp
+                ]);
+                $parametros = "data[Personal][id]={$persona->id}";
+                $evento     = "locacion('{$urlGuarda}', '{$parametros}', muestraOverlay, muestraOcupado);";
+                $boton      = '<input id="b_' . $persona->id . '" type="button" value="Activar" onclick="' . $evento . '" />';
+
+                $estilo = '';
+                $estado = '';
+                switch ($persona->status) {
+                    case 'x':
+                        $estilo = 'text-align:center;background-color:#cc0000;color:#ffcccc;font-weight:bold;';
+                        $estado = 'Inactivo';
+                        break;
+                    case 'a':
+                        $estilo = 'text-align:center;background-color:#054205;color:#ccffcc;font-weight:bold;';
+                        $estado = 'Activo';
+                        break;
+                }
+
+                $statusHtml = "<div style='{$estilo}'>{$estado}</div>";
+
+                $renglones[$persona->id] = [
+                    'apellido_paterno' => $persona->apellido_paterno,
+                    'apellido_materno' => $persona->apellido_materno,
+                    'nombre'           => $persona->nombre,
+                    'curp'             => $persona->curp,
+                    'status'           => $statusHtml,
+                    'accion'           => $boton,
+                ];
+            }
+        }
+
+        return view('elements.tablaAjax', compact('renglones', 'cabeceras'));
+    }
+
+    public function guardaDirector2(Request $request, $id = null, $id_escuela = null, $curp = null)
+    {
+        if ($id && $id_escuela) {
+            $personal = Personal::find($id);
+
+            if ($personal) {
+                try {
+                    \Illuminate\Support\Facades\DB::table('directores')
+                        ->where('id_escuela', $id_escuela)
+                        ->update([
+                            'id_personal' => $id,
+                            'curp'        => $curp
+                        ]);
+
+                    $datosPersonal = $request->input('Personal', $request->input('data.Personal', []));
+                    if (!empty($datosPersonal)) {
+                        $personal->update($datosPersonal);
+                    }
+                } catch (\Exception $e) {
+                    return response('Error: Inténtelo de nuevo, por favor', 400);
+                }
+            }
+        }
+
+        return redirect()->route('siben.directores');
+    }
 }
