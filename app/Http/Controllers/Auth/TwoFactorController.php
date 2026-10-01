@@ -61,6 +61,9 @@ class TwoFactorController extends Controller
         $request->session()->regenerate();
         session()->forget('2fa_pending_user');
 
+        $usuario->impersonating_user_id = null;
+        $usuario->save();
+
         return redirect()->route('dashboard');
     }
 
@@ -115,5 +118,75 @@ class TwoFactorController extends Controller
         $usuario->save();
 
         return redirect()->route('dashboard')->with('ok', '2FA desactivado.');
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // IMPERSONACIÓN: Admin entra como otro usuario sin 2FA
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /**
+     * Impersonate a user (admin only).
+     * 
+     * El admin accede a la cuenta de otro usuario sin pasar por 2FA.
+     * El usuario original mantiene su secreto TOTP intacto.
+     * 
+     * Route: POST /admin/impersonate/{usuarioId}
+     */
+    public function impersonate(Request $request, $usuarioId)
+    {
+        // Solo admins (nivel 1) pueden suplantar
+        if (auth()->user()->nivel !== 1) {
+            return redirect()->route('dashboard')
+                ->with('error', 'No tienes permisos para esta acción.');
+        }
+
+        // Buscar el usuario a suplantar
+        $targetUser = Usuario::where('id', $usuarioId)->first();
+        if (!$targetUser) {
+            return redirect()->route('admin.usuarios.index')
+                ->with('error', 'Usuario no encontrado.');
+        }
+
+        // Guardar el ID del admin original en el perfil del usuario suplantado
+        $targetUser->impersonating_user_id = auth()->id();
+        $targetUser->save();
+
+        // Hacer logout del admin actual y login como el usuario objetivo
+        auth()->logout();
+        auth()->loginUsingId($targetUser->id);
+
+        // Redirigir al dashboard con aviso
+        return redirect()->route('dashboard')
+            ->with('ok', "Ahora estás operando como {$targetUser->id_usuario}.");
+    }
+
+    /**
+     * Stop impersonating and return to admin account.
+     * 
+     * Route: POST /admin/stop-impersonating
+     */
+    public function stopImpersonating()
+    {
+        // Verificar que hay una suplantación activa
+        $currentUser = auth()->user();
+        if (!$currentUser->impersonating_user_id) {
+            return redirect()->route('dashboard')
+                ->with('error', 'No estás suplantando a nadie.');
+        }
+
+        // Guardar el ID del admin original antes de hacer logout
+        $adminId = $currentUser->impersonating_user_id;
+
+        // Limpiar la bandera de suplantación en el usuario objetivo
+        $currentUser->impersonating_user_id = NULL;
+        $currentUser->save();
+
+        // Logout del usuario suplantado y login del admin original
+        auth()->logout();
+        auth()->loginUsingId($adminId);
+
+        // Redirigir a la lista de usuarios
+        return redirect()->route('admin.usuarios.index')
+            ->with('ok', 'Volviste a tu cuenta de administrador.');
+
     }
 }

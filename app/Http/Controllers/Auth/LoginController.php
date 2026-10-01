@@ -6,6 +6,7 @@ use App\Models\Usuario;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cookie;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\View\View;
 
@@ -81,16 +82,22 @@ class LoginController extends Controller
         Auth::login($usuario, $request->boolean('remember'));
         $request->session()->regenerate();
 
+        $usuario->impersonating_user_id = null;
+        $usuario->save();
+
         return redirect()->route('dashboard');
     }
 
     public function logout(Request $request): RedirectResponse
     {
-        Auth::logout();
+        $sessionCookie = config('session.cookie');
+
+        Auth::guard('web')->logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
+        $request->session()->flush();
 
-        return redirect()->route('login');
-
+        return redirect()->route('login')
+            ->withCookie(Cookie::forget($sessionCookie));
     }
 }
