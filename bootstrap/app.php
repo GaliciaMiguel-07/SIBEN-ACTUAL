@@ -14,6 +14,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'verificar.sesion' => VerificarSesion::class,
+            'no.cache'         => NoCacheHeaders::class,
             'nivel'            => \App\Http\Middleware\CheckNivel::class,
             // CheckModulo y CheckCaptura no existen aún — comentados hasta implementarlos
             // 'modulo'  => \App\Http\Middleware\CheckModulo::class,

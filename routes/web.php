@@ -12,22 +12,14 @@ use App\Http\Controllers\DashboardController;
 // Página principal pública (no requiere login)
 Route::get('/', fn() => view('layouts.home'))->name('home');
 
-// Login / logout
+// Login
 Route::get ('/login',  [LoginController::class, 'showForm'])->name('login');
 Route::post('/login',  [LoginController::class, 'login']);
-Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
-// ─── 2FA ─────────────────────────────────────────────────────────────────────
-// Verificación del código (usuario aún NO autenticado)
+// ─── 2FA (público con guardia interna) ───────────────────────────────────────
+// El usuario aún NO está autenticado cuando llega aquí
 Route::get ('/2fa/verificar', [TwoFactorController::class, 'showVerifyForm'])->name('2fa.verificar');
 Route::post('/2fa/verificar', [TwoFactorController::class, 'verify'])->name('2fa.verificar.post');
-
-// Configuración (requiere sesión activa)
-Route::middleware('auth')->group(function () {
-    Route::get ('/2fa/configurar', [TwoFactorController::class, 'showSetup'])->name('2fa.configurar');
-    Route::post('/2fa/configurar', [TwoFactorController::class, 'enable'])->name('2fa.configurar.post');
-    Route::post('/2fa/desactivar', [TwoFactorController::class, 'disable'])->name('2fa.desactivar');
-});
 
 // Imágenes en resources/images/ (fuera de public/) — asset() no las alcanza
 Route::get('/images/{filename}', function (string $filename) {
@@ -43,18 +35,33 @@ Route::view('/busquedaEscuelas/busqueda', 'layouts.busquedaEscuelas.busqueda')
 
 Route::view('/pages/masinformacion', 'layouts.pages.masinformacion')
     ->name('pages.masinformacion');
-    
+
 Route::view('/pages/estadisticasrecientes', 'layouts.pages.estadisticasrecientes')
     ->name('pages.estadisticasrecientes');
 
 // ─── Rutas protegidas (requieren sesión activa) ───────────────────────────────
 
-Route::middleware('auth')->group(function () {
+Route::middleware(['auth', 'no.cache'])->group(function () {
 
-    // Dashboard principal — carga siben.index con mensajes del sistema
+    // Logout protegido por sesión + CSRF
+    Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
+
+    // Dashboard principal
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
-    // Admin — gestión de usuarios (solo nivel 1; el middleware lo verifica el controller)
+    // ── 2FA configuración (requiere sesión activa) ────────────────────────────
+    Route::get ('/2fa/configurar', [TwoFactorController::class, 'showSetup'])->name('2fa.configurar');
+    Route::post('/2fa/configurar', [TwoFactorController::class, 'enable'])->name('2fa.configurar.post');
+    Route::post('/2fa/desactivar', [TwoFactorController::class, 'disable'])->name('2fa.desactivar');
+
+    // ── Stop impersonating ────────────────────────────────────────────────────
+    // FUERA del grupo nivel:1 porque la ejecuta el usuario suplantado (nivel 2, 3, 4...)
+    // Solo requiere tener sesión activa. El controlador verifica internamente
+    // que haya una suplantación activa antes de hacer cualquier cosa.
+    Route::post('/admin/stop-impersonating', [TwoFactorController::class, 'stopImpersonating'])
+         ->name('admin.stop.impersonating');
+
+    // ── Admin (solo nivel 1) ──────────────────────────────────────────────────
     Route::prefix('admin')->name('admin.')->middleware('nivel:1')->group(function () {
 
         Route::get   ('/usuarios',                  [UsuarioController::class, 'index'])
@@ -70,7 +77,10 @@ Route::middleware('auth')->group(function () {
         Route::patch ('/usuarios/{usuario}/status', [UsuarioController::class, 'toggleStatus'])
              ->name('usuarios.toggle');
 
+        // Solo el admin puede INICIAR una suplantación
+        Route::post('/impersonate/{usuarioId}', [TwoFactorController::class, 'impersonate'])
+             ->name('impersonate');
+
     });
 
 });
-
