@@ -51,8 +51,4 @@
         </div>
     </nav>
 
-    <div style="background:#393c3e; color:white; text-align:center;
-                padding:10px; font-size:17px; font-weight:bold;">
-        Sistema de Información Básica de la Educación Normal (SIBEN)
-    </div>
 </header>
