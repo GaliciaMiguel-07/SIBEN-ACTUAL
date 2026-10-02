@@ -82,6 +82,7 @@ class LoginController extends Controller
         Auth::login($usuario, $request->boolean('remember'));
         $request->session()->regenerate();
 
+        // Limpiar bandera de suplantación huérfana si existiera
         $usuario->impersonating_user_id = null;
         $usuario->save();
 

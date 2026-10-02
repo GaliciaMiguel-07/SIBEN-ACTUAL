@@ -61,6 +61,7 @@ class TwoFactorController extends Controller
         $request->session()->regenerate();
         session()->forget('2fa_pending_user');
 
+        // Limpiar bandera de suplantación huérfana si existiera
         $usuario->impersonating_user_id = null;
         $usuario->save();
 
@@ -118,6 +119,7 @@ class TwoFactorController extends Controller
         $usuario->save();
 
         return redirect()->route('dashboard')->with('ok', '2FA desactivado.');
+    }
 
     // ═══════════════════════════════════════════════════════════════════════════
     // IMPERSONACIÓN: Admin entra como otro usuario sin 2FA
@@ -187,6 +189,5 @@ class TwoFactorController extends Controller
         // Redirigir a la lista de usuarios
         return redirect()->route('admin.usuarios.index')
             ->with('ok', 'Volviste a tu cuenta de administrador.');
-
     }
 }
