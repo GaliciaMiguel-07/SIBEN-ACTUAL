@@ -18,7 +18,7 @@
 </ol>
 </div>
 
-<div class="container">
+ <div class="mexico__contenedor" style="max-width: 1200px; margin: 0 auto; padding: 0 20px 60px 20px;">
   <section class="col-md-12">
     <h2>Estadísticas</h2>
     <hr class="red">

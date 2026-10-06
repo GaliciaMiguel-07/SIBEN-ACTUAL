@@ -17,7 +17,7 @@
   <li class="active">Más Información</li>
 </ol>
 </div>
-    <div class="container">
+     <div class="mexico__contenedor" style="max-width: 1200px; margin: 0 auto; padding: 0 20px 60px 20px;">
   <div class="row">
     <div class="col-sm-8">
       <div class="vertical-buffer">
