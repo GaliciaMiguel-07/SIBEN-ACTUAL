@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
+       
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <title>SIBEN — Sistema de Información Básica de Escuelas Normales</title>
+
 </head>
 <body>
 
@@ -38,7 +40,7 @@
     <section class="col-md-12">
         <div class="infoColumns">
             <div class="column">
-                <h2>Avisos</h2>
+                <h3 class="h3b patria">Avisos</h3>
                 <hr class="red">
                 <ul>
                     <li>
