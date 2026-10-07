@@ -5,9 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <title>Resultados de Búsqueda — SIBEN</title>
-    
-    <link href="{{ url('/images/favicon.ico') }}" rel="shortcut icon">
-    <link href="https://framework-gb.cdn.gob.mx/assets/styles/main.css" rel="stylesheet">
+
     
     <x-header />
 </head>
@@ -21,7 +19,7 @@
         </ol>
     </div>
 
-<div class="container" style="margin-top: 40px;">       
+ <div class="mexico__contenedor" style="max-width: 1200px; margin: 0 auto; padding: 0 20px 60px 20px;" style="margin-top: 40px;">       
     <section class="col-md-12">
         <h2>RESULTADOS DE LA BÚSQUEDA</h2>
         <hr class="red">          
