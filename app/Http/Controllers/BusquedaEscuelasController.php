@@ -12,7 +12,6 @@ use App\Models\Localidad;
 use App\Models\Municipio;
 use App\Models\Personal;
 use App\Models\Funcion;
-use App\Models\EncuestaSanitaria;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -25,9 +24,9 @@ class BusquedaEscuelasController extends Controller
 
     public function busqueda() 
     {
-        $entidades = Entidad::where('id', '<', 33)->pluck('entidad', 'id');
-        $unica = [0 => 'Instituciones', 2 => 'Sedes'];
-        $turno = ['m' => 'Matutino', 'v' => 'Vespertino', 'n' => 'Nocturno', 'd' => 'Discontinuo'];
+        $entidades     = Entidad::where('id', '<', 33)->pluck('entidad', 'id');
+        $unica         = [0 => 'Instituciones', 2 => 'Sedes'];
+        $turno         = ['m' => 'Matutino', 'v' => 'Vespertino', 'n' => 'Nocturno', 'd' => 'Discontinuo'];
         $licenciaturas = Licenciatura::pluck('licenciatura', 'id');
 
         return view('layouts.busquedaEscuelas.busqueda', compact(
@@ -40,18 +39,15 @@ class BusquedaEscuelasController extends Controller
 
     public function resultadoBusqueda(Request $request) 
     {
-        // 1. Obtenemos los valores limpiamente (sin necesidad de buscar 'data.Escuela')
         $nombreEscuela  = $request->input('Escuela.escuela');
         $idEntidad      = $request->input('Escuela.id_entidad');
         $sostenimiento  = $request->input('Escuela.sostenimiento');
         $turno          = $request->input('Escuela.turno');
         $idLicenciatura = $request->input('EscuelaLicenciatura.id_licenciatura');
         
-        // 2. Laravel maneja los checkboxes con filled() de forma segura
         $tieneCorreo    = $request->filled('Correo.op1');
         $tienePagina    = $request->filled('Pagina.op2');
 
-        // 3. Consulta base
         $query = Escuela2::query()
             ->where('status', 'a')
             ->where('modulo', 'l');
@@ -68,7 +64,6 @@ class BusquedaEscuelasController extends Controller
             $query->where('turno', $turno);
         }
 
-        // Subconsulta de licenciatura
         if (!empty($idLicenciatura)) {
             $query->where('unica', '<', 2)
                   ->whereIn('id', function ($subquery) use ($idLicenciatura) {
@@ -92,7 +87,6 @@ class BusquedaEscuelasController extends Controller
             $query->where('escuela', 'LIKE', '%' . trim($nombreEscuela) . '%');
         }
 
-
         $escuelas = $query->orderBy('id_entidad')->paginate(20)->withQueryString();
 
         return view('layouts.busquedaEscuelas.resultado', compact('escuelas'));
@@ -105,7 +99,10 @@ class BusquedaEscuelasController extends Controller
         }
 
         $domicilioEscuela = null;
+        $domicilioData    = [];
         $localidad        = null;
+        $municipio        = null;
+        $entidad          = null;
         $escuela          = null;
         $personal         = collect();
         $funciones        = collect();
@@ -120,6 +117,11 @@ class BusquedaEscuelasController extends Controller
             $escuela = Escuela::find($id_escuela);
 
             if ($escuela) {
+                // Entidad y Municipio
+                $entidad   = Entidad::find($escuela->id_entidad);
+                $municipio = Municipio::find($escuela->id_municipio);
+
+                // Domicilio y Localidad
                 $domicilioEscuela = DomicilioEscuela::where('id_escuela', $id_escuela)->first();
 
                 if ($domicilioEscuela) {
@@ -129,13 +131,31 @@ class BusquedaEscuelasController extends Controller
                         ->first();
                 }
 
-                $municipio = Municipio::find($escuela->id_municipio);
-                if ($municipio) {
-                    $escuela->municipio_nombre = $municipio->municipio;
-                }
-                
+                // Construcción de $domicilioData combinando domicilio_escuela y escuela
+                $vialidadDom     = trim(($domicilioEscuela->tipovial ?? '') . ' ' . ($domicilioEscuela->nomvial ?? ''));
+                $asentamientoDom = trim(($domicilioEscuela->tipoasen ?? '') . ' ' . ($domicilioEscuela->nomasen ?? ''));
+
+                $domicilioData = [
+                    'vialidad'       => !empty($vialidadDom) ? $vialidadDom : ($escuela->calle ?? ''),
+                    'num_ext1'       => trim(($domicilioEscuela->numextnum1 ?? '') . ' ' . ($domicilioEscuela->numextalf1 ?? '')),
+                    'num_ext2'       => $domicilioEscuela->numextnum2 ?? '',
+                    'num_int'        => trim(($domicilioEscuela->numintnum ?? '') . ' ' . ($domicilioEscuela->numintalf ?? '')),
+                    'asentamiento'   => !empty($asentamientoDom) ? $asentamientoDom : ($escuela->colonia ?? ''),
+                    'referencia1'    => trim(($domicilioEscuela->tiporef1 ?? '') . ' ' . ($domicilioEscuela->nomref1 ?? '')),
+                    'referencia2'    => trim(($domicilioEscuela->tiporef2 ?? '') . ' ' . ($domicilioEscuela->nomref2 ?? '')),
+                    'referencia3'    => trim(($domicilioEscuela->tiporef3 ?? '') . ' ' . ($domicilioEscuela->nomref3 ?? '')),
+                    'complementaria' => $domicilioEscuela->descrubic ?? '',
+                    'cp'             => (!empty($domicilioEscuela->cp) && $domicilioEscuela->cp !== '00000') ? $domicilioEscuela->cp : ($escuela->cp ?? ''),
+                    'telefono1'      => $escuela->telefono1 ?? '',
+                    'telefono2'      => $escuela->telefono2 ?? '',
+                    'telefono3'      => $escuela->telefono3 ?? '',
+                    'lada'           => $escuela->lada ?? '',
+                    'fax'            => $escuela->fax ?? '',
+                ];
+
+                // Directivos y Funciones
                 $funciones = Funcion::pluck('funcion', 'id');
-                $personal = Personal::where('id_escuela', $id_escuela)
+                $personal  = Personal::where('id_escuela', $id_escuela)
                     ->where('id_funcion', '<', 5)
                     ->where('status', 'a')
                     ->orderBy('id_funcion', 'asc')
@@ -145,23 +165,30 @@ class BusquedaEscuelasController extends Controller
                     $directivo->funcion = $funciones->get($directivo->id_funcion);
                 }
                 
+                // Licenciaturas
                 $licenciaturas = DB::table('escuelas_licenciaturas as EscuelaLicenciatura')
-                    ->leftJoin('licenciaturas as Licenciatura', 'EscuelaLicenciatura.id_licenciatura', '=', 'Licenciatura.id')
-                    ->leftJoin('especialidades as Especialidad', 'EscuelaLicenciatura.id_especialidad', '=', 'Especialidad.id')
+                    ->leftJoin('cat_licenciaturas as Licenciatura', 'EscuelaLicenciatura.id_licenciatura', '=', 'Licenciatura.id')
+                    ->leftJoin('cat_especialidades as Especialidad', 'EscuelaLicenciatura.id_especialidad', '=', 'Especialidad.id')
                     ->where('EscuelaLicenciatura.id_escuela', $id_escuela)
                     ->distinct()
                     ->get();
 
-                switch ($escuela->sostenimiento) {
+                // Sostenimiento
+                switch (strtolower($escuela->sostenimiento ?? '')) {
                     case 'p':
                         $sostenimiento = 'Pública';
                         break;
                     case 'q':
+                    case 'pr':
                         $sostenimiento = 'Particular';
+                        break;
+                    default:
+                        $sostenimiento = $escuela->sostenimiento;
                         break;
                 }
 
-                switch ($escuela->turno) {
+                // Turno
+                switch (strtolower($escuela->turno ?? '')) {
                     case 'm':
                         $turno = 'Matutino';
                         break;
@@ -171,16 +198,34 @@ class BusquedaEscuelasController extends Controller
                     case 'd':
                         $turno = 'Discontinuo';
                         break;
+                    default:
+                        $turno = $escuela->turno;
+                        break;
                 }
 
-                for ($i = 1; $i <= 6; $i++) {
-                    $imgPath = public_path('img/escuelas/big/' . $escuela->escuela_key . '_' . $i . '.jpg');
-                    $imagenes[$i] = file_exists($imgPath) ? $i : 0;
+                // Búsqueda de imágenes
+                if (!empty($escuela->escuela_key)) {
+                    $clave = trim($escuela->escuela_key);
+                    $carpetas = ['img/escuelas/big/', 'images/escuelas/big/', 'img/escuelas/', 'images/escuelas/'];
+                    
+                    foreach ($carpetas as $carpeta) {
+                        for ($i = 1; $i <= 6; $i++) {
+                            $patron = public_path($carpeta . $clave . '_' . $i . '.{jpg,JPG,jpeg,JPEG,png,PNG}');
+                            $coincidencias = glob($patron, GLOB_BRACE);
+                            if (!empty($coincidencias)) {
+                                $imagenes[] = asset($carpeta . basename($coincidencias[0]));
+                            }
+                        }
+                        if (count($imagenes) > 0) {
+                            break;
+                        }
+                    }
                 }
 
+                // Sedes
                 if ($escuela->unica == 2) {
                     $sedes = true;
-                    $otro = DB::table('sedes')
+                    $otro  = DB::table('sedes')
                         ->join('escuelas as Escuela2', 'sedes.id_sede', '=', 'Escuela2.id')
                         ->where('sedes.id_escuela', $id_escuela)
                         ->select('Escuela2.id', 'Escuela2.escuela_key', 'Escuela2.escuela')
@@ -192,7 +237,10 @@ class BusquedaEscuelasController extends Controller
         return view('layouts.busquedaEscuelas.detalles', compact(
             'escuela',
             'domicilioEscuela',
+            'domicilioData',
             'localidad',
+            'municipio',
+            'entidad',
             'personal',
             'funciones',
             'licenciaturas',
