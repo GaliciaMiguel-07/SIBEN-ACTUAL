@@ -1,145 +1,384 @@
 @php
     $usuario = session('Usuario', []);
-    $nivel = $usuario['nivel'] ?? '';
+
+    $nivel = (int) ($usuario['nivel'] ?? auth()->user()->nivel ?? 0);
 @endphp
 
-<div class="menu-siben">
+<div class="container-fluid">
 
-    <div class="menu-titulo">
-        Opciones del sistema
+    <div class="row">
+
+        {{-- La tabla ocupará 8 de las 12 columnas --}}
+        <div class="col-md-8">
+
+            <div class="menu-siben">
+
+                <div class="menu-titulo">
+                    Opciones del sistema
+                </div>
+
+                <div class="table-responsive">
+
+                    <table class="table table-bordered table-striped tabla-opciones">
+
+                        <thead>
+                            <tr>
+                                <th>Opción</th>
+                                <th class="columna-acceso">Acceso</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+
+                            {{-- =====================================================
+                                 NIVEL 1
+                            ====================================================== --}}
+                            @if($nivel === 1)
+
+                                <tr>
+                                    <td>Edición</td>
+                                    <td>
+                                        <a href="#" class="btn btn-primary btn-sm">
+                                            Acceder
+                                        </a>
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <td>Mensajes</td>
+                                    <td>
+                                        <a href="#" class="btn btn-primary btn-sm">
+                                            Acceder
+                                        </a>
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <td>Directorio</td>
+                                    <td>
+                                        <a href="#" class="btn btn-primary btn-sm">
+                                            Acceder
+                                        </a>
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <td>Estadísticas</td>
+                                    <td>
+                                        <a href="#" class="btn btn-primary btn-sm">
+                                            Acceder
+                                        </a>
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <td>Informe nacional</td>
+                                    <td>
+                                        <a href="#" class="btn btn-primary btn-sm">
+                                            Acceder
+                                        </a>
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <td>Cambiar captura</td>
+                                    <td>
+                                        <a href="#" class="btn btn-primary btn-sm">
+                                            Acceder
+                                        </a>
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <td>Lista usuarios</td>
+                                    <td>
+                                        <a href="#" class="btn btn-primary btn-sm">
+                                            Acceder
+                                        </a>
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <td>Informes escuelas</td>
+                                    <td>
+                                        <a href="#" class="btn btn-primary btn-sm">
+                                            Acceder
+                                        </a>
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <td>Consulta histórico</td>
+                                    <td>
+                                        <a href="#" class="btn btn-primary btn-sm">
+                                            Acceder
+                                        </a>
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <td>Consulta docente</td>
+                                    <td>
+                                        <a href="#" class="btn btn-primary btn-sm">
+                                            Acceder
+                                        </a>
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <td>Prueba Verhoeff</td>
+                                    <td>
+                                        <a href="#" class="btn btn-primary btn-sm">
+                                            Acceder
+                                        </a>
+                                    </td>
+                                </tr>
+
+
+                            {{-- =====================================================
+                                 NIVEL 2 - SUPERVISOR ESTATAL
+                            ====================================================== --}}
+                            @elseif($nivel === 2)
+
+                                <tr>
+                                    <td>Conflictos</td>
+                                    <td>
+                                        <a href="#" class="btn btn-primary btn-sm">
+                                            Acceder
+                                        </a>
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <td>Directorios</td>
+                                    <td>
+                                        <a href="#" class="btn btn-primary btn-sm">
+                                            Acceder
+                                        </a>
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <td>Avance alumnos</td>
+                                    <td>
+                                        <a href="#" class="btn btn-primary btn-sm">
+                                            Acceder
+                                        </a>
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <td>Avance personal</td>
+                                    <td>
+                                        <a href="#" class="btn btn-primary btn-sm">
+                                            Acceder
+                                        </a>
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <td>Supervisores</td>
+                                    <td>
+                                        <a href="#" class="btn btn-primary btn-sm">
+                                            Acceder
+                                        </a>
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <td>Directores</td>
+                                    <td>
+                                        <a href="#" class="btn btn-primary btn-sm">
+                                            Acceder
+                                        </a>
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <td>Alumnos</td>
+                                    <td>
+                                        <a href="#" class="btn btn-primary btn-sm">
+                                            Acceder
+                                        </a>
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <td>Consulta personal</td>
+                                    <td>
+                                        <a href="#" class="btn btn-primary btn-sm">
+                                            Acceder
+                                        </a>
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <td>Listados</td>
+                                    <td>
+                                        <a href="#" class="btn btn-primary btn-sm">
+                                            Acceder
+                                        </a>
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <td>Estadísticas</td>
+                                    <td>
+                                        <a href="#" class="btn btn-primary btn-sm">
+                                            Acceder
+                                        </a>
+                                    </td>
+                                </tr>
+
+
+                            {{-- =====================================================
+                                 NIVEL 3 - SUPERVISOR DE ESCUELA
+                            ====================================================== --}}
+                            @elseif($nivel === 3)
+
+                                <tr>
+                                    <td>Configurar parámetros</td>
+                                    <td>
+                                        <a href="#" class="btn btn-primary btn-sm">
+                                            Acceder
+                                        </a>
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <td>Datos generales</td>
+                                    <td>
+                                        <a href="#" class="btn btn-primary btn-sm">
+                                            Acceder
+                                        </a>
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <td>Alumnos</td>
+                                    <td>
+                                        <a href="#" class="btn btn-primary btn-sm">
+                                            Acceder
+                                        </a>
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <td>Listados</td>
+                                    <td>
+                                        <a href="#" class="btn btn-primary btn-sm">
+                                            Acceder
+                                        </a>
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <td>Estadísticas</td>
+                                    <td>
+                                        <a href="#" class="btn btn-primary btn-sm">
+                                            Acceder
+                                        </a>
+                                    </td>
+                                </tr>
+
+
+                            {{-- =====================================================
+                                 NIVEL 4 - CAPTURISTA
+                            ====================================================== --}}
+                            @elseif($nivel === 4)
+
+                                <tr>
+                                    <td>Datos generales</td>
+                                    <td>
+                                        <a href="#" class="btn btn-primary btn-sm">
+                                            Acceder
+                                        </a>
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <td>Alumnos</td>
+                                    <td>
+                                        <a href="#" class="btn btn-primary btn-sm">
+                                            Acceder
+                                        </a>
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <td>Personal</td>
+                                    <td>
+                                        <a href="#" class="btn btn-primary btn-sm">
+                                            Acceder
+                                        </a>
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <td>Listados</td>
+                                    <td>
+                                        <a href="#" class="btn btn-primary btn-sm">
+                                            Acceder
+                                        </a>
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <td>Estadísticas</td>
+                                    <td>
+                                        <a href="#" class="btn btn-primary btn-sm">
+                                            Acceder
+                                        </a>
+                                    </td>
+                                </tr>
+
+                            @endif
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            </div>
+
+        </div>
+
     </div>
 
-    <div class="table-responsive">
-        <table class="table table-bordered table-striped tabla-opciones">
 
-            <thead>
-                <tr>
-                    <th>Opción</th>
-                    <th class="columna-acceso">Acceso</th>
-                </tr>
-            </thead>
+    {{-- ================================================================
+         ACCIONES ADICIONALES
+    ================================================================= --}}
 
-            <tbody>
+    <div class="row">
 
-                @if($nivel == 2)
+        <div class="col-md-8">
 
-                    <tr>
-                        <td>Conflictos</td>
-                        <td><a href="#" class="btn btn-primary btn-sm">Acceder</a></td>
-                    </tr>
+            <div class="acciones-siben">
 
-                    <tr>
-                        <td>Directorios</td>
-                        <td><a href="#" class="btn btn-primary btn-sm">Acceder</a></td>
-                    </tr>
+                @if(in_array($nivel, [2, 3, 4]))
 
-                    <tr>
-                        <td>Avance alumnos</td>
-                        <td><a href="#" class="btn btn-primary btn-sm">Acceder</a></td>
-                    </tr>
-
-                    <tr>
-                        <td>Avance personal</td>
-                        <td><a href="#" class="btn btn-primary btn-sm">Acceder</a></td>
-                    </tr>
-
-                    <tr>
-                        <td>Supervisores</td>
-                        <td><a href="#" class="btn btn-primary btn-sm">Acceder</a></td>
-                    </tr>
-
-                    <tr>
-                        <td>Directores</td>
-                        <td><a href="#" class="btn btn-primary btn-sm">Acceder</a></td>
-                    </tr>
-
-                    <tr>
-                        <td>Alumnos</td>
-                        <td><a href="#" class="btn btn-primary btn-sm">Acceder</a></td>
-                    </tr>
-
-                    <tr>
-                        <td>Consulta personal</td>
-                        <td><a href="#" class="btn btn-primary btn-sm">Acceder</a></td>
-                    </tr>
-
-                    <tr>
-                        <td>Listados</td>
-                        <td><a href="#" class="btn btn-primary btn-sm">Acceder</a></td>
-                    </tr>
-
-                    <tr>
-                        <td>Estadísticas</td>
-                        <td><a href="#" class="btn btn-primary btn-sm">Acceder</a></td>
-                    </tr>
-
-                @elseif($nivel == 3)
-
-                    <tr>
-                        <td>Configurar parámetros</td>
-                        <td><a href="#" class="btn btn-primary btn-sm">Acceder</a></td>
-                    </tr>
-
-                    <tr>
-                        <td>Datos generales</td>
-                        <td><a href="#" class="btn btn-primary btn-sm">Acceder</a></td>
-                    </tr>
-
-                    <tr>
-                        <td>Alumnos</td>
-                        <td><a href="#" class="btn btn-primary btn-sm">Acceder</a></td>
-                    </tr>
-
-                    <tr>
-                        <td>Listados</td>
-                        <td><a href="#" class="btn btn-primary btn-sm">Acceder</a></td>
-                    </tr>
-
-                    <tr>
-                        <td>Estadísticas</td>
-                        <td><a href="#" class="btn btn-primary btn-sm">Acceder</a></td>
-                    </tr>
-
-                @elseif($nivel == 4)
-
-                    <tr>
-                        <td>Datos generales</td>
-                        <td><a href="#" class="btn btn-primary btn-sm">Acceder</a></td>
-                    </tr>
-
-                    <tr>
-                        <td>Alumnos</td>
-                        <td><a href="#" class="btn btn-primary btn-sm">Acceder</a></td>
-                    </tr>
-
-                    <tr>
-                        <td>Personal</td>
-                        <td><a href="#" class="btn btn-primary btn-sm">Acceder</a></td>
-                    </tr>
-
-                    <tr>
-                        <td>Listados</td>
-                        <td><a href="#" class="btn btn-primary btn-sm">Acceder</a></td>
-                    </tr>
-
-                    <tr>
-                        <td>Estadísticas</td>
-                        <td><a href="#" class="btn btn-primary btn-sm">Acceder</a></td>
-                    </tr>
+                    <a href="#" class="btn btn-default btn-sm">
+                        Descargar archivos
+                    </a>
 
                 @endif
 
-            </tbody>
+            </div>
 
-        </table>
+        </div>
+
     </div>
 
 </div>
 
+
 <style>
+
     .menu-siben {
-        width: 100%;
-        margin: 25px 0;
+        margin-top: 25px;
+        margin-bottom: 15px;
     }
 
     .menu-titulo {
@@ -150,7 +389,7 @@
 
     .tabla-opciones {
         width: 100%;
-        margin-bottom: 0;
+        margin-bottom: 15px;
     }
 
     .tabla-opciones th {
@@ -162,7 +401,7 @@
     }
 
     .columna-acceso {
-        width: 120px;
+        width: 110px;
         text-align: center;
     }
 
@@ -170,9 +409,17 @@
         text-align: center;
     }
 
-    @media (max-width: 600px) {
+    .acciones-siben {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 25px;
+    }
+
+    @media (max-width: 767px) {
+
         .menu-siben {
-            margin: 20px 0;
+            margin-top: 20px;
         }
 
         .menu-titulo {
@@ -190,5 +437,17 @@
         .columna-acceso {
             width: 90px;
         }
+
+        .acciones-siben {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 10px;
+        }
+
+        .acciones-siben .btn {
+            width: 100%;
+        }
+
     }
+
 </style>

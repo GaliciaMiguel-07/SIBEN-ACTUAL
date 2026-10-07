@@ -23,12 +23,10 @@ Route::post('/login',  [LoginController::class, 'login']);
 Route::get ('/2fa/verificar', [TwoFactorController::class, 'showVerifyForm'])->name('2fa.verificar');
 Route::post('/2fa/verificar', [TwoFactorController::class, 'verify'])->name('2fa.verificar.post');
 
-// Configuración (requiere sesión activa)
-Route::middleware('auth')->group(function () {
-    Route::get ('/2fa/configurar', [TwoFactorController::class, 'showSetup'])->name('2fa.configurar');
-    Route::post('/2fa/configurar', [TwoFactorController::class, 'enable'])->name('2fa.configurar.post');
-    Route::post('/2fa/desactivar', [TwoFactorController::class, 'disable'])->name('2fa.desactivar');
-});
+// Configuración 2FA: accesible con sesión pendiente o sesión autenticada
+// La guardia fina está en TwoFactorController@showSetup y @enable
+Route::get ('/2fa/configurar', [TwoFactorController::class, 'showSetup'])->name('2fa.configurar');
+Route::post('/2fa/configurar', [TwoFactorController::class, 'enable'])->name('2fa.configurar.post');
 
 
 // ─── Rutas Públicas (Sin inicio de sesión) ───────────────────────────────────
@@ -68,9 +66,7 @@ Route::middleware(['auth', 'no.cache'])->group(function () {
     // Dashboard principal
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
-    // ── 2FA configuración (requiere sesión activa) ────────────────────────────
-    Route::get ('/2fa/configurar', [TwoFactorController::class, 'showSetup'])->name('2fa.configurar');
-    Route::post('/2fa/configurar', [TwoFactorController::class, 'enable'])->name('2fa.configurar.post');
+    // Desactivar 2FA (bloqueado por política, requiere sesión para mostrar mensaje en flujo normal)
     Route::post('/2fa/desactivar', [TwoFactorController::class, 'disable'])->name('2fa.desactivar');
 
     // ── Stop impersonating ────────────────────────────────────────────────────

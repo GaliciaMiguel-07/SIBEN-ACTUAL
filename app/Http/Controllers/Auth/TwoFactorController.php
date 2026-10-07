@@ -46,38 +46,53 @@ class TwoFactorController extends Controller
 
         $usuario = Usuario::find($userId);
         if (!$usuario || !$usuario->google2fa_secret) {
-            session()->forget('2fa_pending_user');
+            session()->forget(['2fa_pending_user', '2fa_setup_required', '2fa_remember']);
             return redirect()->route('login');
         }
 
-        // window=2 → tolera ±1 minuto (reloj del teléfono ligeramente desfasado)
-        $valido = $this->google2fa()->verifyKey($usuario->google2fa_secret, $request->codigo, 2);
+        // window=1 → tolera ±30 segundos
+        $valido = $this->google2fa()->verifyKey($usuario->google2fa_secret, $request->codigo, 1);
 
         if (!$valido) {
             return back()->withErrors(['codigo' => 'El código es incorrecto o ya expiró.']);
         }
 
-        Auth::login($usuario);
+        Auth::login($usuario, (bool) session('2fa_remember', false));
         $request->session()->regenerate();
-        session()->forget('2fa_pending_user');
+        session()->forget(['2fa_pending_user', '2fa_setup_required', '2fa_remember']);
 
-        // Limpiar bandera de suplantación huérfana si existiera
-        $usuario->impersonating_user_id = null;
-        $usuario->save();
+        if ($usuario->impersonating_user_id) {
+            $usuario->impersonating_user_id = null;
+            $usuario->save();
+        }
 
         return redirect()->route('dashboard');
     }
 
-    // ─── Configuración (usuario YA autenticado) ──────────────────────────────
+    // ─── Configuración (usuario pendiente o autenticado) ─────────────────────
 
-    public function showSetup(): View
+    public function showSetup(): View|RedirectResponse
     {
-        $usuario  = auth()->user();
+        $usuario = auth()->user();
+
+        if (!$usuario) {
+            $pendingUserId = session('2fa_pending_user');
+            if (!$pendingUserId) {
+                return redirect()->route('login');
+            }
+
+            $usuario = Usuario::find($pendingUserId);
+            if (!$usuario) {
+                session()->forget(['2fa_pending_user', '2fa_setup_required', '2fa_remember']);
+                return redirect()->route('login');
+            }
+        }
+
         $google2fa = $this->google2fa();
 
         // Si ya tiene 2FA, muestra el mismo secreto (para re-escaneo);
         // si no, genera uno nuevo (aún no se guarda: se guarda tras confirmar el código)
-        $secret = $usuario->google2fa_secret ?? $google2fa->generateSecretKey();
+        $secret = $usuario->google2fa_secret ?? $google2fa->generateSecretKey(16);
 
         $qrUrl = $google2fa->getQRCodeUrl('SIBEN', $usuario->id_usuario, $secret);
 
@@ -88,6 +103,7 @@ class TwoFactorController extends Controller
         return view('2fa.configurar', [
             'secret' => $secret,
             'qrSvg'  => $qrSvg,
+            'isPendingSetup' => (bool) session('2fa_pending_user') && !Auth::check(),
         ]);
     }
 
@@ -95,30 +111,56 @@ class TwoFactorController extends Controller
     {
         $request->validate([
             'codigo' => 'required|string|size:6',
+            'secret' => 'required|string',
         ]);
 
-        $usuario = auth()->user();
+        $pendingUserId = session('2fa_pending_user');
+        $isPendingSetup = !$request->user() && !empty($pendingUserId);
+
+        if ($isPendingSetup) {
+            $usuario = Usuario::find($pendingUserId);
+            if (!$usuario) {
+                session()->forget(['2fa_pending_user', '2fa_setup_required', '2fa_remember']);
+                return redirect()->route('login');
+            }
+        } else {
+            $usuario = $request->user();
+            if (!$usuario) {
+                return redirect()->route('login');
+            }
+        }
+
         $secret  = $request->input('secret');
 
-        if (!$this->google2fa()->verifyKey($secret, $request->codigo, 2)) {
+        if (!$this->google2fa()->verifyKey($secret, $request->codigo, 1)) {
             return back()->withErrors([
                 'codigo' => 'El código no coincide. Revisa que el reloj de tu teléfono esté sincronizado.',
-            ]);
+            ])->withInput($request->except('codigo'));
         }
 
         $usuario->google2fa_secret = $secret;
         $usuario->save();
+
+        if ($isPendingSetup) {
+            Auth::login($usuario, (bool) session('2fa_remember', false));
+            $request->session()->regenerate();
+            session()->forget(['2fa_pending_user', '2fa_setup_required', '2fa_remember']);
+
+            if ($usuario->impersonating_user_id) {
+                $usuario->impersonating_user_id = null;
+                $usuario->save();
+            }
+
+            return redirect()->route('dashboard')->with('ok', '2FA activado correctamente.');
+        }
 
         return redirect()->route('dashboard')->with('ok', '2FA activado correctamente.');
     }
 
     public function disable(Request $request): RedirectResponse
     {
-        $usuario = auth()->user();
-        $usuario->google2fa_secret = null;
-        $usuario->save();
-
-        return redirect()->route('dashboard')->with('ok', '2FA desactivado.');
+        return redirect()->route('dashboard')
+            ->with('error', 'No se puede desactivar el 2FA: es obligatorio para todos los usuarios.');
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -127,10 +169,10 @@ class TwoFactorController extends Controller
 
     /**
      * Impersonate a user (admin only).
-     * 
+     *
      * El admin accede a la cuenta de otro usuario sin pasar por 2FA.
      * El usuario original mantiene su secreto TOTP intacto.
-     * 
+     *
      * Route: POST /admin/impersonate/{usuarioId}
      */
     public function impersonate(Request $request, $usuarioId)
@@ -163,7 +205,7 @@ class TwoFactorController extends Controller
 
     /**
      * Stop impersonating and return to admin account.
-     * 
+     *
      * Route: POST /admin/stop-impersonating
      */
     public function stopImpersonating()

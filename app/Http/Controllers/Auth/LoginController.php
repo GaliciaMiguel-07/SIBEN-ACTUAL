@@ -72,21 +72,18 @@ class LoginController extends Controller
                 'login' => 'La contraseña es incorrecta.',
             ])->withInput();
         }
-        if ($usuario->google2fa_secret){
-            session(['2fa_pending_user' => $usuario->id]);
-            $request->session()->regenerate();
+        session([
+            '2fa_pending_user'    => $usuario->id,
+            '2fa_setup_required'  => empty($usuario->google2fa_secret),
+            '2fa_remember'        => $request->boolean('remember'),
+        ]);
+        $request->session()->regenerate();
 
+        if ($usuario->google2fa_secret) {
             return redirect()->route('2fa.verificar');
         }
 
-        Auth::login($usuario, $request->boolean('remember'));
-        $request->session()->regenerate();
-
-        // Limpiar bandera de suplantación huérfana si existiera
-        $usuario->impersonating_user_id = null;
-        $usuario->save();
-
-        return redirect()->route('dashboard');
+        return redirect()->route('2fa.configurar');
     }
 
     public function logout(Request $request): RedirectResponse

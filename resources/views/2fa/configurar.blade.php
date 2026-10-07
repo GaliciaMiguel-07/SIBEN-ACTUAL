@@ -74,8 +74,8 @@
                     <button class="btn btn-primary pull-right" type="submit">
                         Activar 2FA
                     </button>
-                    <a href="{{ route('dashboard') }}" class="btn btn-default">
-                        Cancelar
+                    <a href="{{ $isPendingSetup ? route('login') : route('dashboard') }}" class="btn btn-default">
+                        {{ $isPendingSetup ? 'Cancelar y volver al login' : 'Cancelar' }}
                     </a>
                 </div>
             </div>
@@ -83,7 +83,7 @@
         </form>
 
         {{-- Si ya tiene 2FA activo, mostrar opción de desactivarlo --}}
-        @if (auth()->user()->google2fa_secret)
+        @if (auth()->check() && auth()->user()->google2fa_secret)
             <hr>
             <div class="text-center">
                 <p>¿Quieres desactivar la autenticación de dos pasos?</p>
