@@ -8,6 +8,7 @@ use App\Http\Controllers\Auth\TwoFactorController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\sibenController;
 use App\Http\Controllers\BusquedaEscuelasController;
+use App\Http\Controllers\Admin\AdminController;
 
 // ─── Rutas públicas ──────────────────────────────────────────────────────────
 
@@ -79,6 +80,9 @@ Route::middleware(['auth', 'no.cache'])->group(function () {
     // ── Admin (solo nivel 1) ──────────────────────────────────────────────────
     Route::prefix('admin')->name('admin.')->middleware('nivel:1')->group(function () {
 
+        // Panel de administración (nivel 1)
+        Route::get   ('/',                          [AdminController::class, 'index'])
+                ->name('index');
         Route::get   ('/usuarios',                  [UsuarioController::class, 'index'])
              ->name('usuarios.index');
         Route::get   ('/usuarios/crear',            [UsuarioController::class, 'create'])

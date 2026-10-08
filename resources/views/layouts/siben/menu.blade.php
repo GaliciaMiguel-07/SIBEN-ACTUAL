@@ -37,11 +37,7 @@
 
                                 <tr>
                                     <td>Edición</td>
-                                    <td>
-                                        <a href="#" class="btn btn-primary btn-sm">
-                                            Acceder
-                                        </a>
-                                    </td>
+                                    <td><a href="{{ route('admin.index') }}" class="btn-acceso">Acceder</a></td>
                                 </tr>
 
                                 <tr>

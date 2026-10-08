@@ -1649,8 +1649,6 @@ class sibenController extends Controller
         }
         return redirect()->route('siben.editaDomicilio');
     }
-<<<<<<< HEAD
-=======
 
     public function eligeTipo()
     {
@@ -2321,5 +2319,4 @@ class sibenController extends Controller
 
         return redirect()->route('siben.directores');
     }
->>>>>>> f9109529521c205c2aa68616e58230f036e837bc
 }
