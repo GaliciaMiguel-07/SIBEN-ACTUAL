@@ -82,9 +82,6 @@ Route::middleware(['auth', 'no.cache'])->group(function () {
 
         // Panel de administración (nivel 1)
         Route::get   ('/',                          [AdminController::class, 'index'])
-<<<<<<< HEAD
-                ->name('index');
-=======
              ->name('index');
         Route::get   ('/personal/alta',             [AdminController::class, 'agregaPersonal'])
              ->name('personal.alta');
@@ -92,7 +89,6 @@ Route::middleware(['auth', 'no.cache'])->group(function () {
              ->name('personal.escuelas');
         Route::post  ('/personal/guardar',          [AdminController::class, 'guardaAgregacion'])
              ->name('personal.guardar');
->>>>>>> e5c053639d35f69c9a9faa6036a69b6c398c4846
         Route::get   ('/usuarios',                  [UsuarioController::class, 'index'])
              ->name('usuarios.index');
         Route::get   ('/usuarios/crear',            [UsuarioController::class, 'create'])
@@ -105,7 +101,18 @@ Route::middleware(['auth', 'no.cache'])->group(function () {
              ->name('usuarios.update');
         Route::patch ('/usuarios/{usuario}/status', [UsuarioController::class, 'toggleStatus'])
              ->name('usuarios.toggle');
-
+        Route::post  ('/personal/guardar',          [AdminController::class, 'guardaAgregacion'])
+             ->name('personal.guardar');
+        Route::get   ('/personal/busqueda',      [AdminController::class, 'busquedaPersonal'])
+             ->name('personal.busqueda');
+        Route::get   ('/personal/lista',         [AdminController::class, 'listaPersonal'])
+             ->name('personal.lista');
+        Route::post  ('/personal/status',        [AdminController::class, 'cambiaStatus'])
+             ->name('personal.status');
+        Route::get   ('/personal/editar/{id}',   [AdminController::class, 'editaPersonal'])
+             ->name('personal.editar');
+        Route::post  ('/personal/actualizar',    [AdminController::class, 'guardaEdicion'])
+             ->name('personal.actualizar');
         // Solo el admin puede INICIAR una suplantación
         Route::post('/impersonate/{usuarioId}', [TwoFactorController::class, 'impersonate'])
              ->name('impersonate');

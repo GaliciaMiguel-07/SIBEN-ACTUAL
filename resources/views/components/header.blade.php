@@ -75,6 +75,14 @@
         </nav>
       </details>
 
+      {{-- Botón de Accesibilidad --}}
+      <button type="button" class="boton__limpio">
+        <i class="snd__icono snd-accessibility--alt icono--32 icono--circuloRojo" aria-hidden="true"></i>
+        <span class="oculto">
+          Opciones de accesibilidad
+        </span>
+      </button>
+
       {{-- Botón de Ingresar directo (Abre la ventana emergente/popup sin submenú) --}}
       <div class="iniciarSesion">
         <a href="{{ route('login') }}" 
