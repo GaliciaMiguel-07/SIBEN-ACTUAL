@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="{{ asset('css/estilos.css') }}">
 
     {{-- Bootstrap (si lo usas) --}}
-    {{-- <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5/dist/css/bootstrap.min.css"> --}}
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5/dist/css/bootstrap.min.css">
 
     @stack('styles')
 </head>

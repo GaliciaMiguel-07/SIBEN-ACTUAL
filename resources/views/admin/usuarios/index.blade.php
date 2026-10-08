@@ -4,9 +4,13 @@
 
 @section('content')
 
-@include('layouts.siben.menu')
 
 <div id="area_contenido" style="margin-left:170px; padding:10px;">
+
+    <a href="{{ route('admin.index') }}"
+       style="display:inline-block; margin-bottom:12px; padding:6px 12px; background:#611232; color:#fff; text-decoration:none; border-radius:4px;">
+        &larr; Panel
+    </a>
 
     <h3>Administración de Usuarios</h3>
 
