@@ -4851,7 +4851,6 @@ body { margin: 0; font-family: var(--font-base); color: var(--c-ink); background
 
   .tabla__vacio-texto {
     display: -webkit-box;
-    -webkit-line-clamp: 3;
     -webkit-box-orient: vertical;
     overflow: hidden;
     text-align: left;
