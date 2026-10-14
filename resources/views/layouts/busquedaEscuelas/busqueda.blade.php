@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <link rel="stylesheet" href="{{ asset('css/estilos.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/escuelas.css') }}">
     <title>Búsqueda de Escuelas - SIBEN</title>
     
     <x-header />
@@ -18,26 +20,31 @@
         </ol>
     </div>
 
-     <div class="mexico__contenedor" style="max-width: 1200px; margin: 0 auto; padding: 0 20px 60px 20px;">   
+    {{--
+  Búsqueda de escuelas — nuevo diseño.
+  Misma lógica y mismos name/old() que antes; solo cambian las clases.
+  Requiere (en este orden):  styles.css  →  busqueda-escuelas.css
+--}}
+<div class="mexico__contenedor" style="max-width: 1200px; margin: 0 auto; padding: 0 20px 60px 20px;">
         <section class="col-md-12">
-            <h2>BÚSQUEDA DE ESCUELAS</h2>
-            <hr class="red">
+            <h2 class="noto-sans-heading-h5b">BÚSQUEDA DE ESCUELAS</h2>
+            <hr class="red divider">
 
-            <h3>Seleccione las características de las escuelas que desea buscar</h3>
+            <h3 class="noto-sans-heading-h6b">Seleccione las características de las escuelas que desea buscar</h3>
             <br><br>
 
             <form action="{{ route('siben.busqueda_escuelas.resultado') }}" method="POST">
                 @csrf
-                <table class="table">				
+                <table class="table">
                     <tr>
-                        <td>Escuela:</td>
+                        <td class="noto-sans-body-b1sb">Escuela:</td>
                         <td style="width:700px;">
                             <input class="form-control" name="Escuela[escuela]" placeholder="Nombre de la escuela" type="text" value="{{ old('Escuela.escuela') }}">
                         </td>
                         <td></td>
                     </tr>
                     <tr>
-                        <td>Entidad:</td>
+                        <td class="noto-sans-body-b1sb">Entidad:</td>
                         <td>
                             <select class="form-control" name="Escuela[id_entidad]">
                                 <option value="">-- Seleccione una entidad --</option>
@@ -51,7 +58,7 @@
                         <td></td>
                     </tr>
                     <tr>
-                        <td>Sostenimiento:</td>
+                        <td class="noto-sans-body-b1sb">Sostenimiento:</td>
                         <td>
                             <select class="form-control" name="Escuela[sostenimiento]">
                                 <option value="">-- Seleccione el sostenimiento --</option>
@@ -62,7 +69,7 @@
                         <td></td>
                     </tr>
                     <tr>
-                        <td>Turno:</td>
+                        <td class="noto-sans-body-b1sb">Turno:</td>
                         <td>
                             <select class="form-control" name="Escuela[turno]">
                                 <option value="">-- Seleccione el turno --</option>
@@ -76,7 +83,7 @@
                         <td></td>
                     </tr>
                     <tr>
-                        <td>Licenciatura:</td>
+                        <td class="noto-sans-body-b1sb">Licenciatura:</td>
                         <td>
                             <select class="form-control" name="EscuelaLicenciatura[id_licenciatura]">
                                 <option value="">-- Seleccione una licenciatura --</option>
@@ -90,10 +97,11 @@
                         <td></td>
                     </tr>
                     <tr>
-                        <td>Que cuente con:</td>
+                        <td class="noto-sans-body-b1sb">Que cuente con:</td>
                         <td>Correo electrónico</td>
                         <td>
-                            <div class="checkbox">
+                            {{-- .checkbox → .check: styles.css define un .checkbox de 21x21 (de Figma) que chocaría --}}
+                            <div class="check">
                                 <label>
                                     <input type="checkbox" name="Correo[op1]" value="1" {{ old('Correo.op1') ? 'checked' : '' }}>
                                 </label>
@@ -104,7 +112,7 @@
                         <td></td>
                         <td>Página Web</td>
                         <td>
-                            <div class="checkbox">
+                            <div class="check">
                                 <label>
                                     <input type="checkbox" name="Pagina[op2]" value="1" {{ old('Pagina.op2') ? 'checked' : '' }}>
                                 </label>
@@ -113,11 +121,12 @@
                     </tr>
                 </table>
 
-                <button class="btn btn-primary pull-right btn-icon-right" type="submit">Buscar</button>
+                <button class="boton__primario pull-right" type="submit">Buscar</button>
             </form>
             <br/><br/><br/>
         </section>
     </div>
+
 
     <x-footer />
 </body>

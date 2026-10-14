@@ -7,13 +7,93 @@
     <title>Detalles de Escuela — SIBEN</title>
     
     <link href="{{ url('/images/favicon.ico') }}" rel="shortcut icon">
-    <link href="https://framework-gb.cdn.gob.mx/assets/styles/main.css" rel="stylesheet">
     
+    <!-- Estilos integrados del sistema de diseño (sin dependencias del CSS antiguo) -->
+    <style>
+        body {
+            font-family: 'Noto Sans', system-ui, -apple-system, sans-serif;
+            color: #161a1d;
+            background: #ffffff;
+            margin: 0;
+        }
+        .siben-panel {
+            background: #ffffff;
+            border: 1px solid #dddddd;
+            border-radius: 8px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, .04);
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+        .siben-panel-heading {
+            background-color: #611232;
+            color: #ffffff;
+            padding: 14px 16px;
+            font-size: 16px;
+            font-weight: 600;
+        }
+        .siben-panel-body {
+            padding: 20px;
+        }
+        .siben-well {
+            background: #f9f9f9;
+            border: 1px solid #dddddd;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .tabla-siben {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            font-size: 14px;
+        }
+        .tabla-siben th {
+            background-color: #f9f9f9;
+            color: #161a1d;
+            font-weight: 600;
+            padding: 12px 14px;
+            border-bottom: 1px solid #dddddd;
+            border-top: 1px solid #dddddd;
+            vertical-align: middle;
+            text-align: left;
+        }
+        .tabla-siben td {
+            padding: 12px 14px;
+            border-bottom: 1px solid #eeeeee;
+            vertical-align: middle;
+            color: #161a1d;
+        }
+        .tabla-siben tr:last-child td {
+            border-bottom: none;
+        }
+        .thumbnail {
+            border: 1px solid #dddddd;
+            border-radius: 8px;
+            padding: 4px;
+            background: #fff;
+        }
+        .btn-siben {
+            display: inline-block;
+            padding: 8px 16px;
+            background: #f2f2f2;
+            border: 1px solid #dddddd;
+            border-radius: 4px;
+            color: #161a1d;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .btn-siben:hover {
+            background: #e6e6e6;
+            text-decoration: none;
+            color: #161a1d;
+        }
+    </style>
+
     <x-header />
 </head>
 <body>
 
-<div class="container" style="margin-top: 40px;">       
+<div class="container" style="max-width: 1200px; margin: 40px auto; padding: 0 20px;">       
     <section class="col-md-12">
         <h2>DETALLES DE LA ESCUELA NORMAL SELECCIONADA</h2>
         <hr class="red">          
@@ -21,9 +101,9 @@
         @if(isset($escuela))
             
             <!-- ENCABEZADO BÁSICO -->
-            <div class="well well-sm">
-                <h4><b>{{ $escuela->escuela }}</b></h4>
-                <p>
+            <div class="siben-well">
+                <h4 style="margin-top: 0; color: #611232;"><b>{{ $escuela->escuela }}</b></h4>
+                <p style="margin-bottom: 0; line-height: 1.6;">
                     <b>Entidad:</b> {{ is_object($entidad) ? ($entidad->entidad ?? $entidad->nombre) : (is_object($localidad) && isset($localidad->entidad) ? $localidad->entidad : $entidad) }}<br>
                     <b>Sostenimiento:</b> {{ $sostenimiento }}<br>
                     <b>Turno:</b> {{ $turno }}
@@ -32,10 +112,10 @@
 
             <!-- DOMICILIO Y CONTACTO -->
             @if(!empty($domicilioData))
-                <div class="panel panel-default">
-                    <div class="panel-heading"><b>Datos de Ubicación y Contacto</b></div>
-                    <div class="panel-body">
-                        <table class="table table-bordered table-condensed">
+                <div class="siben-panel">
+                    <div class="siben-panel-heading">Datos de Ubicación y Contacto</div>
+                    <div class="siben-panel-body" style="padding: 0;">
+                        <table class="tabla-siben">
                             <tbody>
                                 <tr>
                                     <th style="width: 20%;">Vialidad:</th>
@@ -113,54 +193,58 @@
 
             <!-- DIRECTIVOS -->
             @if(isset($personal) && count($personal) > 0)
-                <div class="panel panel-default">
-                    <div class="panel-heading"><b>Directivos</b></div>
-                    <table class="table table-striped table-condensed">
-                        <tbody>
-                            @foreach($personal as $persona)
-                                <tr>
-                                    <td>{{ mb_strtoupper($persona->nombre ?? '') }}</td>
-                                    <td>{{ mb_strtoupper($persona->apellido_paterno ?? '') }}</td>
-                                    <td>{{ mb_strtoupper($persona->apellido_materno ?? '') }}</td>
-                                    <td>{{ $funciones[$persona->id_funcion] ?? 'Sin función especificada' }}</td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
+                <div class="siben-panel">
+                    <div class="siben-panel-heading">Directivos</div>
+                    <div class="siben-panel-body" style="padding: 0;">
+                        <table class="tabla-siben">
+                            <tbody>
+                                @foreach($personal as $persona)
+                                    <tr>
+                                        <td>{{ mb_strtoupper($persona->nombre ?? '') }}</td>
+                                        <td>{{ mb_strtoupper($persona->apellido_paterno ?? '') }}</td>
+                                        <td>{{ mb_strtoupper($persona->apellido_materno ?? '') }}</td>
+                                        <td><b>{{ $funciones[$persona->id_funcion] ?? 'Sin función especificada' }}</b></td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             @endif
 
             <!-- LICENCIATURAS -->
             @if(isset($licenciaturas) && count($licenciaturas) > 0)
-                <div class="panel panel-default">
-                    <div class="panel-heading"><b>Licenciaturas</b></div>
-                    <table class="table table-striped table-condensed">
-                        <thead>
-                            <tr>
-                                <th>Licenciaturas</th>
-                                <th>Especialidad</th>
-                                <th>Modalidad</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach($licenciaturas as $lic)
+                <div class="siben-panel">
+                    <div class="siben-panel-heading">Licenciaturas</div>
+                    <div class="siben-panel-body" style="padding: 0;">
+                        <table class="tabla-siben">
+                            <thead>
                                 <tr>
-                                    <td>{{ $lic->licenciatura ?? '' }} {{ $lic->plan ?? '' }}</td>
-                                    <td>{{ $lic->especialidad ?? 'n/a' }}</td>
-                                    <td>
-                                        {{ strtolower($lic->modalidad ?? '') === 'e' ? 'Escolarizada' : (strtolower($lic->modalidad ?? '') === 'm' ? 'Mixta' : ($lic->modalidad ?? 'Escolarizada')) }}
-                                    </td>
+                                    <th>Licenciaturas</th>
+                                    <th>Especialidad</th>
+                                    <th>Modalidad</th>
                                 </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                @foreach($licenciaturas as $lic)
+                                    <tr>
+                                        <td>{{ $lic->licenciatura ?? '' }} {{ $lic->plan ?? '' }}</td>
+                                        <td>{{ $lic->especialidad ?? 'n/a' }}</td>
+                                        <td>
+                                            {{ strtolower($lic->modalidad ?? '') === 'e' ? 'Escolarizada' : (strtolower($lic->modalidad ?? '') === 'm' ? 'Mixta' : ($lic->modalidad ?? 'Escolarizada')) }}
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             @endif
 
             <!-- IMÁGENES -->
-            <div class="panel panel-default">
-                <div class="panel-heading"><b>Imágenes</b></div>
-                <div class="panel-body">
+            <div class="siben-panel">
+                <div class="siben-panel-heading">Imágenes</div>
+                <div class="siben-panel-body">
                     @if(isset($imagenes) && count($imagenes) > 0)
                         <div class="row">
                             @foreach($imagenes as $img)
@@ -172,19 +256,19 @@
                             @endforeach
                         </div>
                     @else
-                        <p class="text-muted">No hay imágenes disponibles para esta escuela.</p>
+                        <p class="text-muted" style="margin: 0;">No hay imágenes disponibles para esta escuela.</p>
                     @endif
                 </div>
             </div>
 
         @else
-            <div class="alert alert-danger">
+            <div class="alert alert-danger" style="padding: 15px; background: #fae5e5; color: #9b0f15; border-radius: 8px;">
                 No se encontró información para esta escuela.
             </div>
         @endif
 
         <br>
-        <a href="{{ route('siben.busqueda_escuelas.busqueda') }}" class="btn btn-default">Regresar a Búsqueda</a>
+        <a href="{{ route('siben.busqueda_escuelas.busqueda') }}" class="btn-siben">Regresar a Búsqueda</a>
         <br/><br/><br/>
     </section>
 </div>

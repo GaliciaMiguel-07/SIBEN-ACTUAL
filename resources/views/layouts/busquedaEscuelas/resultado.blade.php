@@ -6,8 +6,62 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <title>Resultados de Búsqueda — SIBEN</title>
 
-    
     <x-header />
+
+    <!-- Estilos integrados para garantizar el diseño guinda sin conflictos -->
+    <style>
+        .tabla-siben {
+            width: 100%;
+            background: #ffffff;
+            border: 1px solid #dddddd;
+            border-radius: 8px;
+            border-collapse: separate;
+            border-spacing: 0;
+            font-family: 'Noto Sans', system-ui, -apple-system, sans-serif;
+            margin-top: 20px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, .04);
+            overflow: hidden;
+        }
+        .tabla-siben th {
+            background-color: #611232 !important; /* Color guinda oficial */
+            color: #ffffff !important;
+            padding: 12px 16px;
+            font-size: 14px;
+            font-weight: 600;
+            text-align: left;
+            border: none;
+            white-space: nowrap;
+        }
+        .tabla-siben td {
+            padding: 14px 16px;
+            font-size: 14px;
+            line-height: 20px;
+            color: #161a1d;
+            border-top: 1px solid #eeeeee;
+            vertical-align: middle;
+        }
+        .tabla-siben tbody tr:hover {
+            background-color: #f9f9f9;
+        }
+        .btn-accion-mas {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 4px 12px;
+            background: #f2f2f2;
+            border: 1px solid #dddddd;
+            border-radius: 4px;
+            color: #611232;
+            font-size: 12px;
+            font-weight: 600;
+            text-decoration: none;
+        }
+        .btn-accion-mas:hover {
+            background: #e6e6e6;
+            color: #611232;
+            text-decoration: none;
+        }
+    </style>
 </head>
 <body>
       <br><br>
@@ -19,7 +73,7 @@
         </ol>
     </div>
 
- <div class="mexico__contenedor" style="max-width: 1200px; margin: 0 auto; padding: 0 20px 60px 20px;" style="margin-top: 40px;">       
+ <div class="mexico__contenedor" style="max-width: 1200px; margin: 0 auto; padding: 0 20px 60px 20px; margin-top: 40px;">       
     <section class="col-md-12">
         <h2>RESULTADOS DE LA BÚSQUEDA</h2>
         <hr class="red">          
@@ -39,57 +93,70 @@
         </div>
         <br />
 
-        <div id="resultados" style="width:100%;height:450px;overflow:auto;margin:auto;">
-            @if($escuelas->isEmpty())
-                <div class="alert alert-warning" style="padding: 15px; margin-top: 20px;">
-                    No se encontraron escuelas con los criterios seleccionados.
-                </div>
-            @else
-                <table class="table table-bordered">
-                    @foreach ($escuelas as $infoEscuela)
-                        @php
-                            $j++;
-                            $urlDetalle = route('siben.busqueda_escuelas.detalles', $infoEscuela->id);
-                            // Intentar obtener el nombre de la entidad de varias formas comunes
-                            $nombreEntidad = $infoEscuela->entidad_nombre 
-                                ?? optional($infoEscuela->entidad)->nombre 
-                                ?? optional($infoEscuela->entidadRelacion)->entidad 
-                                ?? 'Entidad ' . ($infoEscuela->id_entidad ?? '');
-                        @endphp
-
-                        <tr style="background-color:#efefef">
-                            <td>
-                                {{ $j }}.-&nbsp;{{ $nombreEntidad }}
-                            </td>
-                            <td>
-                                {{ $infoEscuela->escuela_key ?? $infoEscuela->clave ?? 'N/D' }}
-                            </td>
-                        </tr>
+        <!-- Tabla rediseñada -->
+        <div class="table-responsive">
+            <table class="tabla-siben">
+                <thead>
+                    <tr>
+                        <th>Entidad</th>
+                        <th>Clave</th>
+                        <th>Nombre de la Escuela</th>
+                        <th>Correo</th>
+                        <th>Sitio Web</th>
+                        <th style="text-align: center;">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if($escuelas->isEmpty())
                         <tr>
-                            <td>
-                                <strong>{{ $infoEscuela->escuela ?? $infoEscuela->nombre ?? 'Sin nombre' }}</strong>
-                            </td>
-                            <td>
-                                <a href="{{ $urlDetalle }}" title="Detalles de la escuela">
-                                    <img src="{{ asset('img/detalle.gif') }}" alt="Detalles de la escuela" width="22" height="20">
-                                </a>
+                            <td colspan="6" style="text-align: center; padding: 24px; color: #5d5d5d;">
+                                No se encontraron escuelas con los criterios seleccionados.
                             </td>
                         </tr>
-                        <tr>
-                            <td>
-                                Correo: {!! $infoEscuela->correo_electronico ?: '&nbsp;' !!}
-                            </td>
-                            <td>&nbsp;</td>
-                        </tr>
-                        <tr>
-                            <td>
-                                Web: {!! $infoEscuela->pagina_web ?: '&nbsp;' !!}
-                            </td>
-                            <td>&nbsp;</td>
-                        </tr>
-                    @endforeach
-                </table>
-            @endif
+                    @else
+                        @foreach ($escuelas as $infoEscuela)
+                            @php
+                                $j++;
+                                $urlDetalle = route('siben.busqueda_escuelas.detalles', $infoEscuela->id);
+                                $nombreEntidad = $infoEscuela->entidad_nombre 
+                                    ?? optional($infoEscuela->entidad)->nombre 
+                                    ?? optional($infoEscuela->entidadRelacion)->entidad 
+                                    ?? 'Entidad ' . ($infoEscuela->id_entidad ?? '');
+                                $claveEscuela = $infoEscuela->escuela_key ?? $infoEscuela->clave ?? 'N/D';
+                                $nombreEscuela = $infoEscuela->escuela ?? $infoEscuela->nombre ?? 'Sin nombre';
+                                $correo = $infoEscuela->correo_electronico ?: '-';
+                                $web = $infoEscuela->pagina_web ?: '-';
+                            @endphp
+                            <tr>
+                                <td>
+                                    <strong>{{ $j }}.</strong> {{ $nombreEntidad }}
+                                </td>
+                                <td>
+                                    {{ $claveEscuela }}
+                                </td>
+                                <td>
+                                    <strong>{{ $nombreEscuela }}</strong>
+                                </td>
+                                <td>
+                                    {{ $correo }}
+                                </td>
+                                <td>
+                                    @if($infoEscuela->pagina_web)
+                                        <a href="{{ $infoEscuela->pagina_web }}" target="_blank" rel="noopener noreferrer">{{ $web }}</a>
+                                    @else
+                                        {{ $web }}
+                                    @endif
+                                </td>
+                                <td style="text-align: center;">
+                                    <a href="{{ $urlDetalle }}" class="btn-accion-mas" title="Detalles de la escuela">
+                                        Más
+                                    </a>
+                                </td>
+                            </tr>
+                        @endforeach
+                    @endif
+                </tbody>
+            </table>
         </div>
 
         <br/>
