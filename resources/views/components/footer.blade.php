@@ -123,5 +123,5 @@
       </div>
     </div>
   </div>
-  <script src="https://www.snd.gob.mx/snd/v1/snd.js"></script>
+  <script src="https://framework-gb.cdn.gob.mx/snd/v1.1.0/snd.js"></script>
 </footer>

@@ -1,6 +1,6 @@
 <header class="header">
   {{-- Favicon y CSS institucional --}}
-  <link href="https://www.snd.gob.mx/snd/v1/snd-guinda.css" rel="stylesheet">
+  <link href="https://framework-gb.cdn.gob.mx/snd/v1.1.0/snd-guinda.css" rel="stylesheet">
 
   <a class="irContent" href="#mainContent">
     Ir al contenido principal
