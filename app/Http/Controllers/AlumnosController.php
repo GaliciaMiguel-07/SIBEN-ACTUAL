@@ -412,6 +412,29 @@ class AlumnoController extends sibenController
             if(!empty($datosAlumno['numero_identificador'])){
                 Alumno::where('id', $datosAlumno['numero_identificador'])->update($datosAlumno);
             }
+            if(!empty($datosRegistro['id'])){
+                Registro::where('id', $datosRegistro['id'])->update($datosRegistro);
+            }
+            return response()->json(['status' => 'success', 'message' => 'Informacion actualizada correctamente']);
         }
+        $id_registro = $request->input('Historia.id_registro', $request ->input('id_registro'));
+
+        $infoAlumno = Registro::where('id_escuela', $id_escuela)
+            ->where('captura', $this->captura_actual)
+            ->where('id', $id_registro)
+            ->first();
+        
+        $alumnoModel =Alumno::where('numero_identificador', $infoAlumno->nid ?? null)->first();
+        $entidades = Entidad::where('id', '<', 33)->pluck('entidad', 'id')->toArray();
+        $licenciaturas = Licenciatura::pluck('licenciatura', 'id');
+        $especialidades = Especialidades::pluck('especialidad', 'id');
+
+        return view('alumnos.actualizar_alumno', compact(
+            'infoAlumno',
+            'alumnoModel',
+            'entidades',
+            'licenciaturas',
+            'especialidades'
+        ));
     }
 }            
