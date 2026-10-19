@@ -8,7 +8,7 @@
 
     <x-header />
 
-    <!-- Estilos integrados para garantizar el diseño guinda sin conflictos -->
+    <!-- Estilos integrados para la tabla y la paginación oficial -->
     <style>
         .tabla-siben {
             width: 100%;
@@ -60,6 +60,63 @@
             background: #e6e6e6;
             color: #611232;
             text-decoration: none;
+        }
+
+        /* ---------- Paginación Oficial Estilo Design System ---------- */
+        .pagination-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-top: 35px;
+            width: 100%;
+        }
+
+        .pagination {
+            display: flex;
+            padding-left: 0;
+            list-style: none;
+            gap: 6px;
+            align-items: center;
+            margin: 0;
+        }
+
+        .pagination .page-item .page-link {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 38px;
+            height: 38px;
+            padding: 0;
+            font-family: 'Noto Sans', system-ui, sans-serif;
+            font-size: 14px;
+            font-weight: 500;
+            color: #161a1d;
+            background-color: transparent;
+            border: none;
+            border-radius: 50% !important; /* Círculo perfecto */
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+
+        .pagination .page-item .page-link:hover {
+            background-color: rgba(97, 18, 50, 0.08);
+            color: #611232;
+        }
+
+        /* Página ACTIVA: Círculo sólido guinda con texto blanco */
+        .pagination .page-item.active .page-link {
+            background-color: #611232 !important;
+            color: #ffffff !important;
+            border-color: #611232 !important;
+            font-weight: 600;
+        }
+
+        /* Estado deshabilitado para flechas extremas */
+        .pagination .page-item.disabled .page-link {
+            color: #cccccc;
+            background-color: transparent;
+            pointer-events: none;
         }
     </style>
 </head>
@@ -160,8 +217,9 @@
         </div>
 
         <br/>
-        <div class="text-center">
-            {{ $escuelas->withQueryString()->links() }}
+        <!-- Paginación limpia utilizando la vista de Bootstrap 4 -->
+        <div class="pagination-container">
+            {{ $escuelas->withQueryString()->links('pagination::bootstrap-4') }}
         </div>
         
         <br>

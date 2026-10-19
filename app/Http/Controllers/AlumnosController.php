@@ -35,7 +35,7 @@ class AlumnoController extends sibenController
      */
     public function index()
     {
-        $ctx        = $this->obtenerContextoUsuario();
+        $ctx        = $this->contexto();
         $nivel      = $ctx['nivel'] ?? null;
         $captura    = $ctx['captura'] ?? false;
         $id_escuela = $ctx['id_escuela'] ?? null;
@@ -134,7 +134,7 @@ class AlumnoController extends sibenController
      */
     public function listaEscuelas()
     {
-        $ctx        = $this->obtenerContextoUsuario();
+        $ctx        = $this->contexto();
         $modulo     = $ctx['modulo'] ?? null;
         $id_entidad = $ctx['id_entidad'] ?? null;
 
@@ -144,7 +144,9 @@ class AlumnoController extends sibenController
             ->where('modulo', $modulo)
             ->get(['id', 'escuela', 'escuela_key', 'captura']);
 
-        return view('alumnos.lista_escuelas', compact('escuelas'));
+        $anterior = '/alumnos';
+
+        return view('alumnos.lista_escuelas', compact('escuelas', 'anterior'));
     }
 
     /**
@@ -156,7 +158,7 @@ class AlumnoController extends sibenController
         $id_escuela = $request->input('Escuela.id', $request->input('id_escuela'));
         session(['Usuario.id_escuela' => $id_escuela]);
 
-        return response('');
+        return view('elements.vacio');
     }
 
     /**
@@ -166,11 +168,12 @@ class AlumnoController extends sibenController
     public function busquedaAlumnos($opc = null, $id_escuela = null)
     {
         if (!$opc) {
-            return redirect()->route('alumnos.index');
+            return redirect('/alumnos');
         }
 
-        $ctx        = $this->obtenerContextoUsuario();
-        $id_escuela = $id_escuela ?? ($ctx['id_escuela'] ?? null);
+        $ctx           = $this->contexto();
+        $id_escuela    = $id_escuela ?? ($ctx['id_escuela'] ?? null);
+        $nombreEntidad = $ctx['id_renapo'] ?? null;
 
         $licenciaturas = EscuelaLicenciatura::with(['licenciaturaModel', 'especialidadModel'])
             ->where('id_escuela', $id_escuela)
@@ -204,6 +207,14 @@ class AlumnoController extends sibenController
         for ($i = 1; $i <= 13; $i++) {
             if (($i % 2) === $paridadCaptura) {
                 $semestre[$i] = $i;
+            }
+        }
+
+        if ($nombreEntidad == 'TS' || in_array($id_escuela, ['180', '193', 477, 372])) {
+            if ($id_escuela == 372) {
+                $semestre[6] = 6;
+            } else {
+                $semestre[8] = 8;
             }
         }
 
@@ -249,10 +260,18 @@ class AlumnoController extends sibenController
             ->where('captura', $this->captura_actual)
             ->where('status', '!=', 's');
 
-        $llenos = array_filter($buscaData, fn($v) => !is_null($v) && $v !== '');
-        if (count($llenos) > 0) {
-            foreach ($llenos as $campo => $valor) {
-                $query->where($campo, $valor);
+        $contador = 0;
+        foreach ($buscaData as $valor) {
+            if (!$valor) {
+                $contador++;
+            }
+        }
+
+        if ($contador < 8) {
+            foreach ($buscaData as $campo => $valor) {
+                if (!empty($valor)) {
+                    $query->where($campo, $valor);
+                }
             }
         }
 
@@ -290,7 +309,9 @@ class AlumnoController extends sibenController
             $accion = $boton;
             if ((($alumno->status === 'x' || $alumno->status === 't') && $opc === 'i') || 
                 ($opc === 'e' && ($alumno->status === 'x' || $alumno->status === 'i'))) {
-                if ($alumno->status_conflictos === 'n') {
+                if ($alumno->status_conflictos != 'n') {
+                    $accion = $boton;
+                } else {
                     $accion = '<div style="color:red;background-color:black;font-weight:900;">Conflicto</div>';
                 }
             }
@@ -328,7 +349,7 @@ class AlumnoController extends sibenController
      */
     public function reinscribirAlumnos(Request $request)
     {
-        $ctx           = $this->obtenerContextoUsuario();
+        $ctx           = $this->contexto();
         $id_escuela    = $ctx['id_escuela'] ?? null;
         $nombreEntidad = $ctx['id_renapo'] ?? null;
 
@@ -342,23 +363,44 @@ class AlumnoController extends sibenController
             $datosRegistro     = $request->input('Registro', []);
             $datosBachillerato = $request->input('AlumnoBachillerato', []);
 
-            $datosRegistro['status']              = 'i';
-            $datosRegistro['fecha_actualizacion'] = now();
+            $parametros = [
+                'nid'             => $datosAlumno['numero_identificador'] ?? null,
+                'id_registro'     => $datosRegistro['id'] ?? null,
+                'id_licenciatura' => $datosRegistro['id_licenciatura'] ?? null,
+                'id_especialidad' => $datosRegistro['id_especialidad'] ?? null,
+                'matricula'       => $datosRegistro['matricula'] ?? null,
+                'semestre'        => $datosRegistro['semestre'] ?? null,
+                'id_escuela'      => $id_escuela,
+                'captura'         => $this->captura_actual
+            ];
 
-            $registroModel = Registro::find($datosRegistro['id'] ?? $id_registro);
-            if ($registroModel) {
-                $registroModel->update($datosRegistro);
-            }
+            $errores = Registro::inscripcionAlumnoStatic($parametros);
 
-            if (!empty($datosAlumno['numero_identificador'])) {
+            if (empty($errores)) {
+                $datosRegistro['status'] = 'i';
+                $datosRegistro['fecha_actualizacion'] = now();
+
+                Baja::revisarBaja($datosAlumno['numero_identificador'] ?? null, $id_escuela);
+
                 if (($datosAlumno['discapacidad'] ?? 'n') === 'n') {
                     $datosAlumno['tipo_discapacidad'] = 0;
                 }
-                Alumno::where('numero_identificador', $datosAlumno['numero_identificador'])->update($datosAlumno);
 
-                if (!empty($datosBachillerato)) {
-                    if (($datosBachillerato['id_bachillerato'] ?? 0) != 0) {
-                        $datosBachillerato['otro'] = 'no';
+                if (($datosBachillerato['id_bachillerato'] ?? 0) != 0) {
+                    $datosBachillerato['otro'] = 'no';
+                }
+
+                $regModel = Registro::find($datosRegistro['id'] ?? null);
+                if ($regModel) {
+                    $apoyos = Registro::uneApoyosStatic($datosRegistro);
+                    $datosRegistro['apoyos'] = $apoyos;
+                    $regModel->update($datosRegistro);
+                }
+
+                if (!empty($datosAlumno['numero_identificador'])) {
+                    $alumModel = Alumno::find($datosAlumno['numero_identificador']);
+                    if ($alumModel) {
+                        $alumModel->update($datosAlumno);
                     }
                     $datosBachillerato['nid'] = $datosAlumno['numero_identificador'];
                     AlumnoBachillerato::updateOrCreate(
@@ -366,9 +408,17 @@ class AlumnoController extends sibenController
                         $datosBachillerato
                     );
                 }
-            }
 
-            return response()->json(['status' => 'success']);
+                return response()->json(['status' => 'success']);
+            } else {
+                $mensajes = "";
+                for ($i = 1; $i <= 4; $i++) {
+                    if (!empty($errores[$i])) {
+                        $mensajes .= $errores[$i] . "\n";
+                    }
+                }
+                return response($mensajes, 400);
+            }
         }
 
         $infoAlumno = DB::table('historias')
@@ -381,31 +431,89 @@ class AlumnoController extends sibenController
             return response('Registro no encontrado', 404);
         }
 
-        $alumnoModel      = Alumno::where('numero_identificador', $infoAlumno->nid)->first();
+        $infoAlumno2      = Alumno::where('numero_identificador', $infoAlumno->nid)->first();
         $infoBachillerato = AlumnoBachillerato::where('nid', $infoAlumno->nid)->first();
         $infoBecado       = BecasPractica::where('nid', $infoAlumno->nid)->first();
 
-        $entidades      = Entidad::where('id', '<', 33)->pluck('entidad', 'id')->toArray();
-        $entidades[33]  = 'Extranjero';
-        $municipiosNac  = Municipio::where('id_entidad', $infoAlumno->entidad_nacimiento ?? 0)->pluck('municipio', 'id');
-        $documentos     = Documento::pluck('documento', 'id');
-        $licenciaturas  = Licenciatura::pluck('licenciatura', 'id');
-        $especialidades = Especialidad::pluck('especialidad', 'id');
-        $paises         = Pais::pluck('pais', 'id');
-        $lenguas        = Lengua::pluck('nombre', 'id');
-        $necesidades    = Necesidad::pluck('necesidad', 'id');
-        $discapacidades = Discapacidad::where('id', '>=', 5)->pluck('discapacidad', 'id');
+        $municipio_nacimiento = Municipio::where('id_entidad', $infoAlumno->entidad_nacimiento ?? 0)->pluck('municipio', 'id');
+        $entidades = Entidad::where('id', '<', 33)->pluck('entidad', 'id')->toArray();
+        $entidades[33] = 'Extranjero';
+        $municipios_bach = Municipio::where('id_entidad', $infoBachillerato->id_entidad ?? 0)->pluck('municipio', 'id');
+        $bachilleratos = Bachillerato::where('id_municipio2', $infoBachillerato->id_municipio ?? 0)->pluck('nombre', 'id')->toArray();
+        $bachilleratos[0] = 'otro';
 
-        $modalidades  = ['e' => 'Escolarizada', 'm' => 'Mixta'];
-        $listaTurno   = ['m' => 'Matutino', 'n' => 'Nocturno', 'v' => 'Vespertino', 'd' => 'Discontinuo'];
-        $sexos        = ['M' => 'Mujer', 'H' => 'Hombre'];
+        $especialAlumno = Historia::isEspecialStatic($infoAlumno->id_licenciatura, $infoAlumno->semestre, $infoAlumno->id_especialidad);
+
+        $semestre = Historia::CalcularSemestreStatic($infoAlumno->semestre, $this->captura_actual, $nombreEntidad, $id_escuela);
+        $modalidad = ['e' => 'Escolarizada', 'm' => 'Mixta'];
+        $lista_turno = ['m' => 'Matutino', 'n' => 'Nocturno', 'v' => 'Vespertino', 'd' => 'Discontinuo'];
+        $sexo = ['M' => 'Mujer', 'H' => 'Hombre'];
         $nacionalidad = ['m' => 'Mexicano', 'e' => 'Extranjero'];
+        $sostenimiento_bach = ['p' => 'Público', 'q' => 'Privado'];
+        $sino = ['s' => 'Sí', 'n' => 'No'];
+        $discapacidad = Discapacidad::where('id', '>=', 5)->pluck('discapacidad', 'id');
+        $documentos = Documento::pluck('documento', 'id');
+        $entidad_nac = Entidad::pluck('entidad', 'id');
+        $licenciatura = Licenciatura::pluck('licenciatura', 'id');
+        $especialidad = Especialidad::pluck('especialidad', 'id');
+        $paises = Pais::pluck('pais', 'id');
+        $lenguas = Lengua::pluck('nombre', 'id');
+        $necesidad = Necesidad::pluck('necesidad', 'id');
 
-        return view('alumnos.reinscribir_alumnos', compact(
-            'infoAlumno', 'alumnoModel', 'infoBachillerato', 'infoBecado',
-            'entidades', 'municipiosNac', 'documentos', 'licenciaturas',
-            'especialidades', 'paises', 'lenguas', 'necesidades', 'discapacidades',
-            'modalidades', 'listaTurno', 'sexos', 'nacionalidad'
+        $entidadesnal = EntidadNal::where('id_pais', $infoAlumno2->pais ?? 0)->pluck('nombre', 'id');
+        $entidadesnal2 = EntidadNal::where('id_pais', $infoAlumno2->pais_residencia ?? 0)->pluck('nombre', 'id');
+        $entidadesnal3 = EntidadNal::where('id_pais', $infoAlumno2->pais_procedencia ?? 0)->pluck('nombre', 'id');
+        $municipios2 = Municipio::where('id_entidad', $infoAlumno2->entidad_domicilio ?? 0)->pluck('municipio', 'id');
+
+        $vista = 'reinscribir_alumnos';
+        if ($especialAlumno) {
+            $vista = 'reinscribir_alumnos_especial';
+            $escuelaEspecial = EscuelaLicenciatura::where('id_escuela', $id_escuela)->where('id_licenciatura', 7)->pluck('id_especialidad');
+            $especialOpciones = [];
+            foreach ($escuelaEspecial as $espId) {
+                if (isset($especialidad[$espId])) {
+                    $especialOpciones[$espId] = $especialidad[$espId];
+                }
+            }
+            if ($infoAlumno->semestre < 4) {
+                $especialOpciones[0] = 'n/a';
+            }
+            $especialidad = $especialOpciones;
+        }
+
+        $turno = [];
+        if ($especialAlumno) {
+            $especialTurno = EscuelaLicenciatura::where('id_escuela', $id_escuela)
+                ->where('id_licenciatura', $infoAlumno->id_licenciatura)
+                ->where('modalidad', $infoAlumno->modalidad)
+                ->get(['turno']);
+            foreach ($especialTurno as $t) {
+                if (isset($lista_turno[$t->turno])) {
+                    $turno[$t->turno] = $lista_turno[$t->turno];
+                }
+            }
+        } else {
+            $opcionesTurno = EscuelaLicenciatura::where('id_escuela', $id_escuela)
+                ->where('id_licenciatura', $infoAlumno->id_licenciatura)
+                ->where('id_especialidad', $infoAlumno->id_especialidad)
+                ->where('modalidad', $infoAlumno->modalidad)
+                ->get(['turno']);
+            foreach ($opcionesTurno as $t) {
+                if (isset($lista_turno[$t->turno])) {
+                    $turno[$t->turno] = $lista_turno[$t->turno];
+                }
+            }
+        }
+
+        $becado = Historia::CriteriosBecadosStatic($sostenimiento, $infoAlumno->semestre, $infoAlumno->modalidad, $infoAlumno->id_licenciatura);
+
+        return view('alumnos.' . $vista, compact(
+            'infoAlumno', 'infoAlumno2', 'infoBachillerato', 'infoBecado',
+            'municipio_nacimiento', 'entidades', 'municipios_bach', 'bachilleratos',
+            'entidad_nac', 'licenciatura', 'nacionalidad', 'especialidad', 'discapacidad',
+            'documentos', 'modalidad', 'semestre', 'turno', 'sexo', 'sino',
+            'sostenimiento_bach', 'paises', 'lenguas', 'necesidad',
+            'entidadesnal', 'entidadesnal2', 'entidadesnal3', 'municipios2', 'becado'
         ));
     }
 
@@ -415,183 +523,411 @@ class AlumnoController extends sibenController
      */
     public function actualizarAlumno(Request $request)
     {
-        $ctx        = $this->obtenerContextoUsuario();
-        $id_escuela = $ctx['id_escuela'] ?? null;
-        $nivel      = $ctx['nivel'] ?? null;
+        $ctx           = $this->contexto();
+        $id_escuela    = $ctx['id_escuela'] ?? null;
+        $nivel         = $ctx['nivel'] ?? null;
+        $nombreEntidad = $ctx['id_renapo'] ?? null;
 
-        if ($request->isMethod('post') && $request->has('Alumno.numero_identificador')) {
+        $escuela       = Escuela::find($id_escuela);
+        $sostenimiento = $escuela->sostenimiento ?? null;
+
+        $id_registro = $request->input('Historia.id_registro', $request->input('id_registro', $request->input('Registro.id')));
+
+        if ($request->isMethod('post') && $request->has('Alumno')) {
             $datosAlumno   = $request->input('Alumno', []);
             $datosRegistro = $request->input('Registro', []);
+            $datosBach     = $request->input('AlumnoBachillerato', []);
 
-            if (!empty($datosAlumno['numero_identificador'])) {
-                Alumno::where('numero_identificador', $datosAlumno['numero_identificador'])->update($datosAlumno);
-            }
-            if (!empty($datosRegistro['id'])) {
-                Registro::where('id', $datosRegistro['id'])->update($datosRegistro);
+            $parametros = [
+                'nid'             => $datosAlumno['numero_identificador'] ?? null,
+                'id_registro'     => $datosRegistro['id'] ?? null,
+                'id_licenciatura' => $datosRegistro['id_licenciatura'] ?? null,
+                'id_especialidad' => $datosRegistro['id_especialidad'] ?? null,
+                'matricula'       => $datosRegistro['matricula'] ?? null,
+                'semestre'        => $datosRegistro['semestre'] ?? null,
+                'id_escuela'      => $id_escuela,
+                'curp'            => $datosAlumno['curp'] ?? null,
+                'captura'         => $this->captura_actual
+            ];
+
+            $errores = Registro::inscripcionAlumnoStatic($parametros);
+
+            if (!empty($datosAlumno) && !Alumno::validaNombreStatic($datosAlumno)) {
+                return response("Error: Favor de quitar acentos o diéresis en el nombre: {$datosAlumno['nombre']} {$datosAlumno['apellido_paterno']} {$datosAlumno['apellido_materno']}", 400);
             }
 
-            return response()->json(['status' => 'success']);
+            if (empty($errores)) {
+                $datosCurp = Alumno::infoCurpStatic($datosAlumno['curp'] ?? '', $this->captura_actual);
+                if (($datosCurp['dia'] ?? 0) > 31 || ($datosCurp['mes'] ?? 0) > 12) {
+                    return response('Error en fecha CURP', 400);
+                }
+                $datosAlumno['fecha_nacimiento'] = ($datosCurp['anio'] ?? '') . '-' . ($datosCurp['mes'] ?? '') . '-' . ($datosCurp['dia'] ?? '');
+                $datosAlumno['entidad_nacimiento'] = $datosCurp['entidad'] ?? '';
+
+                $datosRegistro['apoyos'] = Registro::uneApoyosStatic($datosRegistro);
+
+                if (($datosAlumno['discapacidad'] ?? 'n') === 'n') {
+                    $datosAlumno['tipo_discapacidad'] = 0;
+                }
+
+                if (!empty($datosRegistro['id'])) {
+                    Registro::where('id', $datosRegistro['id'])->update($datosRegistro);
+                }
+
+                if (!empty($datosAlumno['numero_identificador'])) {
+                    Alumno::where('numero_identificador', $datosAlumno['numero_identificador'])->update($datosAlumno);
+                    if (!empty($datosBach)) {
+                        if (($datosBach['id_bachillerato'] ?? 0) != 0) {
+                            $datosBach['otro'] = 'no';
+                        }
+                        $datosBach['nid'] = $datosAlumno['numero_identificador'];
+                        AlumnoBachillerato::updateOrCreate(
+                            ['nid' => $datosAlumno['numero_identificador']],
+                            $datosBach
+                        );
+                    }
+                }
+
+                return response()->json(['status' => 'success']);
+            } else {
+                $mensajes = "";
+                for ($i = 1; $i <= 7; $i++) {
+                    if (!empty($errores[$i])) {
+                        $mensajes .= $errores[$i] . "\n";
+                    }
+                }
+                return response($mensajes, 400);
+            }
         }
 
-        $id_registro = $request->input('Historia.id_registro', $request->input('id_registro'));
-
-        $infoAlumno = Registro::where('id_escuela', $id_escuela)
+        $infoAlumno = Registro::with(['alumno', 'escuelaPractica', 'alumnoBachillerato'])
+            ->where('id_escuela', $id_escuela)
             ->where('captura', $this->captura_actual)
             ->where('id', $id_registro)
             ->first();
 
-        $alumnoModel    = Alumno::where('numero_identificador', $infoAlumno->nid ?? null)->first();
-        $entidades      = Entidad::where('id', '<', 33)->pluck('entidad', 'id')->toArray();
-        $licenciaturas  = Licenciatura::pluck('licenciatura', 'id');
-        $especialidades = Especialidad::pluck('especialidad', 'id');
+        if (!$infoAlumno) {
+            return response('Registro no encontrado', 404);
+        }
+
+        $infoBecado = BecasPractica::where('id_registro', $infoAlumno->id)->first();
+        $infoBachillerato = AlumnoBachillerato::where('nid', $infoAlumno->nid)->first();
+
+        $municipio_entidad = null;
+        if ($infoBecado && $infoBecado->id_escuela_practica) {
+            $municipio_entidad = EscuelaPractica::where('id', $infoBecado->id_escuela_practica)->first(['id_entidad', 'id_municipio']);
+        }
+
+        $becado = Historia::CriteriosBecadosStatic($sostenimiento, $infoAlumno->semestre, $infoAlumno->modalidad, $infoAlumno->id_licenciatura);
+
+        if (!empty($infoAlumno->apoyos)) {
+            $apoyos = Registro::separaApoyosStatic($infoAlumno->apoyos);
+            foreach ($apoyos as $apoyo => $val) {
+                $infoAlumno->setAttribute($apoyo, $val);
+            }
+        }
+
+        $datosCurp = Alumno::infoCurpStatic($infoAlumno->alumno->curp ?? '', $this->captura_actual);
+        if ($infoAlumno->alumno) {
+            $infoAlumno->alumno->id_renapo = $datosCurp['renapo'] ?? '';
+        }
+
+        $lista_turno = ['m' => 'Matutino', 'v' => 'Vespertino', 'n' => 'Nocturno', 'd' => 'Discontinuo'];
+        $lista_modalidades = ['e' => 'Escolarizada', 'm' => 'Mixta', 'i' => 'Intensiva'];
+        $discapacidad = Discapacidad::where('id', '>=', 5)->pluck('discapacidad', 'id');
+        $documentos = Documento::pluck('documento', 'id');
+        $entidad_nacimiento = Entidad::pluck('entidad', 'id_renapo');
+        $entidad_nac = Entidad::pluck('entidad', 'id');
+        $entidades = Entidad::where('id', '<=', 33)->pluck('entidad', 'id')->toArray();
+        $municipios_nacimiento = Municipio::where('id_entidad', $infoAlumno->alumno->entidad_nacimiento ?? 0)->pluck('municipio', 'id');
+        $municipios_bach = Municipio::where('id_entidad', $infoBachillerato->id_entidad ?? 0)->pluck('municipio', 'id');
+        $bachilleratos = Bachillerato::where('id_municipio2', $infoBachillerato->id_municipio ?? 0)->pluck('nombre', 'id')->toArray();
+        $bachilleratos[0] = 'otro';
+
+        $entidadesnal = EntidadNal::where('id_pais', $infoAlumno->alumno->pais ?? 0)->pluck('nombre', 'id');
+        $entidadesnal2 = EntidadNal::where('id_pais', $infoAlumno->alumno->pais_residencia ?? 0)->pluck('nombre', 'id');
+        $entidadesnal3 = EntidadNal::where('id_pais', $infoAlumno->alumno->pais_procedencia ?? 0)->pluck('nombre', 'id');
+        $municipios2 = Municipio::where('id_entidad', $infoAlumno->alumno->entidad_domicilio ?? 0)->pluck('municipio', 'id');
+        $paises = Pais::pluck('pais', 'id');
+        $lenguas = Lengua::pluck('nombre', 'id');
+        $necesidad = Necesidad::pluck('necesidad', 'id');
+
+        $especialAlumno = Historia::isEspecialStatic($infoAlumno->id_licenciatura, $infoAlumno->semestre, $infoAlumno->id_especialidad);
+        $turnos = [];
+        if ($especialAlumno) {
+            $especialTurno = EscuelaLicenciatura::where('id_escuela', $id_escuela)
+                ->where('id_licenciatura', $infoAlumno->id_licenciatura)
+                ->where('modalidad', $infoAlumno->modalidad)
+                ->get(['turno']);
+            foreach ($especialTurno as $t) {
+                if (isset($lista_turno[$t->turno])) {
+                    $turnos[$t->turno] = $lista_turno[$t->turno];
+                }
+            }
+        } else {
+            $opcionesTurno = EscuelaLicenciatura::where('id_escuela', $id_escuela)
+                ->where('id_licenciatura', $infoAlumno->id_licenciatura)
+                ->where('id_especialidad', $infoAlumno->id_especialidad)
+                ->where('modalidad', $infoAlumno->modalidad)
+                ->get(['turno']);
+            foreach ($opcionesTurno as $t) {
+                if (isset($lista_turno[$t->turno])) {
+                    $turnos[$t->turno] = $lista_turno[$t->turno];
+                }
+            }
+        }
+
+        switch ($nivel) {
+            case 2:
+                $semestre = Historia::CalcSemSinLimitStatic($infoAlumno->semestre, $this->captura_actual);
+                $opcLicenciaturas = EscuelaLicenciatura::with(['licenciatura', 'especialidad'])
+                    ->where('id_escuela', $id_escuela)
+                    ->get();
+                $licenciatura = [];
+                $especialidad = [];
+                foreach ($opcLicenciaturas as $ol) {
+                    if ($ol->licenciatura) $licenciatura[$ol->id_licenciatura] = $ol->licenciatura->licenciatura;
+                    if ($ol->especialidad) $especialidad[$ol->id_especialidad] = $ol->especialidad->especialidad;
+                }
+                if ($especialAlumno && $infoAlumno->semestre < 4) {
+                    $especialidad[0] = 'n/a';
+                }
+                $modalidad = [$infoAlumno->modalidad => $lista_modalidades[$infoAlumno->modalidad] ?? ''];
+                break;
+            case 3:
+                $lics = Licenciatura::pluck('licenciatura', 'id');
+                $esps = Especialidad::pluck('especialidad', 'id');
+                $licenciatura = [$infoAlumno->id_licenciatura => $lics[$infoAlumno->id_licenciatura] ?? ''];
+                $especialidad = [$infoAlumno->id_especialidad => $esps[$infoAlumno->id_especialidad] ?? ''];
+                $modalidad = [$infoAlumno->modalidad => $lista_modalidades[$infoAlumno->modalidad] ?? ''];
+                $semestre = Historia::CalcularSemestreStatic($infoAlumno->semestre, $this->captura_actual, $nombreEntidad, $id_escuela);
+                break;
+            case 4:
+                $licenciatura = Licenciatura::pluck('licenciatura', 'id');
+                $especialidad = Especialidad::pluck('especialidad', 'id');
+                $modalidad = [$infoAlumno->modalidad => $lista_modalidades[$infoAlumno->modalidad] ?? ''];
+                $semestre = Historia::CalcularSemestreStatic($infoAlumno->semestre, $this->captura_actual, $nombreEntidad, $id_escuela);
+                break;
+        }
+
+        $permiso = Historia::permisosUsuariosStatic($nivel);
 
         return view('alumnos.actualizar_alumno', compact(
-            'infoAlumno', 'alumnoModel', 'entidades', 'licenciaturas', 'especialidades'
+            'infoAlumno', 'infoBecado', 'infoBachillerato', 'entidad_nacimiento',
+            'entidad_nac', 'entidades', 'municipios_nacimiento', 'municipios_bach',
+            'bachilleratos', 'permiso', 'modalidad', 'licenciatura', 'especialidad',
+            'discapacidad', 'documentos', 'semestre', 'turnos', 'becado',
+            'paises', 'lenguas', 'necesidad', 'entidadesnal', 'entidadesnal2',
+            'entidadesnal3', 'municipios2'
         ));
     }
 
     /**
      * opcionesAltaAlumno
-     * Muestra opciones previas a la alta de alumnos.
      */
     public function opcionesAltaAlumno()
     {
-        $ctx        = $this->obtenerContextoUsuario();
-        $id_escuela = $ctx['id_escuela'] ?? null;
-        $nivel      = $ctx['nivel'] ?? null;
+        $ctx           = $this->contexto();
+        $id_escuela    = $ctx['id_escuela'] ?? null;
+        $nivel         = $ctx['nivel'] ?? null;
+        $nombreEntidad = $ctx['id_renapo'] ?? null;
 
         if ($nivel != 4) {
-            return redirect()->route('alumnos.index');
+            return redirect('/alumnos');
         }
 
-        $opciones = EscuelaLicenciatura::with('licenciaturaModel')
+        $opciones = EscuelaLicenciatura::with('licenciatura')
             ->where('id_escuela', $id_escuela)
             ->whereIn('id_licenciatura', [6, 37, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60])
             ->get();
 
         $licenciaturas = [];
         foreach ($opciones as $op) {
-            if ($op->licenciaturaModel) {
-                $licenciaturas[$op->id_licenciatura] = $op->licenciaturaModel->licenciatura;
+            if ($op->licenciatura) {
+                $licenciaturas[$op->id_licenciatura] = $op->licenciatura->licenciatura;
             }
         }
 
-        $semestre = [];
         $i = 1;
+        $semestre = [];
         if ($id_escuela == 545 || $id_escuela == 664) {
             $semestre[$i] = $i;
         } else {
-            $paridadCaptura = ((int) $this->captura_actual) % 2;
-            if ($i % 2 == $paridadCaptura) {
+            $paridad = ((int) $this->captura_actual) % 2;
+            if ($i % 2 == $paridad) {
                 $semestre[$i] = $i;
             }
         }
 
-        return view('alumnos.opciones_alta_alumno', compact('semestre', 'licenciaturas'));
+        $anterior = '/alumnos';
+
+        return view('alumnos.opciones_alta_alumno', compact('semestre', 'licenciaturas', 'anterior'));
     }
 
     /**
      * altaAlumno
-     * Formulario y guardado de nuevo estudiante.
      */
     public function altaAlumno(Request $request)
     {
-        $ctx        = $this->obtenerContextoUsuario();
+        $ctx        = $this->contexto();
         $id_escuela = $ctx['id_escuela'] ?? null;
 
         $opcionesCreacion = $request->input('Vuelta', []);
 
         if ($request->isMethod('post') && $request->has('Registro')) {
-            $dataRegistro = $request->input('Registro', []);
-            $dataAlumno   = $request->input('Alumno', []);
-            $dataBach     = $request->input('AlumnoBachillerato', []);
+            $datosAlumno   = $request->input('Alumno', []);
+            $datosRegistro = $request->input('Registro', []);
+            $datosBach     = $request->input('AlumnoBachillerato', []);
 
-            $dataRegistro['captura'] = $this->captura_actual;
-            $dataRegistro['id_escuela'] = $id_escuela;
-            $dataRegistro['status'] = 'i';
+            $datosRegistro['captura'] = $this->captura_actual;
+            $datosRegistro['id_escuela'] = $id_escuela;
+            $datosRegistro['status'] = 'i';
 
-            if (($dataAlumno['discapacidad'] ?? 'n') === 'n') {
-                $dataAlumno['tipo_discapacidad'] = 0;
+            if (!empty($datosAlumno) && !Alumno::validaNombreStatic($datosAlumno)) {
+                return response("Error: Caracteres no permitidos en el nombre: {$datosAlumno['nombre']} {$datosAlumno['apellido_paterno']} {$datosAlumno['apellido_materno']}", 400);
             }
 
-            $alumnoNid = Alumno::generateNid($this->captura_actual);
-            $dataAlumno['numero_identificador'] = $alumnoNid;
-            $dataRegistro['nid'] = $alumnoNid;
-            $dataBach['nid'] = $alumnoNid;
-
-            Alumno::create($dataAlumno);
-            Registro::create($dataRegistro);
-            if (($dataBach['id_bachillerato'] ?? 0) != 0) {
-                $dataBach['otro'] = 'no';
+            if (!empty($datosAlumno) && !Alumno::validaEntidadStatic($datosAlumno)) {
+                return response("Error: Favor de revisar la entidad de nacimiento: {$datosAlumno['id_renapo']} , no coincide con la entidad en curp", 400);
             }
-            AlumnoBachillerato::create($dataBach);
 
-            return response()->json(['status' => 'success']);
+            $parametros = [
+                'curp'            => $datosAlumno['curp'] ?? null,
+                'id_licenciatura' => $datosRegistro['id_licenciatura'] ?? null,
+                'id_especialidad' => $datosRegistro['id_especialidad'] ?? null,
+                'matricula'       => $datosRegistro['matricula'] ?? null,
+                'semestre'        => $datosRegistro['semestre'] ?? null,
+                'id_escuela'      => $id_escuela,
+                'captura'         => $this->captura_actual
+            ];
+
+            [$errores, $nid] = Registro::altaAlumnoStatic($parametros);
+
+            if (empty($errores)) {
+                $datosCurp = Alumno::infoCurpStatic($datosAlumno['curp'] ?? '', $this->captura_actual);
+                if (($datosCurp['dia'] ?? 0) > 31 || ($datosCurp['mes'] ?? 0) > 12) {
+                    return response('Error fecha CURP', 400);
+                }
+                $datosAlumno['fecha_nacimiento'] = ($datosCurp['anio'] ?? '') . '-' . ($datosCurp['mes'] ?? '') . '-' . ($datosCurp['dia'] ?? '');
+                $datosAlumno['entidad_nacimiento'] = $datosCurp['entidad'] ?? '';
+                $datosRegistro['apoyos'] = Registro::uneApoyosStatic($datosRegistro);
+
+                if (($datosAlumno['discapacidad'] ?? 'n') === 'n') {
+                    $datosAlumno['tipo_discapacidad'] = 0;
+                }
+
+                if (!empty($nid)) {
+                    if (count($nid) == 1) {
+                        $alumId = $nid[0]->numero_identificador ?? $nid[0]['Alumno']['numero_identificador'] ?? null;
+                        if ($alumId) {
+                            Alumno::where('numero_identificador', $alumId)->update(array_intersect_key($datosAlumno, array_flip(['municipio_nacimiento', 'fecha_nacimiento', 'discapacidad', 'tipo_discapacidad'])));
+                            $datosRegistro['nid'] = $alumId;
+                            $datosBach['nid'] = $alumId;
+                            if (($datosBach['id_bachillerato'] ?? 0) != 0) {
+                                $datosBach['otro'] = 'no';
+                            }
+                            Registro::create($datosRegistro);
+                            AlumnoBachillerato::create($datosBach);
+                        }
+                        return response()->json(['status' => 'success']);
+                    } else {
+                        return response('Error: Múltiples NIDs encontrados', 400);
+                    }
+                } else {
+                    $alumnoNid = Alumno::generarNidStatic($this->captura_actual);
+                    $datosAlumno['numero_identificador'] = $alumnoNid;
+                    $datosRegistro['nid'] = $alumnoNid;
+                    $datosBach['nid'] = $alumnoNid;
+
+                    if (($datosBach['id_bachillerato'] ?? 0) != 0) {
+                        $datosBach['otro'] = 'no';
+                    }
+
+                    try {
+                        Alumno::create($datosAlumno);
+                        Registro::create($datosRegistro);
+                        AlumnoBachillerato::create($datosBach);
+                    } catch (\Exception $e) {
+                        return response('Error: Inténtelo de nuevo, por favor', 400);
+                    }
+                }
+            } else {
+                $mensajes = "";
+                for ($i = 1; $i <= 4; $i++) {
+                    if (!empty($errores[$i])) {
+                        $mensajes .= $errores[$i] . "\n";
+                    }
+                }
+                return response($mensajes, 400);
+            }
         }
 
         $licenciatura = Licenciatura::where('id', $opcionesCreacion['id_licenciatura'] ?? null)->pluck('licenciatura', 'id');
         $especialidad = Especialidad::where('id', $opcionesCreacion['id_especialidad'] ?? null)->pluck('especialidad', 'id');
-        $turnos       = ['m' => 'Matutino', 'v' => 'Vespertino', 'n' => 'Nocturno'];
-        $modalidades  = ['e' => 'Escolarizada', 'm' => 'Mixta', 'i' => 'Intensiva'];
+        $turnos = ['m' => 'Matutino', 'v' => 'Vespertino', 'n' => 'Nocturno'];
+        $modalidades = ['e' => 'Escolarizada', 'm' => 'Mixta', 'i' => 'Intensiva'];
         $discapacidad = Discapacidad::where('id', '>=', 5)->pluck('discapacidad', 'id');
-        $generos      = ['H' => 'Hombre', 'M' => 'Mujer'];
+        $generos = ['H' => 'Hombre', 'M' => 'Mujer'];
         $nacionalidad = ['m' => 'Mexicano(a)', 'e' => 'Extranjero(a)'];
-        $documentos   = Documento::pluck('documento', 'id');
-        $entidadNac   = Entidad::pluck('entidad', 'id_renapo');
+        $documentos = Documento::pluck('documento', 'id');
+        $entidadNac = Entidad::pluck('entidad', 'id_renapo');
         $municipioNac = Municipio::pluck('municipio', 'id');
-        $entidades    = Entidad::where('id', '<', 33)->pluck('entidad', 'id')->toArray();
+        $entidades = Entidad::where('id', '<', 33)->pluck('entidad', 'id')->toArray();
         $entidades[33] = 'Extranjero';
-        $paises       = Pais::pluck('pais', 'id');
+        $paises = Pais::pluck('pais', 'id');
+        $lenguas = Lengua::pluck('nombre', 'id');
+        $necesidad = Necesidad::pluck('necesidad', 'id');
 
         return view('alumnos.alta_alumno', compact(
             'licenciatura', 'especialidad', 'turnos', 'modalidades',
             'discapacidad', 'generos', 'nacionalidad', 'documentos',
-            'entidadNac', 'municipioNac', 'entidades', 'opcionesCreacion', 'paises'
+            'entidadNac', 'municipioNac', 'entidades', 'opcionesCreacion',
+            'paises', 'lenguas', 'necesidad'
         ));
     }
 
     /**
      * opcionCambioEscuela
-     * Formulario para cambio de escuela.
      */
     public function opcionCambioEscuela()
     {
-        $ctx        = $this->obtenerContextoUsuario();
+        $ctx        = $this->contexto();
         $id_escuela = $ctx['id_escuela'] ?? null;
         $nivel      = $ctx['nivel'] ?? null;
 
         if ($nivel != 4) {
-            return redirect()->route('alumnos.index');
+            return redirect('/alumnos');
         }
 
-        $opciones = EscuelaLicenciatura::with('licenciaturaModel')
+        $opciones = EscuelaLicenciatura::with('licenciatura')
             ->where('id_escuela', $id_escuela)
             ->get();
 
         $licenciaturas = [];
         foreach ($opciones as $op) {
-            if ($op->licenciaturaModel) {
-                $licenciaturas[$op->id_licenciatura] = $op->licenciaturaModel->licenciatura;
+            if ($op->licenciatura) {
+                $licenciaturas[$op->id_licenciatura] = $op->licenciatura->licenciatura;
             }
         }
 
-        return view('alumnos.opcion_cambio_escuela', compact('licenciaturas'));
+        $anterior = '/alumnos';
+
+        return view('alumnos.opcion_cambio_escuela', compact('licenciaturas', 'anterior'));
     }
 
     /**
      * alumnoCambioEscuela
-     * Obtiene registros con el NID ingresado y compara criterios para cambio.
      */
     public function alumnoCambioEscuela(Request $request)
     {
-        $ctx        = $this->obtenerContextoUsuario();
+        $ctx        = $this->contexto();
         $id_escuela = $ctx['id_escuela'] ?? null;
         $captura    = $this->captura_actual;
 
         $criterios = $request->input('Alumno', []);
-        $nid       = $criterios['numero_identificador'] ?? null;
+        $nid = $criterios['numero_identificador'] ?? null;
 
-        $infoNid      = Historia::where('nid', $nid)
+        $infoNid = Historia::where('nid', $nid)
             ->where('captura', $captura)
             ->where('id_escuela', '!=', $id_escuela)
             ->whereNotIn('status', ['i', 'd'])
@@ -602,7 +938,7 @@ class AlumnoController extends sibenController
             ->where('modulo', 'l')
             ->get(['id', 'escuela', 'id_entidad']);
 
-        $entidad      = Entidad::where('id', '<', 33)->pluck('entidad', 'id');
+        $entidad = Entidad::where('id', '<', 33)->pluck('entidad', 'id');
         $licenciatura = Licenciatura::pluck('licenciatura', 'id');
         $especialidad = Especialidad::pluck('especialidad', 'id');
         $lista_modalidades = ['e' => 'Escolarizada', 'm' => 'Mixta', 'i' => 'Intensiva'];
@@ -633,18 +969,25 @@ class AlumnoController extends sibenController
             $sostEsc2 = Escuela2::find($alumno->id_escuela);
             $soste2 = $sostEsc2->sostenimiento ?? null;
 
-            $elegirButton = true; // Lógica simplificada de validación
-            $parametros   = "data[Registro][id]=" . $alumno->id_registro;
+            $elegirButton = true;
+            $parametros = "data[Registro][id]=" . $alumno->id_registro;
 
+            $url = url('/alumnos/cambioEscuela');
             if ($elegirButton) {
-                $evento = "enviaBusqueda('" . url('/alumnos/cambioEscuela') . "','$parametros', this.id);";
-                $boton  = '<input id="' . $alumno->id_registro . '" type="button" value="Cambio s/conflicto" onclick="' . $evento . '"/>';
+                $evento = "enviaBusqueda('$url','$parametros', this.id);";
+                $boton = '<input id="' . $alumno->id_registro . '" type="button" value="Cambio s/conflicto" onclick="' . $evento . '"/>';
             } else {
-                $boton  = '<input id="' . $alumno->id_registro . '" style="background-color: #F08080;" type="button" value="Cambio c/conflicto"/>';
+                $parametros .= "&data[Conflicto][id_escuela}=" . $alumno->id_escuela;
+                $evento = "enviaBusqueda('$url','$parametros', this.id);";
+                $boton = '<input id="' . $alumno->id_registro . '" style="background-color: #F08080;" type="button" value="Cambio c/conflicto" onclick="' . $evento . '"/>';
             }
 
             if (($alumno->semestre < 9 && $alumno->modalidad == 'e') || ($alumno->semestre < 13 && $alumno->modalidad == 'm')) {
-                $dataHist['boton'] = ($alumno->status_conflictos != 'n') ? $boton : 'Cambio inválido';
+                if ($alumno->status_conflictos != 'n') {
+                    $dataHist['boton'] = $boton;
+                } else {
+                    $dataHist['boton'] = 'Cambio inválido';
+                }
             }
 
             $alumnos[$indx] = $dataHist;
@@ -660,12 +1003,11 @@ class AlumnoController extends sibenController
 
     /**
      * resolverConflictos
-     * Resuelve conflictos de cambio de escuela.
      */
     public function resolverConflictos(Request $request, $id_registro = null)
     {
         if (!$id_registro) {
-            return redirect()->route('alumnos.index');
+            return redirect('/alumnos');
         }
 
         $conflicto = Conflicto::where('id_registro', $id_registro)->first();
@@ -676,38 +1018,41 @@ class AlumnoController extends sibenController
         $alumno = Registro::with('alumno')->where('id', $id_registro)->where('captura', $this->captura_actual)->first();
 
         if ($request->isMethod('post') && $request->has('Registro')) {
-            $dataReg = $request->input('Registro');
-            if (!empty($dataReg['id'])) {
+            $dataReg = $request->input('Registro', []);
+            if (!empty($dataReg['id']) && $conflicto && !empty($conflicto->id)) {
                 Registro::where('id', $dataReg['id'])->update($dataReg);
-                Conflicto::where('id_registro', $id_registro)->update(['status' => 's']);
+                Conflicto::where('id', $conflicto->id)->update(['status' => 's']);
+            } else {
+                return response('Ha ocurrido un error', 400);
             }
-            return response()->json(['status' => 'success']);
         }
 
-        $id_escuela_origen  = $conflicto->id_escuela ?? null;
+        $id_escuela_origen = $conflicto->id_escuela ?? null;
         $id_escuela_destino = $alumno->id_escuela ?? null;
 
         $escuelas = Escuela::whereIn('id', [$id_escuela_origen, $id_escuela_destino])->pluck('escuela', 'id');
-        $turnos   = ['m' => 'Matutino', 'v' => 'Vespertino', 'n' => 'Nocturno'];
+        $turnos = ['m' => 'Matutino', 'v' => 'Vespertino', 'n' => 'Nocturno'];
         $modalidades = ['e' => 'Escolarizada', 'm' => 'Mixta', 'i' => 'Intensiva'];
-        $generos  = ['M' => 'Mujer', 'H' => 'Hombre'];
+        $generos = ['M' => 'Mujer', 'H' => 'Hombre'];
         $licenciaturas = Licenciatura::pluck('licenciatura', 'id');
         $especialidades = Especialidad::pluck('especialidad', 'id');
+        $semestre = Historia::CalcSemSinLimitStatic($alumno->semestre ?? 1, $this->captura_actual);
+
+        $anterior = '/conflictos';
 
         return view('alumnos.resolver_conflictos', compact(
             'alumno', 'escuelas', 'turnos', 'modalidades', 'generos',
-            'licenciaturas', 'especialidades', 'id_registro', 'conflicto',
-            'id_escuela_origen', 'id_escuela_destino'
+            'licenciaturas', 'especialidades', 'semestre', 'id_registro',
+            'conflicto', 'id_escuela_origen', 'id_escuela_destino', 'anterior'
         ));
     }
 
     /**
      * cambioEscuela
-     * Actualiza id_escuela en registros y crea conflicto si aplica.
      */
     public function cambioEscuela(Request $request)
     {
-        $ctx        = $this->obtenerContextoUsuario();
+        $ctx        = $this->contexto();
         $id_escuela = $ctx['id_escuela'] ?? null;
 
         $idRegistro = $request->input('Registro.id');
@@ -718,7 +1063,7 @@ class AlumnoController extends sibenController
             ]);
         }
 
-        $conflictoData = $request->input('Conflicto');
+        $conflictoData = $request->input('Conflicto', []);
         if (!empty($conflictoData)) {
             $conflictoData['status'] = 'n';
             $conflictoData['id_registro'] = $idRegistro;
@@ -729,7 +1074,7 @@ class AlumnoController extends sibenController
     }
 
     /* =========================================================
-     * MÉTODOS AUXILIARES Y SELECTORES AJAX
+     * MÉTODOS AJAX Y SELECTORES
      * ========================================================= */
 
     public function municipiosOpciones(Request $request)
@@ -816,7 +1161,7 @@ class AlumnoController extends sibenController
 
     public function EspecialLicOpciones()
     {
-        $ctx        = $this->obtenerContextoUsuario();
+        $ctx = $this->contexto();
         $id_escuela = $ctx['id_escuela'] ?? null;
         $especialidadNombre = Especialidad::pluck('especialidad', 'id')->toArray();
 
@@ -832,38 +1177,44 @@ class AlumnoController extends sibenController
 
     public function especialidadOpciones(Request $request)
     {
-        $ctx        = $this->obtenerContextoUsuario();
+        $ctx = $this->contexto();
         $id_escuela = $ctx['id_escuela'] ?? null;
-        $id_lic     = $request->input('Registro.id_licenciatura');
+        $id_lic = $request->input('Registro.id_licenciatura');
+        $semestre = $request->input('Registro.semestre', 1);
 
-        $opciones = EscuelaLicenciatura::with('especialidadModel')
+        $opciones = EscuelaLicenciatura::with('especialidad')
             ->where('id_escuela', $id_escuela)
             ->where('id_licenciatura', $id_lic)
             ->get()
-            ->pluck('especialidadModel.especialidad', 'especialidadModel.id')
+            ->pluck('especialidad.especialidad', 'especialidad.id')
             ->toArray();
+
+        if ($semestre < 4 && $id_lic == 7) {
+            $opciones[0] = 'n/a';
+        }
 
         return view('elements.opciones2', compact('opciones'));
     }
 
     public function modalidadOpciones(Request $request)
     {
-        $ctx        = $this->obtenerContextoUsuario();
+        $ctx = $this->contexto();
         $id_escuela = $ctx['id_escuela'] ?? null;
-        $id_lic     = $request->input('Registro.id_licenciatura');
-        $id_esp     = $request->input('Registro.id_especialidad');
+        $id_lic = $request->input('Registro.id_licenciatura');
+        $id_esp = $request->input('Registro.id_especialidad');
+        $semestre = $request->input('Registro.semestre', 1);
 
         $query = EscuelaLicenciatura::where('id_escuela', $id_escuela)->where('id_licenciatura', $id_lic);
-        if ($id_esp > 0) {
+        if ($id_esp > 0 || ($id_lic == 7 && $semestre >= 4)) {
             $query->where('id_especialidad', $id_esp);
         }
 
-        $modalidadMap = ['e' => 'Escolarizada', 'm' => 'Mixta', 'i' => 'Intensiva'];
+        $lista_modalidades = ['e' => 'Escolarizada', 'm' => 'Mixta', 'i' => 'Intensiva'];
         $mods = $query->pluck('modalidad')->unique();
         $opciones = [];
         foreach ($mods as $m) {
-            if (isset($modalidadMap[$m])) {
-                $opciones[$m] = $modalidadMap[$m];
+            if (isset($lista_modalidades[$m])) {
+                $opciones[$m] = $lista_modalidades[$m];
             }
         }
 
@@ -872,26 +1223,27 @@ class AlumnoController extends sibenController
 
     public function turnoOpciones(Request $request)
     {
-        $ctx        = $this->obtenerContextoUsuario();
+        $ctx = $this->contexto();
         $id_escuela = $ctx['id_escuela'] ?? null;
-        $id_lic     = $request->input('Registro.id_licenciatura');
-        $id_esp     = $request->input('Registro.id_especialidad');
-        $mod        = $request->input('Registro.modalidad');
+        $id_lic = $request->input('Registro.id_licenciatura');
+        $id_esp = $request->input('Registro.id_especialidad');
+        $mod = $request->input('Registro.modalidad');
+        $semestre = $request->input('Registro.semestre', 1);
 
         $query = EscuelaLicenciatura::where('id_escuela', $id_escuela)
             ->where('id_licenciatura', $id_lic)
             ->where('modalidad', $mod);
 
-        if ($id_esp > 0) {
+        if ($id_esp > 0 || ($id_lic == 7 && $semestre >= 4)) {
             $query->where('id_especialidad', $id_esp);
         }
 
-        $turnoMap = ['m' => 'Matutino', 'v' => 'Vespertino', 'n' => 'Nocturno', 'd' => 'Discontinuo'];
+        $lista_turno = ['m' => 'Matutino', 'v' => 'Vespertino', 'n' => 'Nocturno', 'd' => 'Discontinuo'];
         $turns = $query->pluck('turno')->unique();
         $opciones = [];
         foreach ($turns as $t) {
-            if (isset($turnoMap[$t])) {
-                $opciones[$t] = $turnoMap[$t];
+            if (isset($lista_turno[$t])) {
+                $opciones[$t] = $lista_turno[$t];
             }
         }
 
@@ -900,18 +1252,25 @@ class AlumnoController extends sibenController
 
     public function semestreOpciones(Request $request)
     {
-        $modalidad       = $request->input('Registro.modalidad');
+        $modalidad = $request->input('Registro.modalidad');
         $id_licenciatura = $request->input('Registro.id_licenciatura');
         $id_especialidad = $request->input('Registro.id_especialidad');
-        $semestres       = [];
+        $semestres = [];
 
         $paridad = ((int) $this->captura_actual) % 2;
 
         if ($modalidad === 'e') {
-            $limite = ($id_licenciatura == 7 && $id_especialidad == 0) ? 3 : 8;
-            for ($i = 1; $i <= $limite; $i++) {
-                if (($i % 2) === $paridad) {
-                    $semestres[$i] = $i;
+            if ($id_licenciatura == 7 && $id_especialidad == 0) {
+                for ($i = 1; $i <= 3; $i++) {
+                    if (($i % 2) === $paridad) {
+                        $semestres[$i] = $i;
+                    }
+                }
+            } else {
+                for ($i = 1; $i < 9; $i++) {
+                    if (($i % 2) === $paridad) {
+                        $semestres[$i] = $i;
+                    }
                 }
             }
         } elseif ($modalidad === 'm') {
