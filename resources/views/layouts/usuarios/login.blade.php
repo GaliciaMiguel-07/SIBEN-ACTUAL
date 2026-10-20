@@ -9,8 +9,23 @@
 </head>
 <body style="display: flex; flex-direction: column; min-height: 100vh; margin: 0; background-color: var(--neutro200);">
 
-    <!-- Barra superior institucional -->
-    <div class="degradado--derecha" style="height: 12px; width: 100%;"></div>
+    <!-- Franja superior con los logos institucionales (SEP y DGESUM) -->
+    <header style="background-color: var(--neutro100); border-bottom: 1px solid var(--neutro400); padding: 20px 0;">
+        <div class="contenedor" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px; max-width: 1200px; margin: 0 auto; padding: 0 20px;">
+            <div>
+                <img src="{{ url('/images/pleca_superior2020.jpg') }}" alt="Educación - Secretaría de Educación Pública | DGESUM - Dirección General de Educación Superior para el Magisterio"  onerror="this.style.display='none'">
+            </div>
+        </div>
+    </header>
+
+    <div class="degradado--derecha" style="width: 100%;">
+        <div style="display: flex; justify-content: flex-end; align-items: center; gap: 15px; padding: 20px 40px; font-size: 18px; color: #fff;">
+            <img src="{{ url('/images/logo_siben_pequeno.png') }}"
+                 alt="Logo SIBEN" style="height: 25px;" onerror="this.style.display='none'">
+            <span>SIBEN</span>
+
+        </div>
+    </div>
 
     <!-- Contenedor principal centrado -->
     <div class="contenedor" style="flex: 1; display: flex; align-items: center; justify-content: center; padding: 40px 16px;">
@@ -90,6 +105,5 @@
         </div>
     </div>
 
-<script src="{{ asset('js/gobierno.js') }}"></script>
 </body>
 </html>
