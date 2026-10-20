@@ -51,6 +51,9 @@ Route::get('/images/{filename}', function (string $filename) {
 Route::get('/busquedaEscuelas/busqueda', [BusquedaEscuelasController::class, 'busqueda'])
     ->name('escuelas.busqueda');
 
+    Route::get('/busquedaEscuelas/resultado', [BusquedaEscuelasController::class, 'resultado'])
+    ->name('escuelas.resultado');
+
 Route::view('/pages/masinformacion', 'layouts.pages.masinformacion')
     ->name('pages.masinformacion');
 

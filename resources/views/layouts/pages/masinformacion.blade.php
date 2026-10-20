@@ -56,9 +56,6 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            font-size: 15px;
-            font-weight: 700;
-            color: #161a1d;
             cursor: pointer;
             text-align: left;
             transition: background-color 0.2s ease;
@@ -68,19 +65,13 @@
             background-color: #f9f9f9;
         }
 
-        /* Ícono SVG de flecha del Design System */
-        .acordeon-icono {
-            width: 16px;
-            height: 16px;
-            flex-shrink: 0;
+        /* Animación y rotación del ícono oficial al abrir/cerrar */
+        .acordeon-header .snd-chevron--down {
             transition: transform 0.3s ease;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%20161a1d' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
-            background-repeat: no-repeat;
-            background-position: center;
-            background-size: contain;
+            flex-shrink: 0;
         }
 
-        .acordeon-item.activo .acordeon-icono {
+        .acordeon-item.activo .acordeon-header .snd-chevron--down {
             transform: rotate(180deg);
         }
 
@@ -97,7 +88,6 @@
             padding: 16px 20px 20px 20px;
             border-top: 1px solid #f0f0f0;
         }
-
 
         .acordeon-body ul {
             padding-left: 20px;
@@ -133,11 +123,11 @@
         </ol>
     </div>
 
-    <div class="contenedor" seccion-mas-info" style="max-width: 1200px;">
+    <div class="contenedor seccion-mas-info" style="max-width: 1200px; margin: 0 auto; padding: 0 20px 60px 20px;">
         <div class="row">
             <!-- Columna Izquierda: Título -->
             <div class="col-md-4 col-sm-12">
-                <h2 class="h2b patria">Más información</h2>
+                <h2 class="h2r patria">Más información</h2>
             </div>
 
             <!-- Columna Derecha: Acordeón -->
@@ -147,8 +137,8 @@
                     <!-- Item 1 -->
                     <div class="acordeon-item">
                         <button class="acordeon-header" type="button">
-                            <h4 class="sh1b">¿Qué es el SIBEN?</h4>
-                            <span class="acordeon-icono"></span>
+                            <h4 class="sh1b" style="margin: 0;">¿Qué es el SIBEN?</h4>
+                            <i class="snd__icono snd-chevron--down icono--24" aria-hidden="true"></i>
                         </button>
                         <div class="acordeon-body">
                             <p class="b1m">Es un programa que se utiliza para facilitar la consulta y actualización de la información de las Escuelas Normales a nivel nacional. Concentra los principales datos de las escuelas, sus docentes y alumnos; además de fungir como un directorio en línea y ofrecer estadísticas de interés, disponibles a las escuelas normales y responsables de las normales. Próximamente permitirá obtener datos de las unidades y programas de posgrado que existen en las normales, también estará disponible una herramienta que permitirá ubicar localizar geográficamente las mismas escuelas.</p>
@@ -158,8 +148,8 @@
                     <!-- Item 2 -->
                     <div class="acordeon-item">
                         <button class="acordeon-header" type="button">
-                            <h4 class="sh1b">Antecedentes</h4>
-                            <span class="acordeon-icono"></span>
+                            <h4 class="sh1b" style="margin: 0;">Antecedentes</h4>
+                            <i class="snd__icono snd-chevron--down icono--24" aria-hidden="true"></i>
                         </button>
                         <div class="acordeon-body">
                             <p class="b1m">Hasta 2005 se recolectaba información de las escuelas normales mediante cuestionarios que se enviaban a las autoridades educativas locales en forma impresa y en disco magnético, éstas lo enviaban a las escuelas donde se llenaba el formato y se regresaba a la Dirección General, muchas veces estos formatos llegaban al finalizar el ciclo escolar lo que hacía poco oportuna la información, al llegar se capturaba en Access lo que implicaba una posible fuente de error por la misma captura, cuando se detectaba información inconsistente nadie en las autoridades educativas locales ni en las escuelas sabían quien se había hecho cargo del asunto, lo que impedía confirmar o corregir el dato, lo que nos lleva a entender que la información era poco confiable.</p>
@@ -173,20 +163,20 @@
                     <!-- Item 3 -->
                     <div class="acordeon-item">
                         <button class="acordeon-header" type="button">
-                            <h4 class="sh1b">¿Para qué sirve?</h4>
-                            <span class="acordeon-icono"></span>
+                            <h4 class="sh1b" style="margin: 0;">¿Para qué sirve?</h4>
+                            <i class="snd__icono snd-chevron--down icono--24" aria-hidden="true"></i>
                         </button>
                         <div class="acordeon-body">
                             <p class="b1m">Para apoyar a la toma de decisiones así como actividades cotidianas de la DGESUM:</p>
                             <ul class="listaBasica">
-                                <li><p class="b1m">La planeación estratégica y operativa.</li>
-                                <li><p class="b1m">Planeación y evaluación de documentos de las escuelas normales en el marco del EDINEN.</li>
-                                <li><p class="b1m">Actualización del Directorio de las Instituciones Formadoras de Docentes.</li>
-                                <li><p class="b1m">Información de base para el programa de becas y regulación de la educación normal.</li>
-                                <li><p class="b1m">Estudios y aplicación de encuestas en estas instituciones.</li>
-                                <li><p class="b1m">Conocimiento de las escuelas normales y su personal.</li>
-                                <li><p class="b1m">Próximamente localizar geográficamente estas instituciones.</li>
-                                <li><p class="b1m">Próximamente obtener datos de posgrados en las Instituciones Formadoras de Docentes.</li>
+                                <li><p class="b1m" style="margin: 4px 0;">La planeación estratégica y operativa.</p></li>
+                                <li><p class="b1m" style="margin: 4px 0;">Planeación y evaluación de documentos de las escuelas normales en el marco del EDINEN.</p></li>
+                                <li><p class="b1m" style="margin: 4px 0;">Actualización del Directorio de las Instituciones Formadoras de Docentes.</p></li>
+                                <li><p class="b1m" style="margin: 4px 0;">Información de base para el programa de becas y regulación de la educación normal.</p></li>
+                                <li><p class="b1m" style="margin: 4px 0;">Estudios y aplicación de encuestas en estas instituciones.</p></li>
+                                <li><p class="b1m" style="margin: 4px 0;">Conocimiento de las escuelas normales y su personal.</p></li>
+                                <li><p class="b1m" style="margin: 4px 0;">Próximamente localizar geográficamente estas instituciones.</p></li>
+                                <li><p class="b1m" style="margin: 4px 0;">Próximamente obtener datos de posgrados en las Instituciones Formadoras de Docentes.</p></li>
                             </ul>
                         </div>
                     </div>
@@ -194,8 +184,8 @@
                     <!-- Item 4 -->
                     <div class="acordeon-item">
                         <button class="acordeon-header" type="button">
-                            <h4 class="sh1b">Objetivo</h4>
-                            <span class="acordeon-icono"></span>
+                            <h4 class="sh1b" style="margin: 0;">Objetivo</h4>
+                            <i class="snd__icono snd-chevron--down icono--24" aria-hidden="true"></i>
                         </button>
                         <div class="acordeon-body">
                             <p class="b1m"><b>Objetivo:</b> Contar con datos específicos, únicos y oficiales sobre la educación normal en México para la puesta en marcha de diferentes programas.</p>
@@ -206,17 +196,17 @@
                     <!-- Item 5 -->
                     <div class="acordeon-item">
                         <button class="acordeon-header" type="button">
-                            <h4 class="sh1b">¿Cómo opera?</h4>
-                            <span class="acordeon-icono"></span>
+                            <h4 class="sh1b" style="margin: 0;">¿Cómo opera?</h4>
+                            <i class="snd__icono snd-chevron--down icono--24" aria-hidden="true"></i>
                         </button>
                         <div class="acordeon-body">
                             <p class="b1m">Todas las instituciones formadoras de docentes y la DGESUM intercambian directamente información para mantenerla actualizada con la validación de las Autoridades Educativas Estatales.</p>
                             <ul class="listaBasica">
-                                <li><p class="b1m">La autoridad estatal nombra un enlace estatal y se le otorga una cuenta de usuario y contraseña.</li>
-                                <li><p class="b1m">El director de cada escuela normal nombra un supervisor el cuál revisará los datos ingresados por el capturista.</li>
-                                <li><p class="b1m">El director de cada escuela normal nombra un capturista el cuál ingresará o actualizará los datos cada ciclo escolar.</li>
-                                <li><p class="b1m">La DGESUM a través de la Subdirección de Evaluación de Instituciones y Servicios mantendrá contacto con los enlaces estatales y dará a conocer el periodo de captura.</li>
-                                <li><p class="b1m">Al final del primer periodo de captura del ciclo escolar, se enviarán firmados los informes que la DGESUM solicite.</li>
+                                <li><p class="b1m" style="margin: 4px 0;">La autoridad estatal nombra un enlace estatal y se le otorga una cuenta de usuario y contraseña.</p></li>
+                                <li><p class="b1m" style="margin: 4px 0;">El director de cada escuela normal nombra un supervisor el cuál revisará los datos ingresados por el capturista.</p></li>
+                                <li><p class="b1m" style="margin: 4px 0;">El director de cada escuela normal nombra un capturista el cuál ingresará o actualizará los datos cada ciclo escolar.</p></li>
+                                <li><p class="b1m" style="margin: 4px 0;">La DGESUM a través de la Subdirección de Evaluación de Instituciones y Servicios mantendrá contacto con los enlaces estatales y dará a conocer el periodo de captura.</p></li>
+                                <li><p class="b1m" style="margin: 4px 0;">Al final del primer periodo de captura del ciclo escolar, se enviarán firmados los informes que la DGESUM solicite.</p></li>
                             </ul>
                         </div>
                     </div>
@@ -224,16 +214,16 @@
                     <!-- Item 6 -->
                     <div class="acordeon-item">
                         <button class="acordeon-header" type="button">
-                            <h4 class="sh1b">Alcances</h4>
-                            <span class="acordeon-icono"></span>
+                            <h4 class="sh1b" style="margin: 0;">Alcances</h4>
+                            <i class="snd__icono snd-chevron--down icono--24" aria-hidden="true"></i>
                         </button>
                         <div class="acordeon-body">
                             <ul class="listaBasica">
-                                <li><p class="b1m"><b>1er periodo:</b> Diciembre 2006 - Mayo del 2007. 353 escuelas participantes; 97,133 alumnos captados.</li>
-                                <li><p class="b1m"><b>2º periodo:</b> Enero 2008. 448 escuelas participantes; 125,276 alumnos captados; 12,550 docentes captados.</li>
-                                <li><p class="b1m"><b>3er periodo:</b> Mayo 2008. 460 escuelas participantes; 131,985 alumnos captados; 14,765 docentes captados.</li>
-                                <li><p class="b1m"><b>4º periodo:</b> Diciembre 2008. 462 escuelas participantes; 133,286 alumnos captados; 35,124 egresados; 24,489 personal captado.</li>
-                                <li><p class="b1m"><b>5º periodo:</b> Febrero y Mayo de 2009. 461 planteles participantes; 129,966 alumnos captados; 24,257 personal captado.</li>
+                                <li><p class="b1m" style="margin: 4px 0;"><b>1er periodo:</b> Diciembre 2006 - Mayo del 2007. 353 escuelas participantes; 97,133 alumnos captados.</p></li>
+                                <li><p class="b1m" style="margin: 4px 0;"><b>2º periodo:</b> Enero 2008. 448 escuelas participantes; 125,276 alumnos captados; 12,550 docentes captados.</p></li>
+                                <li><p class="b1m" style="margin: 4px 0;"><b>3er periodo:</b> Mayo 2008. 460 escuelas participantes; 131,985 alumnos captados; 14,765 docentes captados.</p></li>
+                                <li><p class="b1m" style="margin: 4px 0;"><b>4º periodo:</b> Diciembre 2008. 462 escuelas participantes; 133,286 alumnos captados; 35,124 egresados; 24,489 personal captado.</p></li>
+                                <li><p class="b1m" style="margin: 4px 0;"><b>5º periodo:</b> Febrero y Mayo de 2009. 461 planteles participantes; 129,966 alumnos captados; 24,257 personal captado.</p></li>
                             </ul>
                         </div>
                     </div>
@@ -241,8 +231,8 @@
                     <!-- Item 7 -->
                     <div class="acordeon-item">
                         <button class="acordeon-header" type="button">
-                            <h4 class="sh1b">Contacto</h4>
-                            <span class="acordeon-icono"></span>
+                            <h4 class="sh1b" style="margin: 0;">Contacto</h4>
+                            <i class="snd__icono snd-chevron--down icono--24" aria-hidden="true"></i>
                         </button>
                         <div class="acordeon-body">
                             <p class="b1m">En caso de requerir soporte o mayor información:</p>
@@ -258,8 +248,8 @@
                     <!-- Item 8 -->
                     <div class="acordeon-item">
                         <button class="acordeon-header" type="button">
-                            <h4 class="sh1b">Manuales y Presentaciones</h4>
-                            <span class="acordeon-icono"></span>
+                            <h4 class="sh1b" style="margin: 0;">Manuales y Presentaciones</h4>
+                            <i class="snd__icono snd-chevron--down icono--24" aria-hidden="true"></i>
                         </button>
                         <div class="acordeon-body">
                             <ul class="listaBasica">
@@ -268,21 +258,20 @@
                                         Enlace al taller de capacitación del 20/10/25
                                     </a>
                                 </li>
-                                <li><p class="b1m">Presentación 2025 <a href="https://siben.sep.gob.mx/siben/files/SIBEN_2025.pptx"><img src="https://siben.sep.gob.mx/siben/img/pdf.jpg" class="icon-pdf" alt="Archivo"></a></li>
-                                <li><p class="b1m">Presentación 2023 <a href="https://siben.sep.gob.mx/siben/files/SIBEN_2023.pdf"><img src="https://siben.sep.gob.mx/siben/img/pdf.jpg" class="icon-pdf" alt="PDF"></a></li>
-                                <li><p class="b1m">Presentación 2022 <a href="https://siben.sep.gob.mx/siben/files/SIBEN_2022.pdf"><img src="https://siben.sep.gob.mx/siben/img/pdf.jpg" class="icon-pdf" alt="PDF"></a></li>
-                                <li><p class="b1m">Manual del SIBEN 7 Licenciatura Enlaces Estatales <a href="https://siben.sep.gob.mx/siben/files/Manual_enlace_SIBEN7.pdf"><img src="https://siben.sep.gob.mx/siben/img/pdf.jpg" class="icon-pdf" alt="PDF"></a></li>
-                                <li><p class="b1m">Manual del SIBEN 7 Licenciatura Supervisores <a href="https://siben.sep.gob.mx/siben/files/Manual_supervisor_SIBEN7.pdf"><img src="https://siben.sep.gob.mx/siben/img/pdf.jpg" class="icon-pdf" alt="PDF"></a></li>
-                                <li><p class="b1m">Manual del SIBEN 7 Licenciatura Capturistas <a href="https://siben.sep.gob.mx/siben/files/Manual_Capturista_SIBEN_7.pdf"><img src="https://siben.sep.gob.mx/siben/img/pdf.jpg" class="icon-pdf" alt="PDF"></a></li>
-                                <li><p class="b1m">Manual del SIBEN Posgrados <a href="https://siben.sep.gob.mx/siben/files/Manual_SIBEN_Posgrados-2026.pdf"><img src="https://siben.sep.gob.mx/siben/img/pdf.jpg" class="icon-pdf" alt="PDF"></a></li>
-                                <li><p class="b1m">Manual del SIBEN Geográfico <a href="https://siben.sep.gob.mx/siben/files/Manual_SIBEN_Geografico.pdf"><img src="https://siben.sep.gob.mx/siben/img/pdf.jpg" class="icon-pdf" alt="PDF"></a></li>
-                                <li><p class="b1m">Manual Encuesta Académicos <a href="https://siben.sep.gob.mx/siben/files/Manual_encuesta_academicos.pdf"><img src="https://siben.sep.gob.mx/siben/img/pdf.jpg" class="icon-pdf" alt="PDF"></a></li>
-                                <li><p class="b1m">Manual Encuesta Alumnos <a href="https://siben.sep.gob.mx/siben/files/Manual_encuesta_alumnos.pdf"><img src="https://siben.sep.gob.mx/siben/img/pdf.jpg" class="icon-pdf" alt="PDF"></a></li>
-                                <li><p class="b1m">Presentación SIBEN 8 <a href="https://siben.sep.gob.mx/siben/files/SIBEN_2016.pptx"><img src="https://siben.sep.gob.mx/siben/img/pdf.jpg" class="icon-pdf" alt="Archivo"></a></li>
+                                <li><p class="b1m" style="margin: 4px 0;">Presentación 2025 <a href="https://siben.sep.gob.mx/siben/files/SIBEN_2025.pptx"><img src="https://siben.sep.gob.mx/siben/img/pdf.jpg" class="icon-pdf" alt="Archivo"></a></p></li>
+                                <li><p class="b1m" style="margin: 4px 0;">Presentación 2023 <a href="https://siben.sep.gob.mx/siben/files/SIBEN_2023.pdf"><img src="https://siben.sep.gob.mx/siben/img/pdf.jpg" class="icon-pdf" alt="PDF"></a></p></li>
+                                <li><p class="b1m" style="margin: 4px 0;">Presentación 2022 <a href="https://siben.sep.gob.mx/siben/files/SIBEN_2022.pdf"><img src="https://siben.sep.gob.mx/siben/img/pdf.jpg" class="icon-pdf" alt="PDF"></a></p></li>
+                                <li><p class="b1m" style="margin: 4px 0;">Manual del SIBEN 7 Licenciatura Enlaces Estatales <a href="https://siben.sep.gob.mx/siben/files/Manual_enlace_SIBEN7.pdf"><img src="https://siben.sep.gob.mx/siben/img/pdf.jpg" class="icon-pdf" alt="PDF"></a></p></li>
+                                <li><p class="b1m" style="margin: 4px 0;">Manual del SIBEN 7 Licenciatura Supervisores <a href="https://siben.sep.gob.mx/siben/files/Manual_supervisor_SIBEN7.pdf"><img src="https://siben.sep.gob.mx/siben/img/pdf.jpg" class="icon-pdf" alt="PDF"></a></p></li>
+                                <li><p class="b1m" style="margin: 4px 0;">Manual del SIBEN 7 Licenciatura Capturistas <a href="https://siben.sep.gob.mx/siben/files/Manual_Capturista_SIBEN_7.pdf"><img src="https://siben.sep.gob.mx/siben/img/pdf.jpg" class="icon-pdf" alt="PDF"></a></p></li>
+                                <li><p class="b1m" style="margin: 4px 0;">Manual del SIBEN Posgrados <a href="https://siben.sep.gob.mx/siben/files/Manual_SIBEN_Posgrados-2026.pdf"><img src="https://siben.sep.gob.mx/siben/img/pdf.jpg" class="icon-pdf" alt="PDF"></a></p></li>
+                                <li><p class="b1m" style="margin: 4px 0;">Manual del SIBEN Geográfico <a href="https://siben.sep.gob.mx/siben/files/Manual_SIBEN_Geografico.pdf"><img src="https://siben.sep.gob.mx/siben/img/pdf.jpg" class="icon-pdf" alt="PDF"></a></p></li>
+                                <li><p class="b1m" style="margin: 4px 0;">Manual Encuesta Académicos <a href="https://siben.sep.gob.mx/siben/files/Manual_encuesta_academicos.pdf"><img src="https://siben.sep.gob.mx/siben/img/pdf.jpg" class="icon-pdf" alt="PDF"></a></p></li>
+                                <li><p class="b1m" style="margin: 4px 0;">Manual Encuesta Alumnos <a href="https://siben.sep.gob.mx/siben/files/Manual_encuesta_alumnos.pdf"><img src="https://siben.sep.gob.mx/siben/img/pdf.jpg" class="icon-pdf" alt="PDF"></a></p></li>
+                                <li><p class="b1m" style="margin: 4px 0;">Presentación SIBEN 8 <a href="https://siben.sep.gob.mx/siben/files/SIBEN_2016.pptx"><img src="https://siben.sep.gob.mx/siben/img/pdf.jpg" class="icon-pdf" alt="Archivo"></a></p></li>
                             </ul>
                         </div>
                     </div>
-                    <br>
 
                 </div>
             </div>
