@@ -20,10 +20,6 @@
 
     <div class="degradado--derecha" style="width: 100%;">
         <div style="display: flex; justify-content: flex-end; align-items: center; gap: 15px; padding: 20px 40px; font-size: 18px; color: #fff;">
-            <img src="{{ url('/images/logo_siben_pequeno.png') }}"
-                 alt="Logo SIBEN" style="height: 25px;" onerror="this.style.display='none'">
-            <span>SIBEN</span>
-
         </div>
     </div>
 
