@@ -2,11 +2,32 @@
   {{-- Favicon y CSS institucional --}}
   <link href="https://framework-gb.cdn.gob.mx/snd/v1.1.0/snd-guinda.css" rel="stylesheet">
 
+  <!-- Estipular el espaciado superior para evitar que la barra fija tape el contenido -->
+  <style>
+      body {
+          padding-top: 75px; /* Altura oficial del header fijo en escritorio */
+      }
+      @media (max-width: 767.9px) {
+          body {
+              padding-top: 56px; /* Altura oficial en dispositivos móviles */
+          }
+      }
+      .mexico__escudo .mexico__img.snd__icono {
+          width: auto !important;
+          height: 48px !important;
+      }
+      @media (max-width: 767.9px) {
+          .mexico__escudo .mexico__img.snd__icono {
+              height: 35px !important;
+          }
+      }
+  </style>
+
   <a class="irContent" href="#mainContent">
     Ir al contenido principal
   </a>
 
-  {{-- 1. Encabezado Institucional Gob.mx --}}
+  {{-- 1. Encabezado Institucional Gob.mx (Fijo arriba) --}}
   <section class="mexico">
     <div class="mexico__contenedor">
       <div class="mexico__escudo">
@@ -35,7 +56,7 @@
   </section>
 
   {{-- 2. Barra de Navegación del Sistema SIBEN --}}
-<section class="subheader" style="margin-top: 50px;">
+  <section class="subheader">
     <div class="subheader__contenedor">
       {{-- Menú de secciones --}}
       <details class="mexico__details navHeader__details">
@@ -75,15 +96,7 @@
         </nav>
       </details>
 
-      {{-- Botón de Accesibilidad --}}
-      <button type="button" class="boton__limpio">
-        <i class="snd__icono snd-accessibility--alt icono--32 icono--circuloRojo" aria-hidden="true"></i>
-        <span class="oculto">
-          Opciones de accesibilidad
-        </span>
-      </button>
-
-      {{-- Botón de Ingresar directo (Abre la ventana emergente/popup sin submenú) --}}
+      {{-- Botón de Ingresar directo --}}
       <div class="iniciarSesion">
         <a href="{{ route('login') }}" 
            class="iniciarSesion__a cta"

@@ -4,23 +4,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <link rel="stylesheet" href="{{ asset('css/estilos.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/escuelas.css') }}">
     <title>Búsqueda de Escuelas - SIBEN</title>
     
     <x-header />
 
-    <!-- Estilos de ajuste para los campos del SND -->
+    <!-- Estilos de ajuste basados en las variables oficiales de estilos.css -->
     <style>
         .form__control {
             width: 100%;
             height: 48px;
             padding: 8px 16px;
             font-size: 1rem;
-            font-family: 'Noto Sans', system-ui, sans-serif;
-            color: var(--neutro800, #161a1d);
-            background-color: #ffffff;
-            border: 1px solid var(--neutro400, #dddddd);
+            color: var(--neutro800);
+            background-color: var(--neutro100);
+            border: 1px solid var(--neutro400);
             border-radius: 8px;
             outline: none;
             box-sizing: border-box;
@@ -28,15 +25,14 @@
         }
 
         .form__control:focus {
-            border-color: var(--principal, #611232);
+            border-color: var(--principal);
             box-shadow: 0 0 0 2px rgba(97, 18, 50, 0.2);
         }
 
         .form__label {
-            font-family: 'Noto Sans', system-ui, sans-serif;
             font-size: 0.875rem;
             font-weight: 600;
-            color: var(--neutro800, #161a1d);
+            color: var(--neutro800);
             margin-bottom: 6px;
             display: block;
         }
@@ -48,49 +44,50 @@
             cursor: pointer;
             font-size: 0.95rem;
             font-weight: 500;
-            color: var(--neutro800, #161a1d);
+            color: var(--neutro800);
             user-select: none;
         }
 
         .checkbox-snd input[type="checkbox"] {
             width: 20px;
             height: 20px;
-            accent-color: var(--principal, #611232);
+            accent-color: var(--principal);
             cursor: pointer;
         }
     </style>
 </head>
 <body>
+
+<!-- Migas de pan oficiales SND -->
 <div class="contenedor mt--24">
     <nav class="ruta__cont" aria-label="Ruta de navegación">
         <ol class="ruta__lista">
-            <!-- Primer elemento con el ícono de la casa oficial -->
             <li class="ruta__li">
                 <a class="ruta__a" href="{{ url('/') }}" aria-label="Inicio">
                     <i class="snd__icono snd-home icono--24" aria-hidden="true"></i>
                 </a>
             </li>
-            
-            <!-- Segundo nivel (Navegación anterior) -->
-            <li class="ruta__li"  aria-current="page">
-                    Búsqueda
+            <li class="ruta__li" aria-current="page">
+                Búsqueda
             </li>
-
         </ol>
     </nav>
 </div>
 
-    <div class="contenedor" style="max-width: 1200px; margin: 0 auto; padding: 0 20px 60px 20px;">
-        <section class="col-md-12">
-            <h2 class="h2r patria">BÚSQUEDA DE ESCUELAS</h2>
-            <hr class="red divider">
+<div class="contenedor" style="padding-top: 20px; padding-bottom: 60px;">
+    <section>
+        <h2 class="h2r patria">BÚSQUEDA DE ESCUELAS</h2>
+        <hr class="red divider">
 
-            <h3 class="sh1b" style="font-weight: 600; color: #161a1d; margin-bottom: 32px;">
-                Seleccione las características de las escuelas que desea buscar
-            </h3>
+        <h3 class="sh1b mb--24" style="font-weight: 600; color: var(--neutro800);">
+            Seleccione las características de las escuelas que desea buscar
+        </h3>
 
-            <form action="{{ route('siben.busqueda_escuelas.resultado') }}" method="POST">
-                @csrf
+        <form action="{{ route('siben.busqueda_escuelas.resultado') }}" method="POST">
+            @csrf
+            
+            <!-- Componente oficial de tarjeta de búsqueda del SND -->
+            <div class="buscar01">
                 
                 <!-- Retícula Oficial SND (12 Columnas) -->
                 <div class="reticulaGrid__12 gap--24">
@@ -128,7 +125,7 @@
                         </div>
                     </div>
 
-                    <!-- Fila 2: Turno (4 col) | Licenciatura (4 col) | Vacio/Alineacion (4 col) -->
+                    <!-- Fila 2: Turno (4 col) | Licenciatura (4 col) -->
                     <div class="columna__4--md columna__12--xs">
                         <div class="form__grupo">
                             <label class="form__label">Turno:</label>
@@ -157,8 +154,8 @@
                         </div>
                     </div>
 
-                    <!-- Fila 3: Opciones "Que cuente con:" (Ocupa 12 columnas) -->
-                    <div class="columna__12--md columna__12--xs mt--16">
+                    <!-- Fila 3: Opciones "Que cuente con:" (Ocupa 12 columnas completas) -->
+                    <div class="columna__12--md columna__12--xs mt--8">
                         <label class="form__label mb--12" style="font-size: 1rem;">Que cuente con:</label>
                         <div class="dflex dflex--row dflex--colgap--32 dflex--acenter">
                             <label class="checkbox-snd">
@@ -175,15 +172,16 @@
 
                 </div>
 
-                <!-- Botonera oficial SND alineada a la derecha -->
-                <div class="botonera botonera--end mt--40">
-                    <button class="boton__primario" type="submit">Buscar</button>
-                </div>
-            </form>
-            <br/><br/><br/>
-        </section>
-    </div>
+            </div>
 
-    <x-footer />
+            <!-- Botonera oficial SND alineada a la derecha -->
+            <div class="botonera botonera--end mt--32">
+                <button class="boton__primario" type="submit">Buscar</button>
+            </div>
+        </form>
+    </section>
+</div>
+
+<x-footer />
 </body>
 </html>

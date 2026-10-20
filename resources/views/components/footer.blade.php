@@ -1,8 +1,16 @@
 <footer class="footer">
+  <style>
+    .footer__escudo .snd__icono {
+    width: 100% !important;
+    height: auto !important;
+}
+  </style>
   <div class="footer__contenedor">
     <div class="footer__mexico">
-      <i class="snd__icono snd-gobierno-mexico footer__escudo color--origen" role="img" aria-label="Gobierno de México"></i>
-    </div>
+  <div class="footer__escudo">
+    <i class="snd__icono snd-gobierno-mexico color--origen" aria-hidden="true"></i>
+  </div>
+</div>
     <div class="footer__colCentral">
       <div class="footer__gobmx">
         <details class="mexico__details" open="">
