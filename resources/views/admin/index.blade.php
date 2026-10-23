@@ -4,61 +4,76 @@
 
 @section('content')
 
-<div id="area_contenido" style="margin-left:170px; padding:10px;">
+<div class="contenedor" style="flex: 1; padding: 32px 16px; max-width: 900px; margin: 0 auto; width: 100%; box-sizing: border-box;">
 
-    <a href="{{ route('dashboard') }}"
-       style="display:inline-block; margin-bottom:12px; padding:6px 12px; background:#611232; color:#fff; text-decoration:none; border-radius:4px;">
-        &larr; Inicio
-    </a>
+    <!-- Botón de inicio -->
+    <div style="margin-bottom: 20px;">
+        <a href="{{ route('dashboard') }}" class="boton__secundario" style="text-decoration: none; padding: 6px 14px; font-size: 0.9rem; display: inline-block;">
+            &larr; Inicio
+        </a>
+    </div>
 
-    <h3>Administrador</h3>
+    <!-- Tarjeta contenedora con el estilo oficial (.buscar01) -->
+    <div class="buscar01" style="margin-bottom: 24px;">
+        
+        <div class="buscar01__hgroup mb--24" style="border-bottom: 1px solid var(--neutro400); padding-bottom: 12px; margin-bottom: 16px;">
+            <h3 style="font-size: 1.25rem; font-weight: 600; margin: 0; color: var(--neutro800);">Administrador</h3>
+        </div>
 
-    <table class="tabla-opciones">
-        <thead>
-            <tr>
-                <th>Opción</th>
-                <th class="columna-acceso">Acceso</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach($menu as $seccion => $opciones)
-                {{-- Encabezado de sección (Alumnos / Personal) --}}
-                <tr>
-                    <td class="seccion-titulo" colspan="2">{{ $seccion }}</td>
-                </tr>
-                {{-- Opciones de la sección --}}
-                @foreach($opciones as $opcion)
-                    <tr>
-                        <td>{{ $opcion['titulo'] }}</td>
-                        <td class="columna-acceso">
-                            @if(Route::has($opcion['ruta']))
-                                <a href="{{ route($opcion['ruta']) }}" class="btn-acceso">Acceder</a>
-                            @else
-                                <span class="btn-acceso btn-deshabilitado">Acceder</span>
-                            @endif
-                        </td>
+        <div style="overflow-x: auto;">
+            <table class="tabla-opciones" style="width: 100%; border-collapse: collapse; text-align: left; background: #fff; border: 1px solid var(--neutro400); font-size: 15px;">
+                <thead>
+                    <tr style="border-bottom: 2px solid var(--neutro400);">
+                        <th style="background: var(--principal, #811331); color: #fff; font-weight: 600; text-align: left; padding: 12px 15px;">Opción</th>
+                        <th style="background: var(--principal, #811331); color: #fff; font-weight: 600; text-align: center; padding: 12px 15px; width: 130px;">Acceso</th>
                     </tr>
-                @endforeach
-            @endforeach
-        </tbody>
-    </table>
+                </thead>
+                <tbody>
+                    @foreach($menu as $seccion => $opciones)
+                        {{-- Encabezado de sección (Alumnos / Personal) --}}
+                        <tr>
+                            <td colspan="2" style="background: var(--neutro200); font-weight: 700; color: var(--principal, #811331); padding: 12px 15px; border-top: 1px solid var(--neutro300); border-bottom: 1px solid var(--neutro300);">
+                                {{ $seccion }}
+                            </td>
+                        </tr>
+                        {{-- Opciones de la sección --}}
+                        @foreach($opciones as $opcion)
+                            <tr style="border-bottom: 1px solid var(--neutro300);">
+                                <td style="padding: 14px 15px; color: var(--neutro800); vertical-align: middle;">
+                                    {{ $opcion['titulo'] }}
+                                </td>
+                                <td style="padding: 14px 15px; text-align: center; vertical-align: middle;">
+                                    @if(Route::has($opcion['ruta']))
+                                        <a href="{{ route($opcion['ruta']) }}" class="boton__primario" style="padding: 6px 16px; font-size: 0.9rem; text-decoration: none; display: inline-block;">
+                                            Acceder
+                                        </a>
+                                    @else
+                                        <span style="display: inline-block; padding: 6px 16px; background: var(--neutro500); color: #fff; border-radius: 4px; font-size: 0.9rem; cursor: not-allowed;">
+                                            Acceder
+                                        </span>
+                                    @endif
+                                </td>
+                            </tr>
+                        @endforeach
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    </div>
 
 </div>
 
 @endsection
 
 @push('styles')
+<link href="https://framework-gb.cdn.gob.mx/snd/v1.1.0/snd-guinda.css" rel="stylesheet">
 <style>
-    .tabla-opciones { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid #ddd; font-size: 15px; }
-    .tabla-opciones thead th { background: #611232; color: #fff; font-weight: 600; text-align: left; padding: 12px 15px; border: 1px solid #611232; }
-    .tabla-opciones thead th.columna-acceso { text-align: center; }
-    .tabla-opciones tbody td { padding: 12px 15px; border: 1px solid #ddd; vertical-align: middle; }
-    .tabla-opciones tbody tr:nth-child(even) { background: #f7f7f7; }
-    .tabla-opciones tbody tr:hover { background: #eee; }
-    .seccion-titulo { background: #f7f7f7 !important; font-weight: 700; color: #611232; }
-    .tabla-opciones td.columna-acceso { width: 120px; text-align: center; }
-    .btn-acceso { display: inline-block; padding: 7px 16px; background: #611232; color: #fff !important; border: 1px solid #611232; border-radius: 4px; text-decoration: none !important; font-size: 14px; font-weight: 600; }
-    .btn-acceso:hover { background: #4d0e27; border-color: #4d0e27; }
-    .btn-deshabilitado { background: #999; border-color: #999; cursor: not-allowed; }
+    .tabla-opciones tbody tr:hover {
+        background-color: var(--neutro100);
+    }
 </style>
+@endpush
+
+@push('scripts')
+<script src="https://framework-gb.cdn.gob.mx/snd/v1.1.0/snd.js"></script>
 @endpush
