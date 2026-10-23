@@ -46,7 +46,7 @@
                 <div style="padding: 16px; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; background-color: #fff;">
                     <div>
                         <label style="display: block; font-size: 0.9rem; color: var(--neutro800); font-weight: 600; margin-bottom: 6px;">Entidad:</label>
-                        <select name="id_entidad" id="id_entidad" required style="width: 100%; padding: 8px 12px; border: 1px solid var(--neutro400); border-radius: 4px; font-size: 0.9rem;">
+                        <select name="id_entidad" id="id_entidad" required style="width: 100%; padding: 8px 12px; border: 1px solid var(--neutro400); border-radius: 4px; font-size: 0.9rem; background-color: #fff;">
                             <option value="">Seleccione</option>
                             @foreach($entidades as $id => $entidad)
                                 <option value="{{ $id }}">{{ $entidad }}</option>
@@ -55,7 +55,7 @@
                     </div>
                     <div>
                         <label style="display: block; font-size: 0.9rem; color: var(--neutro800); font-weight: 600; margin-bottom: 6px;">Escuela:</label>
-                        <select name="id_escuela" id="id_escuela" disabled required style="width: 100%; padding: 8px 12px; border: 1px solid var(--neutro400); border-radius: 4px; font-size: 0.9rem;">
+                        <select name="id_escuela" id="id_escuela" disabled required style="width: 100%; padding: 8px 12px; border: 1px solid var(--neutro400); border-radius: 4px; font-size: 0.9rem; background-color: #fff;">
                             <option value="">Primero seleccione la entidad</option>
                         </select>
                     </div>
@@ -70,38 +70,38 @@
                 <div style="padding: 16px; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; background-color: #fff;">
                     <div>
                         <label style="display: block; font-size: 0.9rem; color: var(--neutro800); font-weight: 600; margin-bottom: 6px;">Apellido Paterno *</label>
-                        <input type="text" name="apellido_paterno" class="texto" required style="width: 100%; padding: 8px 12px; border: 1px solid var(--neutro400); border-radius: 4px; font-size: 0.9rem;">
+                        <input type="text" name="apellido_paterno" class="texto" required style="width: 100%; padding: 8px 12px; border: 1px solid var(--neutro400); border-radius: 4px; font-size: 0.9rem; box-sizing: border-box;">
                     </div>
                     <div>
                         <label style="display: block; font-size: 0.9rem; color: var(--neutro800); font-weight: 600; margin-bottom: 6px;">Apellido Materno</label>
-                        <input type="text" name="apellido_materno" class="texto" style="width: 100%; padding: 8px 12px; border: 1px solid var(--neutro400); border-radius: 4px; font-size: 0.9rem;">
+                        <input type="text" name="apellido_materno" class="texto" style="width: 100%; padding: 8px 12px; border: 1px solid var(--neutro400); border-radius: 4px; font-size: 0.9rem; box-sizing: border-box;">
                     </div>
                     <div style="grid-column: span 2;">
                         <label style="display: block; font-size: 0.9rem; color: var(--neutro800); font-weight: 600; margin-bottom: 6px;">Nombre(s) *</label>
-                        <input type="text" name="nombre" class="texto" required style="width: 100%; padding: 8px 12px; border: 1px solid var(--neutro400); border-radius: 4px; font-size: 0.9rem;">
+                        <input type="text" name="nombre" class="texto" required style="width: 100%; padding: 8px 12px; border: 1px solid var(--neutro400); border-radius: 4px; font-size: 0.9rem; box-sizing: border-box;">
                     </div>
                     <div>
                         <label style="display: block; font-size: 0.9rem; color: var(--neutro800); font-weight: 600; margin-bottom: 6px;">CURP *</label>
-                        <input type="text" name="curp" id="curp" class="texto" maxlength="18" required style="width: 100%; padding: 8px 12px; border: 1px solid var(--neutro400); border-radius: 4px; font-size: 0.9rem;">
+                        <input type="text" name="curp" id="curp" class="texto" maxlength="18" required style="width: 100%; padding: 8px 12px; border: 1px solid var(--neutro400); border-radius: 4px; font-size: 0.9rem; box-sizing: border-box;">
                     </div>
                     <div>
                         <label style="display: block; font-size: 0.9rem; color: var(--neutro800); font-weight: 600; margin-bottom: 6px;">Edad *</label>
-                        <input type="number" name="edad" min="0" max="100" required style="width: 100%; padding: 8px 12px; border: 1px solid var(--neutro400); border-radius: 4px; font-size: 0.9rem;">
+                        <input type="number" name="edad" min="0" max="100" required style="width: 100%; padding: 8px 12px; border: 1px solid var(--neutro400); border-radius: 4px; font-size: 0.9rem; box-sizing: border-box;">
                     </div>
                     <div>
                         <label style="display: block; font-size: 0.9rem; color: var(--neutro800); font-weight: 600; margin-bottom: 6px;">Género</label>
-                        <select name="genero" style="width: 100%; padding: 8px 12px; border: 1px solid var(--neutro400); border-radius: 4px; font-size: 0.9rem;">
+                        <select name="genero" style="width: 100%; padding: 8px 12px; border: 1px solid var(--neutro400); border-radius: 4px; font-size: 0.9rem; background-color: #fff;">
                             <option value="h">Hombre</option>
                             <option value="m" selected>Mujer</option>
                         </select>
                     </div>
                     <div>
                         <label style="display: block; font-size: 0.9rem; color: var(--neutro800); font-weight: 600; margin-bottom: 6px;">Correo electrónico</label>
-                        <input type="email" name="correo_electronico" style="width: 100%; padding: 8px 12px; border: 1px solid var(--neutro400); border-radius: 4px; font-size: 0.9rem;">
+                        <input type="email" name="correo_electronico" style="width: 100%; padding: 8px 12px; border: 1px solid var(--neutro400); border-radius: 4px; font-size: 0.9rem; box-sizing: border-box;">
                     </div>
                     <div style="grid-column: 1 / -1;">
                         <label style="display: block; font-size: 0.9rem; color: var(--neutro800); font-weight: 600; margin-bottom: 6px;">Función *</label>
-                        <select name="id_funcion" id="id_funcion" required style="width: 100%; padding: 8px 12px; border: 1px solid var(--neutro400); border-radius: 4px; font-size: 0.9rem;">
+                        <select name="id_funcion" id="id_funcion" required style="width: 100%; padding: 8px 12px; border: 1px solid var(--neutro400); border-radius: 4px; font-size: 0.9rem; background-color: #fff;">
                             <option value="">Seleccione</option>
                             @foreach($funciones as $id => $funcion)
                                 <option value="{{ $id }}">{{ $funcion }}</option>
@@ -120,13 +120,13 @@
                     <div>
                         <label style="display: block; font-size: 0.9rem; color: var(--neutro800); font-weight: 600; margin-bottom: 6px;">Nivel máximo de estudios</label>
                         <div style="display: flex; gap: 8px;">
-                            <select name="id_nivel_estudio" style="flex: 1; padding: 8px 12px; border: 1px solid var(--neutro400); border-radius: 4px; font-size: 0.9rem;">
+                            <select name="id_nivel_estudio" style="flex: 1; padding: 8px 12px; border: 1px solid var(--neutro400); border-radius: 4px; font-size: 0.9rem; background-color: #fff;">
                                 <option value="">Seleccione</option>
                                 @foreach($niveles as $id => $nivel)
                                     <option value="{{ $id }}">{{ $nivel }}</option>
                                 @endforeach
                             </select>
-                            <select name="titulo" id="titulo" style="width: 120px; padding: 8px 12px; border: 1px solid var(--neutro400); border-radius: 4px; font-size: 0.9rem;">
+                            <select name="titulo" id="titulo" style="width: 120px; padding: 8px 12px; border: 1px solid var(--neutro400); border-radius: 4px; font-size: 0.9rem; background-color: #fff;">
                                 <option value="s">Titulado</option>
                                 <option value="n">Sin título</option>
                             </select>
@@ -134,21 +134,29 @@
                     </div>
 
                     <div id="campoTitulacion" style="grid-column: 1 / -1;">
-                        <label style="display: block; font-size: 0.9rem; color: var(--neutro800); font-weight: 600; margin-bottom: 6px;">Fecha y tema de titulación</label>
-                        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-                            <input type="date" name="fecha_titulacion" style="padding: 8px 12px; border: 1px solid var(--neutro400); border-radius: 4px; font-size: 0.9rem;">
-                            <input type="text" name="tema_titulacion" placeholder="Tema de titulación" style="flex: 1; min-width: 240px; padding: 8px 12px; border: 1px solid var(--neutro400); border-radius: 4px; font-size: 0.9rem;">
-                        </div>
-                    </div>
+    <label style="display: block; font-size: 0.9rem; color: var(--neutro800); font-weight: 600; margin-bottom: 6px;">Fecha y tema de titulación</label>
+    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+        <input type="date" 
+               name="fecha_titulacion" 
+               class="form-control" 
+               style="width: 100%; max-width: 260px; font-size: 0.9rem; box-sizing: border-box;">
+               
+        <input type="text" 
+               name="tema_titulacion" 
+               class="form-control" 
+               placeholder="Tema de titulación" 
+               style="flex: 1; min-width: 240px; font-size: 0.9rem; box-sizing: border-box;">
+    </div>
+</div>
 
                     <div>
                         <label style="display: block; font-size: 0.9rem; color: var(--neutro800); font-weight: 600; margin-bottom: 6px;">Escuela de Egreso</label>
-                        <input type="text" name="escuela_egreso" style="width: 100%; padding: 8px 12px; border: 1px solid var(--neutro400); border-radius: 4px; font-size: 0.9rem;">
+                        <input type="text" name="escuela_egreso" style="width: 100%; padding: 8px 12px; border: 1px solid var(--neutro400); border-radius: 4px; font-size: 0.9rem; box-sizing: border-box;">
                     </div>
 
                     <div>
                         <label style="display: block; font-size: 0.9rem; color: var(--neutro800); font-weight: 600; margin-bottom: 6px;">Área de Conocimiento y Disciplina</label>
-                        <select name="id_area_conocimiento" style="width: 100%; padding: 8px 12px; border: 1px solid var(--neutro400); border-radius: 4px; font-size: 0.9rem;">
+                        <select name="id_area_conocimiento" style="width: 100%; padding: 8px 12px; border: 1px solid var(--neutro400); border-radius: 4px; font-size: 0.9rem; background-color: #fff;">
                             <option value="">Seleccione</option>
                             @foreach($areas->groupBy('id_campo') as $campo => $grupo)
                                 <optgroup label="{{ $grupo->first()->campo }}">
@@ -163,28 +171,28 @@
                     <div>
                         <label style="display: block; font-size: 0.9rem; color: var(--neutro800); font-weight: 600; margin-bottom: 6px;">¿Habla alguna lengua indígena?</label>
                         <div style="display: flex; gap: 8px;">
-                            <select name="lengua" id="lengua" style="width: 90px; padding: 8px 12px; border: 1px solid var(--neutro400); border-radius: 4px; font-size: 0.9rem;">
+                            <select name="lengua" id="lengua" style="width: 90px; padding: 8px 12px; border: 1px solid var(--neutro400); border-radius: 4px; font-size: 0.9rem; background-color: #fff;">
                                 <option value="n">No</option>
                                 <option value="s">Sí</option>
                             </select>
-                            <input type="text" name="lengua_indigena" id="campoLengua" placeholder="Especificar lengua indígena" style="display:none; flex: 1; padding: 8px 12px; border: 1px solid var(--neutro400); border-radius: 4px; font-size: 0.9rem;">
+                            <input type="text" name="lengua_indigena" id="campoLengua" placeholder="Especificar lengua indígena" style="display:none; flex: 1; padding: 8px 12px; border: 1px solid var(--neutro400); border-radius: 4px; font-size: 0.9rem; box-sizing: border-box;">
                         </div>
                     </div>
 
                     <div>
                         <label style="display: block; font-size: 0.9rem; color: var(--neutro800); font-weight: 600; margin-bottom: 6px;">¿Participa en proyecto de investigación?</label>
                         <div style="display: flex; gap: 8px;">
-                            <select name="investigacion" id="investigacion" style="width: 90px; padding: 8px 12px; border: 1px solid var(--neutro400); border-radius: 4px; font-size: 0.9rem;">
+                            <select name="investigacion" id="investigacion" style="width: 90px; padding: 8px 12px; border: 1px solid var(--neutro400); border-radius: 4px; font-size: 0.9rem; background-color: #fff;">
                                 <option value="n">No</option>
                                 <option value="s">Sí</option>
                             </select>
-                            <input type="text" name="proyecto_investigacion" id="campoProyecto" placeholder="Proyecto de investigación" style="display:none; flex: 1; padding: 8px 12px; border: 1px solid var(--neutro400); border-radius: 4px; font-size: 0.9rem;">
+                            <input type="text" name="proyecto_investigacion" id="campoProyecto" placeholder="Proyecto de investigación" style="display:none; flex: 1; padding: 8px 12px; border: 1px solid var(--neutro400); border-radius: 4px; font-size: 0.9rem; box-sizing: border-box;">
                         </div>
                     </div>
 
                     <div>
                         <label style="display: block; font-size: 0.9rem; color: var(--neutro800); font-weight: 600; margin-bottom: 6px;">¿Ha realizado alguna estancia?</label>
-                        <select name="estancia_investigacion" style="width: 100%; padding: 8px 12px; border: 1px solid var(--neutro400); border-radius: 4px; font-size: 0.9rem;">
+                        <select name="estancia_investigacion" style="width: 100%; padding: 8px 12px; border: 1px solid var(--neutro400); border-radius: 4px; font-size: 0.9rem; background-color: #fff;">
                             <option value="n">No</option>
                             <option value="s">Sí</option>
                         </select>
@@ -192,7 +200,7 @@
 
                     <div>
                         <label style="display: block; font-size: 0.9rem; color: var(--neutro800); font-weight: 600; margin-bottom: 6px;">Antigüedad en esta Escuela</label>
-                        <select name="antiguedad_escuela" style="width: 100%; padding: 8px 12px; border: 1px solid var(--neutro400); border-radius: 4px; font-size: 0.9rem;">
+                        <select name="antiguedad_escuela" style="width: 100%; padding: 8px 12px; border: 1px solid var(--neutro400); border-radius: 4px; font-size: 0.9rem; background-color: #fff;">
                             @for($i = 0; $i <= 50; $i++)
                                 <option value="{{ $i }}">{{ $i }} años</option>
                             @endfor
@@ -201,7 +209,7 @@
 
                     <div>
                         <label style="display: block; font-size: 0.9rem; color: var(--neutro800); font-weight: 600; margin-bottom: 6px;">Antigüedad como Docente Normalista</label>
-                        <select name="antiguedad_docente" style="width: 100%; padding: 8px 12px; border: 1px solid var(--neutro400); border-radius: 4px; font-size: 0.9rem;">
+                        <select name="antiguedad_docente" style="width: 100%; padding: 8px 12px; border: 1px solid var(--neutro400); border-radius: 4px; font-size: 0.9rem; background-color: #fff;">
                             @for($i = 0; $i <= 50; $i++)
                                 <option value="{{ $i }}">{{ $i }} años</option>
                             @endfor
@@ -218,7 +226,7 @@
                 <div style="padding: 16px; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; background-color: #fff;">
                     <div>
                         <label style="display: block; font-size: 0.9rem; color: var(--neutro800); font-weight: 600; margin-bottom: 6px;">¿El personal sufre alguna discapacidad?</label>
-                        <select name="discapacidad" id="discapacidad" style="width: 100%; padding: 8px 12px; border: 1px solid var(--neutro400); border-radius: 4px; font-size: 0.9rem;">
+                        <select name="discapacidad" id="discapacidad" style="width: 100%; padding: 8px 12px; border: 1px solid var(--neutro400); border-radius: 4px; font-size: 0.9rem; background-color: #fff;">
                             <option value="">Seleccione</option>
                             <option value="n">No</option>
                             <option value="s">Sí</option>
@@ -226,7 +234,7 @@
                     </div>
                     <div>
                         <label style="display: block; font-size: 0.9rem; color: var(--neutro800); font-weight: 600; margin-bottom: 6px;">Tipo de discapacidad</label>
-                        <select name="tipo_discapacidad" id="campoDiscapacidad" style="display:none; width: 100%; padding: 8px 12px; border: 1px solid var(--neutro400); border-radius: 4px; font-size: 0.9rem;">
+                        <select name="tipo_discapacidad" id="campoDiscapacidad" style="display:none; width: 100%; padding: 8px 12px; border: 1px solid var(--neutro400); border-radius: 4px; font-size: 0.9rem; background-color: #fff;">
                             <option value="">Seleccione</option>
                             @foreach($discapacidades as $id => $disc)
                                 <option value="{{ $id }}">{{ $disc }}</option>

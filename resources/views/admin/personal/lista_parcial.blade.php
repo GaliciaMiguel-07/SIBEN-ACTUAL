@@ -38,11 +38,11 @@
                             @endif
                         </td>
                         <td style="padding: 10px 12px; text-align: center; vertical-align: middle;">
-                            <div style="display: flex; gap: 6px; justify-content: center; flex-wrap: wrap;">
-                                <a href="{{ route('admin.personal.editar', $p->id) }}" class="boton__secundario" style="text-decoration: none; padding: 4px 10px; font-size: 0.8rem; display: inline-block;">
+                            <div style="display: flex; gap: 6px; justify-content: center; align-items: center; flex-wrap: wrap;">
+                                <a href="{{ route('admin.personal.editar', $p->id) }}" class="boton__secundario" style="width: 95px; text-align: center; box-sizing: border-box; text-decoration: none; padding: 5px 10px; font-size: 0.8rem; display: inline-block;">
                                     Editar
                                 </a>
-                                <button type="button" class="boton__primario" onclick="cambiaStatus({{ $p->id }})" style="padding: 4px 10px; font-size: 0.8rem; cursor: pointer;">
+                                <button type="button" class="boton__primario" onclick="cambiaStatus({{ $p->id }})" style="width: 95px; text-align: center; box-sizing: border-box; padding: 5px 10px; font-size: 0.8rem; cursor: pointer;">
                                     {{ $p->status === 'a' ? 'Desactivar' : 'Activar' }}
                                 </button>
                             </div>
