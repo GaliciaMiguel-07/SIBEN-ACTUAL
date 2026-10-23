@@ -13,7 +13,7 @@
     <header style="background-color: var(--neutro100); border-bottom: 1px solid var(--neutro400); padding: 20px 0;">
         <div class="contenedor" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px; max-width: 1200px; margin: 0 auto; padding: 0 20px;">
             <div>
-                <img src="{{ url('/images/pleca_superior2020.jpg') }}" alt="Educación - Secretaría de Educación Pública | DGESUM - Dirección General de Educación Superior para el Magisterio"  onerror="this.style.display='none'">
+                <img src="{{ url('/images/pleca_superior2020.jpg') }}" alt="Educación - Secretaría de Educación Pública | DGESUM - Dirección General de Educación Superior para el Magisterio" onerror="this.style.display='none'">
             </div>
         </div>
     </header>
@@ -29,15 +29,24 @@
         <div style="width: 100%; max-width: 650px;">
             <h2 class="h2r patria" style="text-align: center; margin-bottom: 24px;">SIBEN</h2>
 
-            <!-- Errores de validación usando la alerta oficial SND -->
+            <!-- Alerta de error estilizada idéntica a la guía de diseño -->
             @if ($errors->any())
-                <div class="aviso aviso--error mb--24" style="margin-bottom: 24px;">
-                    <div class="aviso__cont">
-                        <div class="aviso__txt">
-                            @foreach ($errors->all() as $error)
-                                <p style="margin: 0;">{{ $error }}</p>
-                            @endforeach
-                        </div>
+                <div style="background-color: #fdf2f2; border: 1px solid var(--principal); border-radius: 8px; padding: 16px 20px; margin-bottom: 24px; display: flex; align-items: flex-start; gap: 14px; box-sizing: border-box;">
+                    
+                    <!-- Icono de advertencia guinda en SVG estandarizado -->
+                    <div style="flex-shrink: 0; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; margin-top: 2px;">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--principal)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="8" x2="12" y2="12"></line>
+                            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                        </svg>
+                    </div>
+
+                    <!-- Mensajes de error -->
+                    <div style="color: var(--principal); font-size: 0.95rem; line-height: 1.5; font-weight: 500;">
+                        @foreach ($errors->all() as $error)
+                            <p style="margin: 0;">{{ $error }}</p>
+                        @endforeach
                     </div>
                 </div>
             @endif
@@ -54,24 +63,27 @@
                     <!-- Retícula interna de 12 columnas para alinear los campos correctamente -->
                     <div class="reticulaGrid__12 gap--16 mb--24">
                         
-                        <!-- Campo Usuario -->
-                        <div class="columna__12--xs">
-                            <label class="dblock mb--8 f--semibold" for="UsuarioLogin" style="color: var(--neutro800);">Usuario:</label>
-                            <input class="form__control"
-                                type="text"
+                        <!-- Campo Usuario Obligatorio -->
+                        <div class="columna__12--xs" style="margin-bottom: 16px;">
+                            <label class="dblock mb--8 f--semibold" for="UsuarioLogin" style="color: var(--neutro800); display: block; margin-bottom: 8px;">
+                                <span style="color: var(--principal); margin-right: 4px;">*</span>Usuario:
+                            </label>
+                            <input type="text"
                                    name="login" id="UsuarioLogin"
                                    value="{{ old('login') }}"
-                                   placeholder="Ingrese su usuario" autofocus required
-                                   style="width: 100%; height: 48px; padding: 0 16px; border: 1px solid var(--neutro400); border-radius: 8px; background: #fff; font-size: 1rem; color: var(--neutro800);">
+                                   placeholder="Ingrese su usuario" autofocus 
+                                   style="width: 100%; height: 48px; padding: 0 16px; border: 1px solid var(--neutro400); border-radius: 8px; background: #fff; font-size: 1rem; color: var(--neutro800); box-sizing: border-box;">
                         </div>
 
-                        <!-- Campo Contraseña -->
-                        <div class="columna__12--xs">
-                            <label class="dblock mb--8 f--semibold" for="UsuarioPassword" style="color: var(--neutro800);">Contraseña:</label>
+                        <!-- Campo Contraseña Obligatorio -->
+                        <div class="columna__12--xs" style="margin-bottom: 16px;">
+                            <label class="dblock mb--8 f--semibold" for="UsuarioPassword" style="color: var(--neutro800); display: block; margin-bottom: 8px;">
+                                <span style="color: var(--principal); margin-right: 4px;">*</span>Contraseña:
+                            </label>
                             <input type="password"
                                    name="password" id="UsuarioPassword"
-                                   placeholder="Ingrese su contraseña" required
-                                   style="width: 100%; height: 48px; padding: 0 16px; border: 1px solid var(--neutro400); border-radius: 8px; background: #fff; font-size: 1rem; color: var(--neutro800);">
+                                   placeholder="Ingrese su contraseña" 
+                                   style="width: 100%; height: 48px; padding: 0 16px; border: 1px solid var(--neutro400); border-radius: 8px; background: #fff; font-size: 1rem; color: var(--neutro800); box-sizing: border-box;">
                         </div>
 
                         <!-- Checkbox Recordarme -->
@@ -101,5 +113,39 @@
         </div>
     </div>
 
+    <!-- Script en silencio para prevenir el uso de inspeccionar y clic derecho -->
+    <script>
+        // Prevenir menú contextual de clic derecho en silencio
+        document.addEventListener('contextmenu', function (e) {
+            e.preventDefault();
+        });
+
+        // Prevenir combinaciones de teclas frecuentes para abrir DevTools
+        document.addEventListener('keydown', function (e) {
+            // Tecla F12
+            if (e.key === 'F12' || e.keyCode === 123) {
+                e.preventDefault();
+                return false;
+            }
+
+            // Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+Shift+C
+            if (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'i' || e.key === 'J' || e.key === 'j' || e.key === 'C' || e.key === 'c')) {
+                e.preventDefault();
+                return false;
+            }
+
+            // Ctrl+U (Ver código fuente)
+            if (e.ctrlKey && (e.key === 'U' || e.key === 'u')) {
+                e.preventDefault();
+                return false;
+            }
+
+            // Atajos en macOS (Cmd+Opt+I)
+            if (e.metaKey && e.altKey && (e.key === 'I' || e.key === 'i')) {
+                e.preventDefault();
+                return false;
+            }
+        });
+    </script>
 </body>
 </html>
