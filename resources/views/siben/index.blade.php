@@ -4,63 +4,39 @@
 
 @section('content')
 
-<h3>Bienvenido, {{ auth()->user()->nombre }}</h3>
+<div class="contenedor" style="flex: 1; padding: 32px 16px; max-width: 900px; margin: 0 auto; width: 100%; box-sizing: border-box;">
 
-{{-- Mensajes flash de acciones (2FA, cambio de contraseña, etc.) --}}
-@if (session('ok'))
-    <div class="alert alert-success text-center" style="margin-top: 15px;">
-        {{ session('ok') }}
-    </div>
-@endif
-@if (session('error'))
-    <div class="alert alert-danger text-center" style="margin-top: 15px;">
-        {{ session('error') }}
-    </div>
-@endif
+    {{-- Mensajes flash de acciones (2FA, cambio de contraseña, etc.) --}}
+    @if (session('ok'))
+        <div style="background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; padding: 12px 16px; border-radius: 4px; margin-bottom: 20px; text-align: center;">
+            {{ session('ok') }}
+        </div>
+    @endif
+    @if (session('error'))
+        <div style="background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; padding: 12px 16px; border-radius: 4px; margin-bottom: 20px; text-align: center;">
+            {{ session('error') }}
+        </div>
+    @endif
 
-@include('layouts.siben.menu')
-
-<div id="area_contenido" style="margin-left:170px; padding:10px;">
-
-    
     {{-- Botón de regreso (si aplica) --}}
     @isset($anterior)
-        <a href="{{ $anterior }}" class="btn btn-sm btn-secondary mb-3">&larr; Regresar</a>
+        <div style="margin-bottom: 20px;">
+            <a href="{{ $anterior }}" class="boton__secundario" style="text-decoration: none; padding: 6px 14px; font-size: 0.9rem; display: inline-block;">&larr; Regresar</a>
+        </div>
     @endisset
 
-    <!-- {{-- Mensajes del sistema --}}
-    @if (!empty($mensajes) && $mensajes->isNotEmpty())
-        <table class="datos2" style="width:450px;">
-            @foreach ($mensajes as $mensaje)
-                <tr>
-                    <td style="font-size:1.1em;">
-                        {{--
-                            La columna real se llama `mensaje` (no `texto`).
-                            nl2br preserva los saltos de línea del texto almacenado.
-                        --}}
-                        {!! nl2br(e($mensaje->mensaje ?? '')) !!}
-                    </td>
-                </tr>
-            @endforeach
-        </table>
-    @else
-        <p class="text-muted">No hay mensajes nuevos del sistema.</p>
-    @endif -->
+    {{-- Inclusión del menú de opciones del sistema --}}
+    @include('layouts.siben.menu')
 
-    {{-- Espacio extra para niveles con layout más amplio --}}
-    @if ($nivel ?? 0)
-        @if ($nivel != 1)
-            <br><br><br>
-            <div style="text-align:right;">
-                <span style="color:#cc1543;">
-                    <a href="http://www.siben.sep.gob.mx/menu_ayuda/index.php"
-                       target="_blank"
-                       style="color:#cc1543;">
-                        <b>?</b> Ayuda
-                    </a>
-                </span>
-            </div>
-        @endif
+    {{-- Enlace de ayuda institucional para niveles distintos de 1 --}}
+    @if (($nivel ?? 0) != 0 && $nivel != 1)
+        <div style="text-align: right; margin-top: 24px; margin-bottom: 20px;">
+            <a href="http://www.siben.sep.gob.mx/menu_ayuda/index.php"
+               target="_blank"
+               style="color: var(--principal, #811331); text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
+                <span style="border: 1px solid var(--principal, #811331); border-radius: 50%; width: 20px; height: 20px; text-align: center; line-height: 18px; font-size: 0.85rem;">?</span> Ayuda
+            </a>
+        </div>
     @endif
 
 </div>

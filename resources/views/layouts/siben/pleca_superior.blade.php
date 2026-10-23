@@ -40,7 +40,7 @@
     @if ($nivel > 0)
         <div class="degradado--derecha" style="color: #fff; width: 100%;">
             <div class="contenedor" style="display: flex; align-items: center; padding: 10px 20px; max-width: 1200px; margin: 0 auto;">
-                <h2 style="font-size: 1.25rem; font-weight: bold; margin: 0; color: #fff;">
+                <h2 class="h2r patria">
                     {{ $nombreRol }}
                 </h2>
             </div>

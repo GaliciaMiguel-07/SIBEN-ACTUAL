@@ -1,6 +1,7 @@
 @php
     $usuario = session('Usuario', []);
     $nivel = (int) ($usuario['nivel'] ?? (auth()->check() ? auth()->user()->nivel : 0));
+    $nombreUsuario = $usuario['nombre'] ?? (auth()->check() ? auth()->user()->nombre : '');
 
     // Mapeo de opciones del sistema según el nivel
     $opcionesPorNivel = [
@@ -66,7 +67,19 @@
     @endif
 
     <!-- Contenido Principal: Opciones del Sistema -->
-    <div class="contenedor" style="flex: 1; padding: 40px 16px; max-width: 900px; margin: 0 auto; width: 100%; box-sizing: border-box;">
+    <div class="contenedor" style="flex: 1; padding: 32px 16px; max-width: 900px; margin: 0 auto; width: 100%; box-sizing: border-box;">
+
+        <!-- Saludo de bienvenida con tipografía y retícula oficial del gobierno -->
+        <div style="margin-bottom: 24px;">
+            <h1 class="h2r patria" style="color: var(--neutro900); font-size: 1.75rem; margin: 0 0 4px 0;">
+                Bienvenido,
+            </h1>
+            @if(!empty($nombreUsuario))
+                <p style="color: var(--neutro600); font-size: 1.1rem; margin: 0; font-weight: 500;">
+                    {{ $nombreUsuario }}
+                </p>
+            @endif
+        </div>
 
         <!-- Tarjeta contenedora con el estilo oficial (.buscar01) -->
         <div class="buscar01" style="margin-bottom: 24px;">

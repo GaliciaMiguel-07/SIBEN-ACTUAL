@@ -7,7 +7,7 @@
                  style="height: 25px; width: auto;" 
                  onerror="this.style.display='none'">
             <span>SIBEN</span>
-            <span>V8</span>
+            <span>2026</span>
         </div>
     </div>
 </footer>
