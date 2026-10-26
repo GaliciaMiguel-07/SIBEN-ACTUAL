@@ -31,7 +31,7 @@
     {{-- Enlace de ayuda institucional para niveles distintos de 1 --}}
     @if (($nivel ?? 0) != 0 && $nivel != 1)
         <div style="text-align: right; margin-top: 24px; margin-bottom: 20px;">
-            <a href="http://www.siben.sep.gob.mx/menu_ayuda/index.php"
+            <a href="#"
                target="_blank"
                style="color: var(--principal, #811331); text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
                 <span style="border: 1px solid var(--principal, #811331); border-radius: 50%; width: 20px; height: 20px; text-align: center; line-height: 18px; font-size: 0.85rem;">?</span> Ayuda

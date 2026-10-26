@@ -302,8 +302,8 @@ class sibenController extends Controller
         $botones = [];
         switch ($nivel) {
             case 3:
-                $botones['escuela']  = "<input id='e_{$id_escuela}' type='button' value='{$textos['escuela']}' onclick=\"{$eventos['escuela']}\" />";
-                $botones['terminar'] = "<input type='button' value='Terminar' onclick=\"{$evento_domicilio}\" />";
+                $botones['escuela']  = "<input id='e_{$id_escuela}' type='button' value='{$textos['escuela']}' onclick=\"{$eventos['escuela']}\" class='boton__primario' style='padding: 6px 14px; cursor: pointer;' />";
+                $botones['terminar'] = "<input type='button' value='Terminar' onclick=\"{$evento_domicilio}\" class='boton__secundario' style='padding: 6px 14px; cursor: pointer;' />";
                 break;
         }
 
@@ -1452,7 +1452,7 @@ class sibenController extends Controller
 
                 $evento = "consultaAjax('{$detalleUrl}', '{$parametros}', muestraOverlay)";
 
-                $boton = '<input id="' . $alumno->id . '" type="button" value="Detalle" onclick="' . $evento . '" />';
+                $boton = '<input id="' . $alumno->id . '" type="button" value="Detalle" onclick="' . $evento . '" class="boton__primario" style="padding: 4px 10px; cursor: pointer;" />';
 
                 $listaAlumnos[] = [
                     'id'               => $alumno->id,
@@ -1574,7 +1574,7 @@ class sibenController extends Controller
 
         switch ($nivel) {
             case 3:
-                $botones['escuela'] = "<input id='e_{$id_escuela}' type='button' value='Editar' onclick=\"{$eventosEscuela}\" />";
+                $botones['escuela'] = "<input id='e_{$id_escuela}' type='button' value='Editar' onclick=\"{$eventosEscuela}\" class='boton__primario' style='padding: 6px 14px; cursor: pointer;' />";
                 break;
             case 4:
                 $botones['escuela'] = '';
@@ -1699,7 +1699,7 @@ class sibenController extends Controller
                 'modulo'  => $escuela->modulo,
             ]);
             $evento = "locacion('{$urlCambiaCaptura}')";
-            $boton  = '<input type ="button" id="b_' . $escuela->id . '" onclick="' . $evento . '" value="' . $titulo . '"/>';
+            $boton  = '<input type="button" id="b_' . $escuela->id . '" onclick="' . $evento . '" value="' . $titulo . '" class="boton__primario" style="padding: 4px 10px; cursor: pointer;" />';
 
             $renglones[$escuela->id] = [
                 'escuela'     => $escuela->escuela,
@@ -1761,8 +1761,8 @@ class sibenController extends Controller
         $botones = [];
         switch ($nivel) {
             case 3:
-                $botones['coordinadores'] = "<input id='c_{$id_escuela}' type='button' value='Editar' onclick=\"{$eventoCoordinadores}\" />";
-                $botones['director']      = "<input id='c_{$id_escuela}' type='button' value='Activar director' onclick=\"window.location.href='{$urlDirector}'\" />";
+                $botones['coordinadores'] = "<input id='c_{$id_escuela}' type='button' value='Editar' onclick=\"{$eventoCoordinadores}\" class='boton__primario' style='padding: 6px 14px; cursor: pointer;' />";
+                $botones['director']      = "<input id='c_{$id_escuela}' type='button' value='Activar director' onclick=\"window.location.href='{$urlDirector}'\" class='boton__secundario' style='padding: 6px 14px; cursor: pointer;' />";
                 break;
             case 4:
                 $botones['coordinadores'] = '';
@@ -1775,8 +1775,8 @@ class sibenController extends Controller
             $eventoAtras    = "locacion('" . route('siben.matricula') . "')";
             $eventoAdelante = "locacion('" . route('siben.editaDomicilio') . "')";
 
-            $botones['atras']    = "<input type='button' value='Atras' onclick=\"{$eventoAtras}\" />";
-            $botones['adelante'] = "<input type='button' value='Siguiente' onclick=\"{$eventoAdelante}\" />";
+            $botones['atras']    = "<input type='button' value='Atras' onclick=\"{$eventoAtras}\" class='boton__secundario' style='padding: 6px 14px; cursor: pointer;' />";
+            $botones['adelante'] = "<input type='button' value='Siguiente' onclick=\"{$eventoAdelante}\" class='boton__primario' style='padding: 6px 14px; cursor: pointer;' />";
         } else {
             $botones['adelante'] = '';
             $botones['atras']    = '';
@@ -1922,14 +1922,14 @@ class sibenController extends Controller
         $botones = [];
         switch ($nivel) {
             case 3:
-                $botones['escuela']    = "<input id='e_{$id_escuela}' type='button' value='Editar' onclick=\"{$eventoEscuela}\" />";
-                $botones['estructura'] = "<input id='s_{$id_estructura}' type='button' value='Editar' onclick=\"{$eventoEstructura}\" />";
+                $botones['escuela']    = "<input id='e_{$id_escuela}' type='button' value='Editar' onclick=\"{$eventoEscuela}\" class='boton__primario' style='padding: 6px 14px; cursor: pointer;' />";
+                $botones['estructura'] = "<input id='s_{$id_estructura}' type='button' value='Editar' onclick=\"{$eventoEstructura}\" class='boton__primario' style='padding: 6px 14px; cursor: pointer;' />";
                 $botones['imagenes']   = '';
                 break;
             case 4:
                 $botones['escuela']    = '';
                 $botones['estructura'] = '';
-                $botones['imagenes']   = "<input id='f_{$id_escuela}' type='button' value='Subir fotos' onclick=\"locacion('{$urlImagenes}')\" />";
+                $botones['imagenes']   = "<input id='f_{$id_escuela}' type='button' value='Subir fotos' onclick=\"locacion('{$urlImagenes}')\" class='boton__primario' style='padding: 6px 14px; cursor: pointer;' />";
                 break;
         }
 
@@ -1939,9 +1939,9 @@ class sibenController extends Controller
             $eventoSiguiente = "locacion('" . route('siben.datosEscuela') . "')";
             $eventoDomicilio = "locacion('" . route('siben.index') . "')";
 
-            $botones['atras']     = "<input type='button' value='Anterior' onclick=\"{$eventoAtras}\" />";
-            $botones['siguiente'] = "<input type='button' value='Siguiente' onclick=\"{$eventoSiguiente}\" />";
-            $botones['terminar']  = "<input type='button' value='Terminar' onclick=\"{$eventoDomicilio}\" />";
+            $botones['atras']     = "<input type='button' value='Anterior' onclick=\"{$eventoAtras}\" class='boton__secundario' style='padding: 6px 14px; cursor: pointer;' />";
+            $botones['siguiente'] = "<input type='button' value='Siguiente' onclick=\"{$eventoSiguiente}\" class='boton__primario' style='padding: 6px 14px; cursor: pointer;' />";
+            $botones['terminar']  = "<input type='button' value='Terminar' onclick=\"{$eventoDomicilio}\" class='boton__secundario' style='padding: 6px 14px; cursor: pointer;' />";
         } else {
             $botones['terminar']  = '';
             $botones['atras']     = '';
@@ -2045,17 +2045,17 @@ class sibenController extends Controller
                 $parametros        = "data[Personal][id]={$persona->id}";
                 $evento            = "locacion('{$urlGuardaDirector}', '{$parametros}', muestraOverlay, muestraOcupado);";
 
-                $boton = '<input id="b_' . $persona->id . '" type="button" value="Activar" onclick="' . $evento . '" />';
+                $boton = '<input id="b_' . $persona->id . '" type="button" value="Activar" onclick="' . $evento . '" class="boton__primario" style="padding: 4px 10px; cursor: pointer;" />';
 
                 $estilo = '';
                 $estado = '';
                 switch ($persona->status) {
                     case 'x':
-                        $estilo = 'text-align:center;background-color:#cc0000;color:#ffcccc;font-weight:bold;';
+                        $estilo = 'text-align:center; background-color: var(--error, #dc3545); color: #fff; font-weight: bold; padding: 4px; border-radius: 4px;';
                         $estado = 'Inactivo';
                         break;
                     case 'a':
-                        $estilo = 'text-align:center;background-color:#054205;color:#ccffcc;font-weight:bold;';
+                        $estilo = 'text-align:center; background-color: var(--exito, #28a745); color: #fff; font-weight: bold; padding: 4px; border-radius: 4px;';
                         $estado = 'Activo';
                         break;
                 }
@@ -2262,17 +2262,17 @@ class sibenController extends Controller
                 ]);
                 $parametros = "data[Personal][id]={$persona->id}";
                 $evento     = "locacion('{$urlGuarda}', '{$parametros}', muestraOverlay, muestraOcupado);";
-                $boton      = '<input id="b_' . $persona->id . '" type="button" value="Activar" onclick="' . $evento . '" />';
+                $boton      = '<input id="b_' . $persona->id . '" type="button" value="Activar" onclick="' . $evento . '" class="boton__primario" style="padding: 4px 10px; cursor: pointer;" />';
 
                 $estilo = '';
                 $estado = '';
                 switch ($persona->status) {
                     case 'x':
-                        $estilo = 'text-align:center;background-color:#cc0000;color:#ffcccc;font-weight:bold;';
+                        $estilo = 'text-align:center; background-color: var(--error, #dc3545); color: #fff; font-weight: bold; padding: 4px; border-radius: 4px;';
                         $estado = 'Inactivo';
                         break;
                     case 'a':
-                        $estilo = 'text-align:center;background-color:#054205;color:#ccffcc;font-weight:bold;';
+                        $estilo = 'text-align:center; background-color: var(--exito, #28a745); color: #fff; font-weight: bold; padding: 4px; border-radius: 4px;';
                         $estado = 'Activo';
                         break;
                 }
