@@ -40,6 +40,11 @@ class AlumnoController extends sibenController
         $captura    = $ctx['captura'] ?? false;
         $id_escuela = $ctx['id_escuela'] ?? null;
 
+        // Seguridad: Verificar que el usuario esté autenticado
+        if (!$nivel) {
+            return redirect()->route('login');
+        }
+
         $mensaje = "";
         $opcMenu = [];
 
@@ -82,7 +87,7 @@ class AlumnoController extends sibenController
                     ]
                 ];
                 if (!$captura) {
-                    $mensaje = '<div style="color:red;"><h2>La captura está finalizada</h2></div>';
+                    $mensaje = '<div style="background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; padding: 12px 16px; border-radius: 4px; margin-bottom: 20px; text-align: center;"><h2>La captura está finalizada</h2></div>';
                 }
                 break;
 
@@ -108,7 +113,7 @@ class AlumnoController extends sibenController
                     ]
                 ];
                 if (!$captura) {
-                    $mensaje = '<div style="color:red;"><h2>La captura está finalizada</h2></div>';
+                    $mensaje = '<div style="background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; padding: 12px 16px; border-radius: 4px; margin-bottom: 20px; text-align: center;"><h2>La captura está finalizada</h2></div>';
                 }
                 break;
 
@@ -144,7 +149,7 @@ class AlumnoController extends sibenController
             ->where('modulo', $modulo)
             ->get(['id', 'escuela', 'escuela_key', 'captura']);
 
-        $anterior = '/alumnos';
+        $anterior = route('alumnos.index');
 
         return view('alumnos.lista_escuelas', compact('escuelas', 'anterior'));
     }
@@ -168,7 +173,7 @@ class AlumnoController extends sibenController
     public function busquedaAlumnos($opc = null, $id_escuela = null)
     {
         if (!$opc) {
-            return redirect('/alumnos');
+            return redirect()->route('alumnos.index');
         }
 
         $ctx           = $this->contexto();
@@ -220,10 +225,10 @@ class AlumnoController extends sibenController
 
         if ($opc !== 't') {
             $status = ['i' => 'Inscrito', 'x' => 'No Inscrito', 't' => 'Baja Temporal', 'd' => 'Baja Definitiva'];
-            $url    = url("/alumnos/listasAlumnos/{$opc}/{$id_escuela}");
+            $url    = route('alumnos.listasAlumnos', ['opc' => $opc, 'id_escuela' => $id_escuela]);
         } else {
             $status = ['i' => 'Inscrito', 'x' => 'No Inscrito'];
-            $url    = url("/bajas/listasAlumnos/{$opc}/{$id_escuela}");
+            $url    = route('bajas.listasAlumnos', ['opc' => $opc, 'id_escuela' => $id_escuela]);
         }
 
         $tituloTabla = [
@@ -242,7 +247,7 @@ class AlumnoController extends sibenController
             'opc'            => $opc,
             'url'            => $url,
             'tituloTabla'    => $tituloTabla,
-            'anterior'       => '/alumnos',
+            'anterior'       => route('alumnos.index'),
         ]);
     }
 
@@ -285,8 +290,8 @@ class AlumnoController extends sibenController
             ]);
 
         $url = ($opc === 'i') 
-            ? url('/alumnos/reinscribirAlumnos') 
-            : url('/alumnos/actualizarAlumno');
+            ? route('alumnos.reinscribirAlumnos') 
+            : route('alumnos.actualizarAlumno');
         
         $titulo = ($opc === 'i') ? "Inscribir" : "Editar";
 
@@ -303,7 +308,7 @@ class AlumnoController extends sibenController
 
             if (($alumno->modalidad === 'e' && $alumno->semestre < 9) || 
                 ($alumno->modalidad === 'm' && $alumno->semestre < 13)) {
-                $boton = '<input id="b_' . $alumno->id_registro . '" type="button" value="' . $titulo . '" onclick="' . $evento . '" />';
+                $boton = '<input id="b_' . $alumno->id_registro . '" type="button" value="' . $titulo . '" onclick="' . $evento . '" class="boton__primario" style="padding: 4px 12px; font-size: 0.85rem; cursor: pointer;" />';
             }
 
             $accion = $boton;
@@ -312,15 +317,15 @@ class AlumnoController extends sibenController
                 if ($alumno->status_conflictos != 'n') {
                     $accion = $boton;
                 } else {
-                    $accion = '<div style="color:red;background-color:black;font-weight:900;">Conflicto</div>';
+                    $accion = '<div style="color: var(--error, #dc3545); font-weight: bold;">Conflicto</div>';
                 }
             }
 
             switch ($alumno->status) {
-                case 'x': $estilo = 'text-align:center;background-color:#cc0000;color:#ffcccc;font-weight:bold;'; $estado = 'No Insc.'; break;
-                case 't': $estilo = 'text-align:center;background-color:#0066cc;color:#ccffff;font-weight:bold;'; $estado = 'B. Temp.'; break;
-                case 'i': $estilo = 'text-align:center;background-color:#054205;color:#ccffcc;font-weight:bold;'; $estado = 'Insc.'; break;
-                case 'd': $estilo = 'text-align:center;background-color:#ff9900;color:#663300;font-weight:bold;'; $estado = 'B. Def.'; break;
+                case 'x': $estilo = 'text-align:center; background-color: var(--error, #dc3545); color: #fff; font-weight: bold; padding: 4px; border-radius: 4px;'; $estado = 'No Insc.'; break;
+                case 't': $estilo = 'text-align:center; background-color: #17a2b8; color: #fff; font-weight: bold; padding: 4px; border-radius: 4px;'; $estado = 'B. Temp.'; break;
+                case 'i': $estilo = 'text-align:center; background-color: var(--exito, #28a745); color: #fff; font-weight: bold; padding: 4px; border-radius: 4px;'; $estado = 'Insc.'; break;
+                case 'd': $estilo = 'text-align:center; background-color: #ffc107; color: #212529; font-weight: bold; padding: 4px; border-radius: 4px;'; $estado = 'B. Def.'; break;
                 default:  $estilo = ''; $estado = ''; break;
             }
 
@@ -730,10 +735,9 @@ class AlumnoController extends sibenController
         $ctx           = $this->contexto();
         $id_escuela    = $ctx['id_escuela'] ?? null;
         $nivel         = $ctx['nivel'] ?? null;
-        $nombreEntidad = $ctx['id_renapo'] ?? null;
 
         if ($nivel != 4) {
-            return redirect('/alumnos');
+            return redirect()->route('alumnos.index');
         }
 
         $opciones = EscuelaLicenciatura::with('licenciatura')
@@ -759,7 +763,7 @@ class AlumnoController extends sibenController
             }
         }
 
-        $anterior = '/alumnos';
+        $anterior = route('alumnos.index');
 
         return view('alumnos.opciones_alta_alumno', compact('semestre', 'licenciaturas', 'anterior'));
     }
@@ -896,7 +900,7 @@ class AlumnoController extends sibenController
         $nivel      = $ctx['nivel'] ?? null;
 
         if ($nivel != 4) {
-            return redirect('/alumnos');
+            return redirect()->route('alumnos.index');
         }
 
         $opciones = EscuelaLicenciatura::with('licenciatura')
@@ -910,7 +914,7 @@ class AlumnoController extends sibenController
             }
         }
 
-        $anterior = '/alumnos';
+        $anterior = route('alumnos.index');
 
         return view('alumnos.opcion_cambio_escuela', compact('licenciaturas', 'anterior'));
     }
@@ -972,14 +976,14 @@ class AlumnoController extends sibenController
             $elegirButton = true;
             $parametros = "data[Registro][id]=" . $alumno->id_registro;
 
-            $url = url('/alumnos/cambioEscuela');
+            $url = route('alumnos.cambioEscuela');
             if ($elegirButton) {
                 $evento = "enviaBusqueda('$url','$parametros', this.id);";
-                $boton = '<input id="' . $alumno->id_registro . '" type="button" value="Cambio s/conflicto" onclick="' . $evento . '"/>';
+                $boton = '<input id="' . $alumno->id_registro . '" type="button" value="Cambio s/conflicto" onclick="' . $evento . '" class="boton__primario" style="padding: 4px 10px; font-size: 0.8rem; cursor: pointer;"/>';
             } else {
-                $parametros .= "&data[Conflicto][id_escuela}=" . $alumno->id_escuela;
+                $parametros .= "&data[Conflicto][id_escuela]=" . $alumno->id_escuela;
                 $evento = "enviaBusqueda('$url','$parametros', this.id);";
-                $boton = '<input id="' . $alumno->id_registro . '" style="background-color: #F08080;" type="button" value="Cambio c/conflicto" onclick="' . $evento . '"/>';
+                $boton = '<input id="' . $alumno->id_registro . '" type="button" value="Cambio c/conflicto" onclick="' . $evento . '" class="boton__secundario" style="background-color: var(--error, #dc3545); color: #fff; padding: 4px 10px; font-size: 0.8rem; cursor: pointer;" />';
             }
 
             if (($alumno->semestre < 9 && $alumno->modalidad == 'e') || ($alumno->semestre < 13 && $alumno->modalidad == 'm')) {
@@ -1007,12 +1011,12 @@ class AlumnoController extends sibenController
     public function resolverConflictos(Request $request, $id_registro = null)
     {
         if (!$id_registro) {
-            return redirect('/alumnos');
+            return redirect()->route('alumnos.index');
         }
 
         $conflicto = Conflicto::where('id_registro', $id_registro)->first();
         if ($conflicto && $conflicto->status == 's') {
-            return redirect('/conflictos');
+            return redirect()->route('conflictos.index');
         }
 
         $alumno = Registro::with('alumno')->where('id', $id_registro)->where('captura', $this->captura_actual)->first();
@@ -1038,7 +1042,7 @@ class AlumnoController extends sibenController
         $especialidades = Especialidad::pluck('especialidad', 'id');
         $semestre = Historia::CalcSemSinLimitStatic($alumno->semestre ?? 1, $this->captura_actual);
 
-        $anterior = '/conflictos';
+        $anterior = route('conflictos.index');
 
         return view('alumnos.resolver_conflictos', compact(
             'alumno', 'escuelas', 'turnos', 'modalidades', 'generos',
@@ -1303,7 +1307,7 @@ class AlumnoController extends sibenController
         return view('elements.actualizarRenglonTexto', compact('texto'));
     }
 
-    public function renglonesAlta(Request $request)
+    public function reglonesAlta(Request $request)
     {
         $renglon = [
             $request->input('Alumno.nombre'),
