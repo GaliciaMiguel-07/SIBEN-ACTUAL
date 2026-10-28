@@ -81,7 +81,7 @@
                     </div>
 
                     <div class="card-footer text-center text-muted small">
-                        SIBEN V8 &mdash; SEP México
+                        SIBEN 2026 &mdash; SEP México
                     </div>
                 </div>
 
