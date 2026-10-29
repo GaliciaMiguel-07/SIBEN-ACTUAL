@@ -8,12 +8,14 @@ use Illuminate\Http\Request;
 
 class ConflictosController extends sibenController
 {
-    /**
+
+/**
      * index
      * Se muestra la lista de conflictos de acuerdo a la entidad del Enlace
      */
-    public function index(Request $request)
+    public function index()
     {
+        $request = request(); // Si necesitas usar el request dentro del método
         $ctx = $this->contexto();
         $nivel = $ctx['nivel'] ?? null;
         $id_entidad = $ctx['id_entidad'] ?? null;

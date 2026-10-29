@@ -45,8 +45,9 @@ class PersonalController extends sibenController
      * index
      * Mostramos un formulario para buscar, omitiendo la lista de botones
      */
-    public function index(Request $request)
+    public function index()
     {
+        $request = request();
         $ctx = $this->contexto();
         $id_escuela = $ctx['id_escuela'] ?? null;
         $nivel = $ctx['nivel'] ?? null;
@@ -117,10 +118,7 @@ class PersonalController extends sibenController
             default => 'agrega_nodocente',
         };
 
-        NivelEstudio::$displayField = 'nivel_estudio';
         $niveles_estudio = NivelEstudio::pluck('nivel_estudio', 'id');
-
-        Funcion::$displayField = 'funcion';
         $funciones = Funcion::pluck('funcion', 'id');
 
         $sino = ['s' => 'Sí', 'n' => 'No'];
@@ -129,10 +127,7 @@ class PersonalController extends sibenController
         $areas_conocimiento = AreaConocimiento::select('id_campo', 'campo')->distinct()->get();
         $areasConocimiento = $areas_conocimiento->pluck('campo', 'id_campo');
 
-        AreaConocimiento::$displayField = 'disciplina';
         $disciplinas = AreaConocimiento::pluck('disciplina', 'id');
-
-        NivelSni::$displayField = 'nivel_sni';
         $nivel_sni = NivelSni::pluck('nivel_sni', 'id');
 
         $anios = [];
@@ -177,16 +172,12 @@ class PersonalController extends sibenController
             $personal->docente->lengua = empty($personal->docente->lengua_indigena) ? 'n' : 's';
         }
 
-        NivelEstudio::$displayField = 'nivel_estudio';
         $niveles_estudio = NivelEstudio::pluck('nivel_estudio', 'id');
-
-        Funcion::$displayField = 'funcion';
         $funciones = Funcion::pluck('funcion', 'id');
 
         $sino = ['s' => 'Sí', 'n' => 'No'];
         $contador = range(1, 50);
 
-        NivelSni::$displayField = 'nivel_sni';
         $nivel_sni = NivelSni::pluck('nivel_sni', 'id');
 
         $anios = [];
@@ -197,7 +188,6 @@ class PersonalController extends sibenController
         $areas_conocimiento = AreaConocimiento::select('id_campo', 'campo')->distinct()->get();
         $areasConocimiento = $areas_conocimiento->pluck('campo', 'id_campo');
 
-        AreaConocimiento::$displayField = 'disciplina';
         $disciplinas = AreaConocimiento::pluck('disciplina', 'id');
         $discapacidades = ['1' => 'Auditiva y de lenguaje', '2' => 'Intelectual', '3' => 'Motriz', '4' => 'Visual'];
         $lenguas = LenguasIndigenas::pluck('lengua', 'id');
@@ -417,7 +407,6 @@ class PersonalController extends sibenController
 
             $hor = array_combine(range(1, 10), range(1, 10));
 
-            Asignatura::$displayField = 'asignatura';
             $asignaturasNoCurriculares = Asignatura::where('curricular', 'n')->where('semestre', '0')->pluck('asignatura', 'id');
 
             $vista = 'asignatura';
@@ -543,7 +532,6 @@ class PersonalController extends sibenController
         $formas_contratacion = DB::table('forma_contratacions')->where('id', '<', 20)->pluck('contratacion', 'id');
         $tiempos_contratacion = DB::table('forma_contratacions')->where('id', '>', 20)->pluck('contratacion', 'id');
 
-        Categorias::$displayField = 'nombre';
         $categoria = Categorias::where('id', '<', 181)->pluck('nombre', 'id');
 
         $horas = $contratacionData['horas_grupo'] ?? 0;
@@ -676,21 +664,14 @@ class PersonalController extends sibenController
             $personal->docente->lengua = empty($personal->docente->lengua_indigena) ? 'n' : 's';
         }
 
-        Licenciatura::$displayField = 'licenciatura';
         $licenciaturas = Licenciatura::pluck('licenciatura', 'id');
-
-        Especialidad::$displayField = 'especialidad';
         $especialidades = Especialidad::pluck('especialidad', 'id') + [0 => 'n/a'];
-
-        NivelEstudio::$displayField = 'nivel_estudio';
         $niveles_estudio = NivelEstudio::pluck('nivel_estudio', 'id');
 
         $formas_contratacion = DB::table('forma_contratacions')->where('id', '<', 20)->pluck('contratacion', 'id');
         $tiempos_contratacion = DB::table('forma_contratacions')->where('id', '>', 20)->pluck('contratacion', 'id');
 
         $contrataciones = ContratacionDocente::where('id_personal', $id_personal)->get();
-
-        Funcion::$displayField = 'funcion';
         $funciones = Funcion::pluck('funcion', 'id');
 
         $sino = ['s' => 'Sí', 'n' => 'No'];
@@ -698,7 +679,6 @@ class PersonalController extends sibenController
         $areas_conocimiento = AreaConocimiento::select('id_campo', 'campo')->distinct()->get();
         $areasConocimiento = $areas_conocimiento->pluck('campo', 'id_campo');
 
-        AreaConocimiento::$displayField = 'disciplina';
         $disciplinas = AreaConocimiento::pluck('disciplina', 'id');
 
         $asignaturasDocente = AsignaturaDocente::where('id_docente', $personal->docente->id ?? 0)->get();
@@ -777,7 +757,6 @@ class PersonalController extends sibenController
             $condiciones['evento'] = 1;
         }
 
-        Asignatura::$displayField = 'asignatura';
         $asignaturas = Asignatura::where($condiciones)
             ->when($id_licenciatura, fn($q) => $q->where('id_licenciatura', $id_licenciatura))
             ->when($id_especialidad, fn($q) => $q->whereIn('id_especialidad', [0, $id_especialidad]))
@@ -817,7 +796,6 @@ class PersonalController extends sibenController
     {
         $area_conocimiento = $request->input('Docente.area_conocimiento');
 
-        AreaConocimiento::$displayField = 'disciplina';
         $disciplinas = AreaConocimiento::where('id_campo', $area_conocimiento)->pluck('disciplina', 'id');
 
         return view('elements.opciones', ['opciones' => $disciplinas]);
@@ -844,7 +822,6 @@ class PersonalController extends sibenController
             $contrataciones = ContratacionDocente::where('id_personal', $id_personal)->get();
             $horas = range(1, 30);
 
-            Categorias::$displayField = 'nombre';
             $categoria = Categorias::pluck('nombre', 'id');
 
             $vista = 'contrataciones';
@@ -927,7 +904,6 @@ class PersonalController extends sibenController
      */
     public function jubilacion(Request $request)
     {
-        Funcion::$displayField = 'funcion';
         $funciones = Funcion::pluck('funcion', 'id');
         $anterior = 'menu';
 
@@ -1011,7 +987,6 @@ class PersonalController extends sibenController
         $ids_personal = $personal->pluck('id');
         $fechas_jubilacion = Jubilado::whereIn('id_personal', $ids_personal)->pluck('fecha_jubilacion', 'id_personal');
 
-        Funcion::$displayField = 'funcion';
         $funciones = Funcion::pluck('funcion', 'id');
 
         $renglones = [];
@@ -1062,7 +1037,6 @@ class PersonalController extends sibenController
         $id_personal = $request->input('Personal.id');
         $personal = Personal::find($id_personal);
 
-        Funcion::$displayField = 'funcion';
         $funcion = Funcion::find($personal->id_funcion ?? 0);
 
         $contrataciones = ContratacionDocente::where('id_personal', $id_personal)->get();

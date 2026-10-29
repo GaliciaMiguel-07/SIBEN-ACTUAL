@@ -1,7 +1,7 @@
 <?php
 namespace App\Http\Controllers\Admin;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\sibenController;
 use App\Http\Requests\UsuarioRequest;
 use App\Models\Usuario;
 use Illuminate\Http\RedirectResponse;
@@ -9,7 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Illuminate\Support\Facades\Auth;
 
-class UsuarioController extends Controller
+class UsuarioController extends sibenController
 {
 
     public function index(Request $request): View

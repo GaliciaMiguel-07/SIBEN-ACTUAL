@@ -58,13 +58,13 @@ class BajasController extends sibenController
      * index
      * Vista principal del módulo de bajas
      */
-    public function index(Request $request)
+    public function index()
     {
+        $request = request(); // Obtenemos el request aquí si lo necesitas
         $ctx = $this->contexto();
         if (!isset($ctx['nivel'])) {
             return redirect()->route('login');
         }
-
         return view('bajas.index');
     }
 

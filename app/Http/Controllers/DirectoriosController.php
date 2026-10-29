@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\Entidad;
 use App\Models\Directorio;
 use App\Models\Disfuncion;
-use Illuminate\Http\Request;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xls;
 
@@ -15,9 +14,10 @@ class DirectoriosController extends sibenController
      * index
      * Muestra la lista de entidades para consultar directorios
      */
-    public function index(Request $request)
+    public function index()
     {
-        Entidad::$displayField = 'entidad';
+        $request = request();
+        
         $entidades = Entidad::where('id', '<', 33)->pluck('entidad', 'id');
 
         return view('directorios.index', compact('entidades'));
@@ -27,17 +27,14 @@ class DirectoriosController extends sibenController
      * gendir
      * Genera y descarga el reporte en formato Excel (XLS) del directorio por entidad
      */
-    public function gendir(Request $request, $id_entidad = null)
+    public function gendir($id_entidad = null)
     {
+        $request = request();
+        $id_entidad = $id_entidad ?? $request->route('id_entidad') ?? $request->input('id_entidad');
+
         $entidadModel = Entidad::find($id_entidad);
 
-        Disfuncion::$displayField = 'funcion';
         $funciones = Disfuncion::pluck('funcion', 'id');
-
-        $conditions = [];
-        if ($id_entidad >= 1 && $id_entidad <= 33) {
-            $conditions['id_entidad'] = $id_entidad;
-        }
 
         $directorio = Directorio::with('entidad')
             ->when($id_entidad >= 1 && $id_entidad <= 33, function ($query) use ($id_entidad) {
@@ -94,13 +91,13 @@ class DirectoriosController extends sibenController
      * directorio
      * Muestra la información del directorio de autoridades mediante AJAX
      */
-    public function directorio(Request $request)
+    public function directorio()
     {
-        $id_entidad = $request->input('Entidad.id');
+        $request = request();
+        $id_entidad = $request->input('Entidad.id') ?? $request->input('id_entidad');
 
         $entidad = Entidad::find($id_entidad);
 
-        Disfuncion::$displayField = 'funcion';
         $funciones = Disfuncion::pluck('funcion', 'id');
 
         $directorio = Directorio::where('id_entidad', $id_entidad)
@@ -117,8 +114,9 @@ class DirectoriosController extends sibenController
      * entidad
      * Muestra el directorio de la entidad con las opciones de edición
      */
-    public function entidad(Request $request)
+    public function entidad()
     {
+        $request = request();
         $ctx = $this->contexto();
         $id_entidad = $ctx['id_entidad'] ?? session('Usuario.id_entidad');
         $status_enlace = $ctx['status'] ?? session('Usuario.status');
@@ -150,7 +148,6 @@ class DirectoriosController extends sibenController
 
         $entidad = Entidad::find($id_entidad);
 
-        Disfuncion::$displayField = 'funcion';
         $funciones = Disfuncion::pluck('funcion', 'id');
 
         $campos = ['id', 'id_funcion', 'cargo', 'titulo', 'nombre', 'apellido_paterno', 'apellido_materno', 'correo_electronico'];
@@ -199,12 +196,12 @@ class DirectoriosController extends sibenController
      * editaEntrada
      * Formulario para editar un registro del directorio (vía AJAX)
      */
-    public function editaEntrada(Request $request)
+    public function editaEntrada()
     {
-        $id_directorio = $request->input('Directorio.id');
+        $request = request();
+        $id_directorio = $request->input('Directorio.id') ?? $request->input('id');
         $entrada = Directorio::find($id_directorio);
 
-        Disfuncion::$displayField = 'funcion';
         $funciones = Disfuncion::pluck('funcion', 'id');
 
         return view('directorios.edita_entrada', compact('id_directorio', 'funciones', 'entrada'));
@@ -214,9 +211,8 @@ class DirectoriosController extends sibenController
      * agregaEntrada
      * Formulario para agregar una nueva entrada al directorio (vía AJAX)
      */
-    public function agregaEntrada(Request $request)
+    public function agregaEntrada()
     {
-        Disfuncion::$displayField = 'funcion';
         $funciones = Disfuncion::pluck('funcion', 'id');
 
         return view('directorios.agrega_entrada', compact('funciones'));
@@ -226,8 +222,11 @@ class DirectoriosController extends sibenController
      * guardaEntrada
      * Guarda o actualiza un registro en el directorio
      */
-    public function guardaEntrada(Request $request, $id_directorio = null)
+    public function guardaEntrada($id_directorio = null)
     {
+        $request = request();
+        $id_directorio = $id_directorio ?? $request->route('id_directorio');
+
         $ctx = $this->contexto();
         $id_entidad = $ctx['id_entidad'] ?? session('Usuario.id_entidad');
 
@@ -248,7 +247,6 @@ class DirectoriosController extends sibenController
             return redirect()->route('directorios.entidad', ['id_entidad' => $id_entidad]);
         }
 
-        Disfuncion::$displayField = 'funcion';
         $funciones = Disfuncion::pluck('funcion', 'id');
         $directorio = Directorio::find($id_directorio);
 

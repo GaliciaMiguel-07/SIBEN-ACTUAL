@@ -25,7 +25,7 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 
-class sibenController extends Controller
+abstract class sibenController
 {
     /**
      * Ciclo de captura vigente (igual que en el sistema original).

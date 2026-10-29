@@ -12,51 +12,62 @@ class ConsultasController extends sibenController
      * listaEscuelas
      * muestra la lista de escuelas deacuerdo a la entidad
      */
-    public function listaEscuelas(Request $request){
+    public function listaEscuelas(Request $request = null)
+    {
+        // Si el router inyecta el request, lo usamos; si no, recurrimos al helper global
+        $request   = $request ?? request();
         $ctx       = $this->contexto();
         $nivel     = $ctx['nivel'] ?? null;
         $modulo    = $ctx['modulo'] ?? null;
         $id_renapo = $ctx['id_renapo'] ?? null;
 
-        if(!$id_entidad){
-            $id_entidad = 9; //por defecto el defectuoso
+        $id_entidad = $request->input('id_entidad') ?? $ctx['id_entidad'] ?? null;
+
+        if (!$id_entidad) {
+            $id_entidad = 9; // por defecto
         }
 
         $dgespe    = false;
         $entidades = [];
 
-        switch($nivel){
+        switch ($nivel) {
             case 1:
             case 5:
                 $dgespe = true;
-                Entidad::$displayFild = 'entidad';
                 $entidades = Entidad::where('id', '<', 33)->pluck('entidad', 'id');
                 break;
             case 2:
             case 6:
                 $dgespe = false;
-                $entidad = Entidades::where('id_renapo', $id_renapo)->first();
-                if($entidad){
+                $entidad = Entidad::where('id_renapo', $id_renapo)->first();
+                if ($entidad) {
                     $id_entidad = $entidad->id;
                 }
                 break;
             case 3:
             case 4:
-                // no se permite este metodo a capturista y supervisores
                 return redirect()->route('siben.index');
         }
+
         $escuelas = Escuelas2::where('id_entidad', $id_entidad)
             ->where('status', 'a')
             ->where('unica', '<', 2)
             ->where('modulo', $modulo)
             ->get();
+
         return view('consultas.lista_escuelas', compact('escuelas', 'dgespe', 'entidades'));
     }
+
+
     /**
      * listados
-     * muestra el menu de opciones e informes de la escuela seleccionada
+     * Muestra el menú de opciones e informes de la escuela seleccionada
      */
-    public function listados(Request $request, $id_escuela = null){
+    public function listados($id_escuela = null)
+    {
+        $request = request(); // Obtenemos el request de forma global
+        $id_escuela = $id_escuela ?? $request->route('id_escuela'); // O lo capturamos de la ruta
+
         if (!$id_escuela) {
             return redirect()->route('siben.index');
         }

@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 use App\Models\Mensaje;
 use Illuminate\View\View;
 
-class DashboardController extends Controller
+class DashboardController extends sibenController
 {
     public function index(): View
     {

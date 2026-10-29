@@ -15,7 +15,7 @@ use App\Models\Funcion;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
-class BusquedaEscuelasController extends Controller 
+class BusquedaEscuelasController extends sibenController 
 {
     public function index() 
     {

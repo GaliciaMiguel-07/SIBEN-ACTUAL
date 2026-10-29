@@ -106,7 +106,7 @@
             <img src="{{ url('/images/logo_siben_pequeno.png') }}"
                  alt="Logo SIBEN" class="footer-logo" style="height:25px;">
             <span>SIBEN</span>
-            <span>V8</span>
+            <span>2026</span>
         </div>
     </div>
 

@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\sibenController;
 use Illuminate\View\View;
 use Illuminate\Http\Request;
 use App\Models\Entidad;
@@ -13,7 +13,7 @@ use App\Models\Docente;
 use App\Models\NivelEstudio;
 use App\Models\AreaConocimiento;
 
-class AdminController extends Controller
+class AdminController extends sibenController
 {
     /**
      * Panel de administración (nivel 1).

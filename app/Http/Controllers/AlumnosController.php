@@ -27,7 +27,7 @@ use App\Models\Registro;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
-class AlumnoController extends sibenController
+class AlumnosController extends sibenController
 {
     /**
      * index
@@ -137,7 +137,7 @@ class AlumnoController extends sibenController
      * listaEscuelas
      * Muestra la lista de escuelas de la entidad para enlaces.
      */
-    public function listaEscuelas()
+    public function listaEscuelas(Request $request = null)
     {
         $ctx        = $this->contexto();
         $modulo     = $ctx['modulo'] ?? null;

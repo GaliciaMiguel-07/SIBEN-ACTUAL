@@ -1,7 +1,7 @@
 <?php
 namespace App\Http\Controllers\Auth;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\sibenController;
 use App\Models\Usuario;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Cookie;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\View\View;
 
-class LoginController extends Controller
+class LoginController extends sibenController
 {
     public function showForm(): View|RedirectResponse
     {
