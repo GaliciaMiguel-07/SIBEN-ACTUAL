@@ -1,1 +1,0 @@
-"  Error en {$nombre}: " . $e- . "\n";
