@@ -12,8 +12,9 @@ use Illuminate\Support\Facades\Auth;
 class UsuarioController extends sibenController
 {
 
-    public function index(Request $request): View
+    public function index(): View
     {
+        $request = request(); // Obtenemos el request con el helper
         $query = Usuario::query();
 
         if ($request->filled('buscar')) {

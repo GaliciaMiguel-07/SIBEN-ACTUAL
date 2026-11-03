@@ -9,7 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\File;
 
-class CenevalController extends Controller
+class CenevalController extends sibenController
 {
     /**
      * index

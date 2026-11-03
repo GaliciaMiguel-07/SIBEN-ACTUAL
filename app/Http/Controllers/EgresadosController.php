@@ -11,15 +11,13 @@ use Illuminate\Http\Request;
 class EgresadosController extends sibenController
 {
     /**
-     * beforeFilter / Filtro de seguridad y control de acceso basado en contexto
+     * Método privado helper para validar los permisos de acceso según bandera de captura.
+     * Sustituye la lógica del antiguo beforeFilter de CakePHP.
      */
-    public function beforeFilter(Request $request)
+    private function verificarAccesoAccion(Request $request, string $accionActual)
     {
-        parent::beforeFilter();
-
         $ctx = $this->contexto();
         $captura = $ctx['captura'] ?? null;
-        $currentAction = $request->route()->getActionMethod();
 
         $accionesPermitidas = [
             'index',
@@ -31,31 +29,19 @@ class EgresadosController extends sibenController
             'agregarnoEgresado'
         ];
 
-        if (!$captura && !in_array($currentAction, $accionesPermitidas)) {
+        if (!$captura && !in_array($accionActual, $accionesPermitidas)) {
             return redirect()->route('alumnos.index');
         }
-    }
 
-   /**
-     * index
-     * Vista principal del módulo de egresados
-     */
-    public function index()
-    {
-        // Si necesitas el request, puedes usar el helper global request()
-        // $request = request(); 
-
-        return view('egresados.index');
+        return null;
     }
 
     /**
-     * busquedax
-     * Se muestra el formulario para buscar en la base de egresados por ciclo escolar
+     * Retorna el catálogo estático de ciclos escolares para evitar duplicar arreglos.
      */
-    public function busquedax(Request $request)
+    private function obtenerCiclosEscolares(): array
     {
-        $ciclo_escolar = [
-            'd' => 'Desconocida', 
+        return [
             '25' => '2024-2025',
             '24' => '2023-2024',
             '23' => '2022-2023',
@@ -72,26 +58,53 @@ class EgresadosController extends sibenController
             '12' => '2011-2012',
             '11' => '2010-2011',
             '10' => '2009-2010',
-            '9' => '2008-2009', 
-            '8' => '2007-2008',
-            '7' => '2006-2007', 
-            '6' => '2005-2006', 
-            '5' => '2004-2005',
-            '4' => '2003-2004'
+            '9'  => '2008-2009', 
+            '8'  => '2007-2008',
+            '7'  => '2006-2007' 
         ];
+    }
 
-        $cicloEscolar = $ciclo_escolar;
+    /**
+     * Vista principal del módulo de egresados
+     */
+    public function index()
+    {
+         $request = request(); // Si necesitas el request aquí dentro
+        if ($res = $this->verificarAccesoAccion($request, 'index')) {
+            return $res;
+        }
+
+        return view('egresados.index');
+    }
+
+    /**
+     * Se muestra el formulario para buscar en la base de egresados por ciclo escolar
+     */
+    public function busquedax(Request $request)
+    {
+        if ($res = $this->verificarAccesoAccion($request, 'busquedax')) {
+            return $res;
+        }
+
+        $cicloEscolar = array_merge(['d' => 'Desconocida'], $this->obtenerCiclosEscolares());
+        $cicloEscolar['6'] = '2005-2006';
+        $cicloEscolar['5'] = '2004-2005';
+        $cicloEscolar['4'] = '2003-2004';
+
         $anterior = route('alumnos.index');
 
         return view('egresados.busquedax', compact('cicloEscolar', 'anterior'));
     }
 
     /**
-     * listasEgresados
      * Se muestra la lista de egresados de acuerdo al ciclo escolar de egreso (AJAX)
      */
     public function listasEgresados(Request $request)
     {
+        if ($res = $this->verificarAccesoAccion($request, 'listasEgresados')) {
+            return $res;
+        }
+
         $ctx = $this->contexto();
         $id_escuela = $ctx['id_escuela'] ?? null;
         $nivel = $ctx['nivel'] ?? null;
@@ -170,19 +183,11 @@ class EgresadosController extends sibenController
                 $boton2 = '<input id="b2_' . $idRegistro . '" type="button" value="' . $nombreBoton2 . '" onclick="' . $evento2 . '" class="btn btn-primary" />';
             }
 
-            $estilo = '';
-            $estado = '';
-            switch ($egresado->status) {
-                case 'x':
-                    $estilo = 'style="text-align:center; background-color:#CC0000; color:#FFCCCC; font-weight:bold;"';
-                    $estado = 'No Insc.';
-                    break;
-                case 'e':
-                    $estilo = 'style="text-align:center; background-color:#FFD700; color:#993300; font-weight:bold;"';
-                    $estado = 'Egresado';
-                    break;
-            }
-
+            $estilo = ($egresado->status === 'e')
+                ? 'style="text-align:center; background-color:#FFD700; color:#993300; font-weight:bold;"'
+                : 'style="text-align:center; background-color:#CC0000; color:#FFCCCC; font-weight:bold;"';
+            
+            $estado = ($egresado->status === 'e') ? 'Egresado' : 'No Insc.';
             $statusHtml = "<div {$estilo}>{$estado}</div>";
 
             $alumnoHistoria = [
@@ -208,11 +213,14 @@ class EgresadosController extends sibenController
     }
 
     /**
-     * editarEgresado
      * Este método es para los que ya son egresados (status e)
      */
     public function editarEgresado(Request $request)
     {
+        if ($res = $this->verificarAccesoAccion($request, 'editarEgresado')) {
+            return $res;
+        }
+
         $ctx = $this->contexto();
         $id_escuela = $ctx['id_escuela'] ?? null;
         $captura_actual = $ctx['captura_actual'] ?? session('captura_actual', 1);
@@ -256,33 +264,21 @@ class EgresadosController extends sibenController
             $registroId = $registroEgresadosData['id'] ?? $id_registro;
             if ($registroId) {
                 $numeroIdentificador = $alumnoData['numero_identificador'] ?? $nid;
-                $noRepetir = Egresado::where('nid', $numeroIdentificador)
-                    ->where('id_escuela', $id_escuela)
-                    ->first();
 
-                $payload = [
-                    'ciclo_escolar' => $egresadoData['ciclo_escolar'] ?? null,
-                    'fecha_titulacion' => $egresadoData['fecha_titulacion'] ?? null,
-                    'tema_titulacion' => $egresadoData['tema_titulacion'] ?? null,
-                    'vinculacion' => $egresadoData['vinculacion'] ?? null,
-                    'nid' => $numeroIdentificador,
-                    'captura' => $captura_actual,
-                    'id_escuela' => $id_escuela,
-                ];
-
-                if ($noRepetir) {
-                    $noRepetir->update($payload);
-                } else {
-                    Egresado::create($payload);
-                }
+                Egresado::updateOrCreate(
+                    ['nid' => $numeroIdentificador, 'id_escuela' => $id_escuela],
+                    [
+                        'ciclo_escolar' => $egresadoData['ciclo_escolar'] ?? null,
+                        'fecha_titulacion' => $egresadoData['fecha_titulacion'] ?? null,
+                        'tema_titulacion' => $egresadoData['tema_titulacion'] ?? null,
+                        'vinculacion' => $egresadoData['vinculacion'] ?? null,
+                        'captura' => $captura_actual,
+                    ]
+                );
             }
         } else {
             $infoArray = $infoEgresados ? $infoEgresados->toArray() : [];
-            if (!empty($infoArray['tema_titulacion'])) {
-                $infoArray['titulado'] = 's';
-            } else {
-                $infoArray['titulado'] = 'n';
-            }
+            $infoArray['titulado'] = !empty($infoArray['tema_titulacion']) ? 's' : 'n';
 
             if (!empty($infoArray['vinculacion'])) {
                 $opc = explode(':', $infoArray['vinculacion']);
@@ -295,37 +291,20 @@ class EgresadosController extends sibenController
             $infoEgresados = $infoArray;
         }
 
-        $opCiclo_escolar = [
-            '25' => '2024-2025',
-            '24' => '2023-2024',
-            '23' => '2022-2023',
-            '22' => '2021-2022',
-            '21' => '2020-2021',
-            '20' => '2019-2020',
-            '19' => '2018-2019',
-            '18' => '2017-2018',
-            '17' => '2016-2017',
-            '16' => '2015-2016',
-            '15' => '2014-2015',
-            '14' => '2013-2014',
-            '13' => '2012-2013',
-            '12' => '2011-2012',
-            '11' => '2010-2011',
-            '10' => '2009-2010',
-            '9' => '2008-2009', 
-            '8' => '2007-2008',
-            '7' => '2006-2007' 
-        ];
+        $opCiclo_escolar = $this->obtenerCiclosEscolares();
 
         return view('egresados.editar_egresado', compact('opCiclo_escolar', 'infoEgresados', 'id_registro'));
     }
 
     /**
-     * agregarEgresado
      * Método para agregar la información de un alumno que es recién egresado
      */
     public function agregarEgresado(Request $request)
     {
+        if ($res = $this->verificarAccesoAccion($request, 'agregarEgresado')) {
+            return $res;
+        }
+
         $ctx = $this->contexto();
         $id_escuela = $ctx['id_escuela'] ?? null;
         $captura_actual = $ctx['captura_actual'] ?? session('captura_actual', 1);
@@ -391,21 +370,13 @@ class EgresadosController extends sibenController
                     }
 
                     $numeroIdentificador = $alumnoData['numero_identificador'] ?? $nid;
-                    $noRepetir = Egresado::where('nid', $numeroIdentificador)
-                        ->where('id_escuela', $id_escuela)
-                        ->first();
 
-                    $payload = array_merge($egresadoData, [
-                        'nid' => $numeroIdentificador,
-                        'captura' => $captura_actual,
-                        'id_escuela' => $id_escuela,
-                    ]);
-
-                    if ($noRepetir) {
-                        $noRepetir->update($payload);
-                    } else {
-                        Egresado::create($payload);
-                    }
+                    Egresado::updateOrCreate(
+                        ['nid' => $numeroIdentificador, 'id_escuela' => $id_escuela],
+                        array_merge($egresadoData, [
+                            'captura' => $captura_actual,
+                        ])
+                    );
                 }
             } else {
                 $mensajes = "";
@@ -420,51 +391,32 @@ class EgresadosController extends sibenController
             $request->merge(['RegistroEgresados' => $infoEgresados ? $infoEgresados->toArray() : []]);
         }
 
-        $opCiclo_escolar = [
-            '25' => '2024-2025',
-            '24' => '2023-2024',
-            '23' => '2022-2023',
-            '22' => '2021-2022',
-            '21' => '2020-2021',
-            '20' => '2019-2020',
-            '19' => '2018-2019',
-            '18' => '2017-2018',
-            '17' => '2016-2017',
-            '16' => '2015-2016',
-            '15' => '2014-2015',
-            '14' => '2013-2014',
-            '13' => '2012-2013',
-            '12' => '2011-2012',
-            '11' => '2010-2011',
-            '10' => '2009-2010',
-            '9' => '2008-2009', 
-            '8' => '2007-2008',
-            '7' => '2006-2007' 
-        ];
+        $opCiclo_escolar = $this->obtenerCiclosEscolares();
 
         return view('egresados.agregar_egresado', compact('opCiclo_escolar', 'infoEgresados', 'id_registro'));
     }
 
     /**
-     * noEgreso
      * Mueve el registro de egresados de vuelta a registros normales
      */
     public function noEgreso(Request $request)
     {
+        if ($res = $this->verificarAccesoAccion($request, 'noEgreso')) {
+            return $res;
+        }
+
         $historia = $request->input('Historia', []);
         $registroEgresadosData = $request->input('RegistroEgresados', []);
         $alumnoData = $request->input('Alumno', []);
 
-        if (!empty($historia['id_registro'])) {
-            $id_registro = $historia['id_registro'];
-        } else {
-            $id_registro = $registroEgresadosData['id'] ?? ($alumnoData['id'] ?? null);
-        }
+        $id_registro = !empty($historia['id_registro']) 
+            ? $historia['id_registro'] 
+            : ($registroEgresadosData['id'] ?? ($alumnoData['id'] ?? null));
 
         $infoEgresados = RegistroEgresados::find($id_registro);
 
         if ($infoEgresados) {
-            $registroPayload = [
+            Registro::create([
                 'nid' => $infoEgresados->nid,
                 'id_alumno' => $infoEgresados->id_alumno,
                 'id_escuela' => $infoEgresados->id_escuela,
@@ -481,9 +433,8 @@ class EgresadosController extends sibenController
                 'fecha_alta' => $infoEgresados->fecha_alta,
                 'fecha_actualizacion' => now(),
                 'captura' => $infoEgresados->captura,
-            ];
+            ]);
 
-            Registro::create($registroPayload);
             $infoEgresados->delete();
         }
 
@@ -492,11 +443,14 @@ class EgresadosController extends sibenController
     }
 
     /**
-     * agregarnoEgresado
      * Método alternativo para procesar la no titulación o estatus de no egreso
      */
     public function agregarnoEgresado(Request $request)
     {
+        if ($res = $this->verificarAccesoAccion($request, 'agregarnoEgresado')) {
+            return $res;
+        }
+
         $ctx = $this->contexto();
         $id_escuela = $ctx['id_escuela'] ?? null;
         $captura_actual = $ctx['captura_actual'] ?? session('captura_actual', 1);
@@ -562,21 +516,13 @@ class EgresadosController extends sibenController
                     }
 
                     $numeroIdentificador = $alumnoData['numero_identificador'] ?? $nid;
-                    $noRepetir = Egresado::where('nid', $numeroIdentificador)
-                        ->where('id_escuela', $id_escuela)
-                        ->first();
 
-                    $payload = array_merge($egresadoData, [
-                        'nid' => $numeroIdentificador,
-                        'captura' => $captura_actual,
-                        'id_escuela' => $id_escuela,
-                    ]);
-
-                    if ($noRepetir) {
-                        $noRepetir->update($payload);
-                    } else {
-                        Egresado::create($payload);
-                    }
+                    Egresado::updateOrCreate(
+                        ['nid' => $numeroIdentificador, 'id_escuela' => $id_escuela],
+                        array_merge($egresadoData, [
+                            'captura' => $captura_actual,
+                        ])
+                    );
                 }
             } else {
                 $mensajes = "";
@@ -591,27 +537,7 @@ class EgresadosController extends sibenController
             $request->merge(['RegistroEgresados' => $infoEgresados ? $infoEgresados->toArray() : []]);
         }
 
-        $opCiclo_escolar = [
-            '25' => '2024-2025',
-            '24' => '2023-2024',
-            '23' => '2022-2023',
-            '22' => '2021-2022',
-            '21' => '2020-2021',
-            '20' => '2019-2020',
-            '19' => '2018-2019',
-            '18' => '2017-2018',
-            '17' => '2016-2017',
-            '16' => '2015-2016',
-            '15' => '2014-2015',
-            '14' => '2013-2014',
-            '13' => '2012-2013',
-            '12' => '2011-2012',
-            '11' => '2010-2011',
-            '10' => '2009-2010',
-            '9' => '2008-2009', 
-            '8' => '2007-2008',
-            '7' => '2006-2007' 
-        ];
+        $opCiclo_escolar = $this->obtenerCiclosEscolares();
 
         return view('egresados.agregar_egresado2', compact('opCiclo_escolar', 'infoEgresados', 'id_registro'));
     }

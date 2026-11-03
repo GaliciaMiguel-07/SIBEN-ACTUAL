@@ -24,21 +24,56 @@ use Illuminate\Support\Facades\DB;
 class PersonalController extends sibenController
 {
     /**
-     * beforeFilter
-     * Para funcionalidad específica a PersonalController
+     * Método privado helper para validar los permisos de acceso según bandera de captura.
+     * Sustituye la lógica del antiguo beforeFilter.
      */
-    public function beforeFilter(Request $request)
+    private function verificarAccesoAccion(Request $request, string $accionActual)
     {
-        parent::beforeFilter();
-
         $ctx = $this->contexto();
         $captura = $ctx['captura'] ?? null;
         $acciones = ['index', 'agrega', 'jubilacion'];
-        $currentAction = $request->route()->getActionMethod();
 
-        if (!$captura && in_array($currentAction, $acciones)) {
+        if (!$captura && in_array($accionActual, $acciones)) {
             return redirect()->route('personal.menu');
         }
+
+        return null;
+    }
+
+    /**
+     * Retorna el arreglo de años permitidos para evitar duplicación.
+     */
+    private function obtenerAnios(): array
+    {
+        $anios = [];
+        for ($i = 1950; $i <= 2025; $i++) {
+            $anios[$i] = $i;
+        }
+        return $anios;
+    }
+
+    /**
+     * Retorna las discapacidades como catálogo estático.
+     */
+    private function obtenerDiscapacidades(): array
+    {
+        return ['1' => 'Auditiva y de lenguaje', '2' => 'Intelectual', '3' => 'Motriz', '4' => 'Visual'];
+    }
+
+    /**
+     * Retorna las formas de contratación.
+     */
+    private function obtenerFormasContratacion()
+    {
+        return DB::table('forma_contratacions')->where('id', '<', 20)->pluck('contratacion', 'id');
+    }
+
+    /**
+     * Retorna los tiempos de contratación.
+     */
+    private function obtenerTiemposContratacion()
+    {
+        return DB::table('forma_contratacions')->where('id', '>', 20)->pluck('contratacion', 'id');
     }
 
     /**
@@ -47,7 +82,11 @@ class PersonalController extends sibenController
      */
     public function index()
     {
-        $request = request();
+        $request = request(); // Si necesitas el request aquí dentro
+        if ($res = $this->verificarAccesoAccion($request, 'index')) {
+            return $res;
+        }
+
         $ctx = $this->contexto();
         $id_escuela = $ctx['id_escuela'] ?? null;
         $nivel = $ctx['nivel'] ?? null;
@@ -83,6 +122,10 @@ class PersonalController extends sibenController
      */
     public function agrega(Request $request)
     {
+        if ($res = $this->verificarAccesoAccion($request, 'agrega')) {
+            return $res;
+        }
+
         $ctx = $this->contexto();
         $id_escuela = $ctx['id_escuela'] ?? null;
         $cuentaDirector = $ctx['cuenta_director'] ?? 0;
@@ -130,12 +173,8 @@ class PersonalController extends sibenController
         $disciplinas = AreaConocimiento::pluck('disciplina', 'id');
         $nivel_sni = NivelSni::pluck('nivel_sni', 'id');
 
-        $anios = [];
-        for ($i = 1950; $i <= 2025; $i++) {
-            $anios[$i] = $i;
-        }
-
-        $discapacidades = ['1' => 'Auditiva y de lenguaje', '2' => 'Intelectual', '3' => 'Motriz', '4' => 'Visual'];
+        $anios = $this->obtenerAnios();
+        $discapacidades = $this->obtenerDiscapacidades();
 
         return view($vista, compact(
             'niveles_estudio',
@@ -180,16 +219,12 @@ class PersonalController extends sibenController
 
         $nivel_sni = NivelSni::pluck('nivel_sni', 'id');
 
-        $anios = [];
-        for ($i = 1950; $i <= 2025; $i++) {
-            $anios[$i] = $i;
-        }
-
+        $anios = $this->obtenerAnios();
         $areas_conocimiento = AreaConocimiento::select('id_campo', 'campo')->distinct()->get();
         $areasConocimiento = $areas_conocimiento->pluck('campo', 'id_campo');
 
         $disciplinas = AreaConocimiento::pluck('disciplina', 'id');
-        $discapacidades = ['1' => 'Auditiva y de lenguaje', '2' => 'Intelectual', '3' => 'Motriz', '4' => 'Visual'];
+        $discapacidades = $this->obtenerDiscapacidades();
         $lenguas = LenguasIndigenas::pluck('lengua', 'id');
 
         $edicion = in_array($nivel, [1, 3, 4]);
@@ -529,8 +564,8 @@ class PersonalController extends sibenController
     {
         $contratacionData = $request->input('ContratacionDocente', []);
 
-        $formas_contratacion = DB::table('forma_contratacions')->where('id', '<', 20)->pluck('contratacion', 'id');
-        $tiempos_contratacion = DB::table('forma_contratacions')->where('id', '>', 20)->pluck('contratacion', 'id');
+        $formas_contratacion = $this->obtenerFormasContratacion();
+        $tiempos_contratacion = $this->obtenerTiemposContratacion();
 
         $categoria = Categorias::where('id', '<', 181)->pluck('nombre', 'id');
 
@@ -668,8 +703,8 @@ class PersonalController extends sibenController
         $especialidades = Especialidad::pluck('especialidad', 'id') + [0 => 'n/a'];
         $niveles_estudio = NivelEstudio::pluck('nivel_estudio', 'id');
 
-        $formas_contratacion = DB::table('forma_contratacions')->where('id', '<', 20)->pluck('contratacion', 'id');
-        $tiempos_contratacion = DB::table('forma_contratacions')->where('id', '>', 20)->pluck('contratacion', 'id');
+        $formas_contratacion = $this->obtenerFormasContratacion();
+        $tiempos_contratacion = $this->obtenerTiemposContratacion();
 
         $contrataciones = ContratacionDocente::where('id_personal', $id_personal)->get();
         $funciones = Funcion::pluck('funcion', 'id');
@@ -816,8 +851,8 @@ class PersonalController extends sibenController
         if ($id_funcion > 6) {
             $vista = 'elements.cerrar_overlay';
         } else {
-            $formas_contratacion = DB::table('forma_contratacions')->where('id', '<', 20)->pluck('contratacion', 'id');
-            $tiempos_contratacion = DB::table('forma_contratacions')->where('id', '>', 20)->pluck('contratacion', 'id');
+            $formas_contratacion = $this->obtenerFormasContratacion();
+            $tiempos_contratacion = $this->obtenerTiemposContratacion();
 
             $contrataciones = ContratacionDocente::where('id_personal', $id_personal)->get();
             $horas = range(1, 30);
@@ -904,6 +939,10 @@ class PersonalController extends sibenController
      */
     public function jubilacion(Request $request)
     {
+        if ($res = $this->verificarAccesoAccion($request, 'jubilacion')) {
+            return $res;
+        }
+
         $funciones = Funcion::pluck('funcion', 'id');
         $anterior = 'menu';
 

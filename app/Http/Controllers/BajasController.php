@@ -18,12 +18,11 @@ use Illuminate\Http\Request;
 class BajasController extends sibenController
 {
     /**
-     * beforeFilter / Filtro de seguridad y control de acceso basado en contexto
+     * Método privado helper para validar los permisos de acceso por nivel y bandera de captura.
+     * Sustituye la lógica del antiguo beforeFilter de CakePHP.
      */
-    public function beforeFilter(Request $request)
+    private function verificarAccesoAccion(Request $request, string $accionActual)
     {
-        parent::beforeFilter();
-
         $ctx = $this->contexto();
         $captura = $ctx['captura'] ?? null;
         $nivel = $ctx['nivel'] ?? null;
@@ -32,55 +31,47 @@ class BajasController extends sibenController
             return redirect()->route('login')->with('error', 'Sesión no iniciada.');
         }
 
-        $currentAction = $request->route()->getActionMethod();
-
-        $accionesPermitidas = [
-            'listadosBajas'
-        ];
-
-        $accionesPermitidasObservador = [
-            'busquedaAlumnos2',
-            'listasAlumnos2'
-        ];
+        $accionesPermitidasNivelBase = ['listadosBajas'];
+        $accionesPermitidasObservador = ['busquedaAlumnos2', 'listasAlumnos2'];
 
         if (!$captura && in_array($nivel, [3, 4, 5])) {
-            if (!in_array($currentAction, $accionesPermitidas)) {
+            if (!in_array($accionActual, $accionesPermitidasNivelBase)) {
                 return redirect()->route('alumnos.index');
             }
         } elseif (!$captura && $nivel == 6) {
-            if (!in_array($currentAction, $accionesPermitidasObservador)) {
+            if (!in_array($accionActual, $accionesPermitidasObservador)) {
                 return redirect()->route('alumnos.index');
             }
         }
+
+        return null;
     }
 
     /**
-     * index
      * Vista principal del módulo de bajas
      */
     public function index()
     {
-        $request = request(); // Obtenemos el request aquí si lo necesitas
         $ctx = $this->contexto();
         if (!isset($ctx['nivel'])) {
             return redirect()->route('login');
         }
+
         return view('bajas.index');
     }
 
     /**
-     * bajasAlumnos
      * Método seguro para actualizar el estatus de un alumno (t o d).
      */
     public function bajasAlumnos(Request $request, $opc = null, $id_escuela = null)
     {
+        if ($res = $this->verificarAccesoAccion($request, 'bajasAlumnos')) {
+            return $res;
+        }
+
         $ctx = $this->contexto();
         $nivel = $ctx['nivel'] ?? null;
         $captura_actual = $ctx['captura_actual'] ?? session('captura_actual');
-
-        if (!$nivel) {
-            return redirect()->route('login');
-        }
 
         if (!$id_escuela) {
             $id_escuela = $ctx['id_escuela'] ?? null;
@@ -90,22 +81,17 @@ class BajasController extends sibenController
             return redirect()->route('alumnos.index')->with('error', 'Escuela no especificada.');
         }
 
-        switch ($nivel) {
-            case 3:
-                return redirect()->route('alumnos.index');
-            case 4:
-                break;
+        if ($nivel == 3) {
+            return redirect()->route('alumnos.index');
         }
 
         $id_registro = $request->input('Historia.id_registro');
         $tipo_baja = null;
         $nombre_baja = [];
 
-        if ($id_registro) {
-            if ($nivel == 2) {
-                $tipo_baja = $request->input('Historia.tipo_baja');
-                $nombre_baja = ['t' => 'BAJA TEMPORAL', 'd' => 'BAJA DEFINITIVA'];
-            }
+        if ($id_registro && $nivel == 2) {
+            $tipo_baja = $request->input('Historia.tipo_baja');
+            $nombre_baja = ['t' => 'BAJA TEMPORAL', 'd' => 'BAJA DEFINITIVA'];
         }
 
         $alumno = null;
@@ -117,10 +103,7 @@ class BajasController extends sibenController
                 ->first();
         }
 
-        Licenciatura::$displayField = 'licenciatura';
         $licenciatura = Licenciatura::pluck('licenciatura', 'id');
-
-        Especialidad::$displayField = 'especialidad';
         $especialidad = Especialidad::pluck('especialidad', 'id');
 
         $modalidad = ['e' => 'Escolarizada', 'm' => 'Mixta', 'i' => 'intensiva'];
@@ -149,12 +132,11 @@ class BajasController extends sibenController
                 if ($nid) {
                     $bajaExistente = Baja::where('nid', $nid)->where('id_escuela', $id_escuela)->first();
 
-                    $bajaPayload = [
+                    $bajaPayload = array_merge([
                         'nid' => $nid,
                         'captura' => $captura_actual,
                         'id_escuela' => $id_escuela,
-                    ];
-                    $bajaPayload = array_merge($bajaPayload, $bajaData);
+                    ], $bajaData);
 
                     if ($bajaExistente) {
                         $bajaExistente->update($bajaPayload);
@@ -180,11 +162,14 @@ class BajasController extends sibenController
     }
 
     /**
-     * listadosBajas
      * Muestra listados de bajas validados por escuela y contexto
      */
     public function listadosBajas(Request $request, $opc = null)
     {
+        if ($res = $this->verificarAccesoAccion($request, 'listadosBajas')) {
+            return $res;
+        }
+
         $ctx = $this->contexto();
         $id_escuela = $ctx['id_escuela'] ?? null;
         $captura_actual = $ctx['captura_actual'] ?? session('captura_actual');
@@ -220,11 +205,7 @@ class BajasController extends sibenController
             ->get();
 
         $motivos = MotivosBaja::pluck('motivo', 'id');
-        
-        Especialidad::$displayField = 'especialidad';
         $especialidades = Especialidad::pluck('especialidad', 'id');
-
-        Licenciatura::$displayField = 'licenciatura';
         $licenciaturas = Licenciatura::pluck('licenciatura', 'id');
 
         $cabeceras = ['Nid', 'Primer Apellido&nbsp;', 'Segundo Apellido&nbsp;', 'Nombe(s)&nbsp;', 'Curp&nbsp;', 'Lic.&nbsp;', 'Esp.&nbsp;', 'Sem.&nbsp;', 'Motivo&nbsp;'];
@@ -240,7 +221,6 @@ class BajasController extends sibenController
     }
 
     /**
-     * actualizaRenglon
      * Render seguro del renglón actualizado mediante rutas nombradas
      */
     public function actualizaRenglon(Request $request)
@@ -248,9 +228,6 @@ class BajasController extends sibenController
         $status = $request->input('Registro.status');
         $idRegistro = $request->input('Registro.id');
         $accion = $request->input('Renglon.accion');
-
-        $estilo = '';
-        $estado = '';
 
         switch ($status) {
             case 'x':
@@ -261,27 +238,22 @@ class BajasController extends sibenController
                 $estilo = 'style="text-align:center; background-color:#0066CC; color:#CCFFFF; font-weight:bold;"';
                 $estado = 'B. Temp.';
                 break;
-            case 'i':
-                $estilo = 'style="text-align:center; background-color:#054205; color:#CCFFCC; font-weight:bold;"';
-                $estado = 'Insc.';
-                break;
             case 'd':
                 $estilo = 'style="text-align:center; background-color:#FF9900; color:#663300; font-weight:bold;"';
                 $estado = 'B. Def.';
                 break;
+            case 'i':
             default:
                 $estilo = 'style="text-align:center; background-color:#054205; color:#CCFFCC; font-weight:bold;"';
                 $estado = 'Insc.';
                 break;
         }
 
-        if (!empty($status)) {
-            if (empty($accion)) {
-                $url = route('alumnos.actualizarAlumno');
-                $parametros = "data[Historia][id_registro]={$idRegistro}";
-                $evento = "consultaAjax('$url', '$parametros', muestraOverlay, muestraOcupado);";
-                $accion = '<input id="b_' . $idRegistro . '" type="button" value="Editar" onclick="' . $evento . '" class="btn btn-primary" />';
-            }
+        if (!empty($status) && empty($accion)) {
+            $url = route('alumnos.actualizarAlumno');
+            $parametros = "data[Historia][id_registro]={$idRegistro}";
+            $evento = "consultaAjax('$url', '$parametros', muestraOverlay, muestraOcupado);";
+            $accion = '<input id="b_' . $idRegistro . '" type="button" value="Editar" onclick="' . $evento . '" class="btn btn-primary" />';
         }
 
         $statusHtml = "<div {$estilo}>{$estado}</div>";
@@ -298,11 +270,14 @@ class BajasController extends sibenController
     }
 
     /**
-     * busquedaAlumnos
      * Formulario seguro de búsqueda con rutas nombradas de Laravel
      */
     public function busquedaAlumnos(Request $request, $opc = null)
     {
+        if ($res = $this->verificarAccesoAccion($request, 'busquedaAlumnos')) {
+            return $res;
+        }
+
         if (!$opc) {
             return redirect()->route('alumnos.index');
         }
@@ -312,11 +287,6 @@ class BajasController extends sibenController
         $id_entidad = $ctx['id_entidad'] ?? null;
         $captura_actual = $ctx['captura_actual'] ?? session('captura_actual', 1);
 
-        if (!$nivel) {
-            return redirect()->route('login');
-        }
-
-        Escuela2::$displayField = 'escuela';
         $escuelasEstado = Escuela2::where('status', 'a')
             ->where('unica', '<', 2)
             ->where('id_entidad', $id_entidad)
@@ -346,11 +316,10 @@ class BajasController extends sibenController
         $status = [];
         $url = '';
 
-        if ($opc == 't') {
-            $status = ['i' => 'Inscrito', 'x' => 'No Inscrito', 'd' => 'Baja Definitiva'];
-            $url = route('bajas.listasAlumnos', ['opc' => $opc]);
-        } elseif ($opc == 'd') {
-            $status = ['i' => 'Inscrito', 'x' => 'No Inscrito'];
+        if (in_array($opc, ['t', 'd'])) {
+            $status = ($opc == 't') 
+                ? ['i' => 'Inscrito', 'x' => 'No Inscrito', 'd' => 'Baja Definitiva'] 
+                : ['i' => 'Inscrito', 'x' => 'No Inscrito'];
             $url = route('bajas.listasAlumnos', ['opc' => $opc]);
         }
 
@@ -371,18 +340,17 @@ class BajasController extends sibenController
     }
 
     /**
-     * listasAlumnos
      * Regresa la lista de alumnos según los criterios de búsqueda (AJAX)
      */
     public function listasAlumnos(Request $request, $opc = null)
     {
+        if ($res = $this->verificarAccesoAccion($request, 'listasAlumnos')) {
+            return $res;
+        }
+
         $ctx = $this->contexto();
         $nivel = $ctx['nivel'] ?? null;
         $captura_actual = $ctx['captura_actual'] ?? session('captura_actual', 1);
-
-        if (!$nivel) {
-            return redirect()->route('login');
-        }
 
         $id_escuela = null;
         if ($nivel == 2) {
@@ -391,29 +359,13 @@ class BajasController extends sibenController
             $id_escuela = $ctx['id_escuela'] ?? null;
         }
 
-        $condiciones = [
-            'id_escuela' => $id_escuela,
-            'captura' => $captura_actual
-        ];
-        
         $campos = ['nid', 'apellido_paterno', 'apellido_materno', 'nombre', 'curp', 'semestre', 'status', 'id_registro', 'status_conflictos', 'modalidad'];
 
         $buscaData = $request->input('Busca', []);
-        $contador = 0;
-        foreach ($buscaData as $valor) {
-            if (empty($valor)) {
-                $contador++;
-            }
-        }
+        $contador = count(array_filter($buscaData, 'empty'));
 
         $alumnos = collect();
         if ($contador < count($buscaData) || count($buscaData) == 0) {
-            foreach ($buscaData as $i => $valor) {
-                if (!empty($valor)) {
-                    $condiciones[$i] = $valor;
-                }
-            }
-
             $query = Historia::where('id_escuela', $id_escuela)
                 ->where('captura', $captura_actual);
 
@@ -431,7 +383,7 @@ class BajasController extends sibenController
         }
 
         $url = '';
-        if ($opc == 't' || $opc == 'd') {
+        if (in_array($opc, ['t', 'd'])) {
             $url = route('bajas.bajasAlumnos', ['opc' => $opc, 'id_escuela' => $id_escuela]);
         }
 
@@ -449,21 +401,17 @@ class BajasController extends sibenController
 
             if ($nivel == 2) {
                 if ($opc == 't') {
-                    if ($modalidad == 'e' && $semestre == 8 && $statusAlumno != 't') {
-                        $boton = '<input id="b_' . $idRegistro . '" type="button" value="Baja" onclick="' . $evento . '" class="btn btn-primary" />';
-                    } elseif ($modalidad == 'm' && $semestre == 12 && $statusAlumno != 't') {
+                    if (($modalidad == 'e' && $semestre == 8 && $statusAlumno != 't') ||
+                        ($modalidad == 'm' && $semestre == 12 && $statusAlumno != 't')) {
                         $boton = '<input id="b_' . $idRegistro . '" type="button" value="Baja" onclick="' . $evento . '" class="btn btn-primary" />';
                     }
                 } elseif ($opc == 'd') {
                     $boton = '<input id="b_' . $idRegistro . '" type="button" value="Baja" onclick="' . $evento . '" class="btn btn-primary" />';
                 }
-            } elseif ($nivel == 4) {
-                if ($opc == 't') {
-                    if ($modalidad == 'e' && $semestre <= 8 && $statusAlumno != 't') {
-                        $boton = '<input id="b_' . $idRegistro . '" type="button" value="Baja" onclick="' . $evento . '" class="btn btn-primary" />';
-                    } elseif ($modalidad == 'm' && $semestre <= 12 && $statusAlumno != 't') {
-                        $boton = '<input id="b_' . $idRegistro . '" type="button" value="Baja" onclick="' . $evento . '" class="btn btn-primary" />';
-                    }
+            } elseif ($nivel == 4 && $opc == 't') {
+                if (($modalidad == 'e' && $semestre <= 8 && $statusAlumno != 't') ||
+                    ($modalidad == 'm' && $semestre <= 12 && $statusAlumno != 't')) {
+                    $boton = '<input id="b_' . $idRegistro . '" type="button" value="Baja" onclick="' . $evento . '" class="btn btn-primary" />';
                 }
             }
 
@@ -472,35 +420,20 @@ class BajasController extends sibenController
                 $alumno->accion = $boton;
             }
 
-            $estilo = '';
-            $estado = '';
-            switch ($statusAlumno) {
-                case 'x':
-                    $estilo = 'text-align:center;background-color:#cc0000;color:#ffcccc;font-weight:bold;';
-                    $estado = 'No Insc.';
-                    break;
-                case 't':
-                    $estilo = 'text-align:center;background-color:#0066cc;color:#ccffff;font-weight:bold;';
-                    $estado = 'B. Temp.';
-                    break;
-                case 'i':
-                    $estilo = 'text-align:center;background-color:#054205;color:#ccffcc;font-weight:bold;';
-                    $estado = 'Insc.';
-                    break;
-                case 'd':
-                    $estilo = 'text-align:center;background-color:#ff9900;color:#663300;font-weight:bold;';
-                    $estado = 'B. Def.';
-                    break;
-            }
+            $estilos = [
+                'x' => ['bg' => '#cc0000', 'color' => '#ffcccc', 'text' => 'No Insc.'],
+                't' => ['bg' => '#0066cc', 'color' => '#ccffff', 'text' => 'B. Temp.'],
+                'i' => ['bg' => '#054205', 'color' => '#ccffcc', 'text' => 'Insc.'],
+                'd' => ['bg' => '#ff9900', 'color' => '#663300', 'text' => 'B. Def.'],
+            ];
 
-            $alumno->status = "<div style='{$estilo}'>{$estado}</div>";
+            $e = $estilos[$statusAlumno] ?? $estilos['i'];
+            $alumno->status = "<div style='text-align:center;background-color:{$e['bg']};color:{$e['color']};font-weight:bold;'>{$e['text']}</div>";
 
-            $indx = $idRegistro;
             $alumnoArray = $alumno->toArray();
-            
             unset($alumnoArray['id_registro'], $alumnoArray['status_conflictos'], $alumnoArray['modalidad']);
 
-            $renglones[$indx] = $alumnoArray;
+            $renglones[$idRegistro] = $alumnoArray;
         }
 
         $cabeceras = ['No.', 'nid', 'Primer Apellido', 'Segundo Apellido', 'Nombre', 'CURP', 'Sem', 'Estado', 'Acción'];
@@ -509,7 +442,6 @@ class BajasController extends sibenController
     }
 
     /**
-     * listaLicenciaturas
      * Regresamos la lista de licenciaturas de la escuela (AJAX)
      */
     public function listaLicenciaturas(Request $request)
@@ -525,7 +457,6 @@ class BajasController extends sibenController
     }
 
     /**
-     * listaEspecialidades
      * Regresamos la lista de especialidades de la escuela (AJAX)
      */
     public function listaEspecialidades(Request $request)
@@ -543,7 +474,6 @@ class BajasController extends sibenController
     }
 
     /**
-     * listaModalidades
      * Regresamos la lista de modalidades de la escuela (AJAX)
      */
     public function listaModalidades(Request $request)
@@ -561,7 +491,6 @@ class BajasController extends sibenController
     }
 
     /**
-     * listaTurnos
      * Regresamos la lista de turnos de la escuela (AJAX)
      */
     public function listaTurnos(Request $request)
@@ -579,11 +508,14 @@ class BajasController extends sibenController
     }
 
     /**
-     * busquedaAlumnos2
      * Formulario alternativo de búsqueda de alumnos
      */
     public function busquedaAlumnos2(Request $request, $opc = null)
     {
+        if ($res = $this->verificarAccesoAccion($request, 'busquedaAlumnos2')) {
+            return $res;
+        }
+
         if (!$opc) {
             return redirect()->route('alumnos.index');
         }
@@ -593,11 +525,6 @@ class BajasController extends sibenController
         $id_entidad = $ctx['id_entidad'] ?? null;
         $captura_actual = $ctx['captura_actual'] ?? session('captura_actual', 1);
 
-        if (!$nivel) {
-            return redirect()->route('login');
-        }
-
-        Escuela2::$displayField = 'escuela';
         $escuelasEstado = Escuela2::where('status', 'a')
             ->where('unica', '<', 2)
             ->where('id_entidad', $id_entidad)
@@ -626,11 +553,10 @@ class BajasController extends sibenController
         $status = [];
         $url = '';
 
-        if ($opc == 't') {
-            $status = ['i' => 'Inscrito', 'x' => 'No Inscrito', 'd' => 'Baja Definitiva'];
-            $url = route('bajas.listasAlumnos2', ['opc' => $opc]);
-        } elseif ($opc == 'd') {
-            $status = ['i' => 'Inscrito', 'x' => 'No Inscrito'];
+        if (in_array($opc, ['t', 'd'])) {
+            $status = ($opc == 't') 
+                ? ['i' => 'Inscrito', 'x' => 'No Inscrito', 'd' => 'Baja Definitiva'] 
+                : ['i' => 'Inscrito', 'x' => 'No Inscrito'];
             $url = route('bajas.listasAlumnos2', ['opc' => $opc]);
         }
 
@@ -651,18 +577,17 @@ class BajasController extends sibenController
     }
 
     /**
-     * listasAlumnos2
      * Regresa la lista de alumnos según los criterios de búsqueda alternativos (AJAX)
      */
     public function listasAlumnos2(Request $request, $opc = null)
     {
+        if ($res = $this->verificarAccesoAccion($request, 'listasAlumnos2')) {
+            return $res;
+        }
+
         $ctx = $this->contexto();
         $nivel = $ctx['nivel'] ?? null;
         $captura_actual = $ctx['captura_actual'] ?? session('captura_actual', 1);
-
-        if (!$nivel) {
-            return redirect()->route('login');
-        }
 
         $id_escuela = null;
         if ($nivel == 2) {
@@ -674,12 +599,7 @@ class BajasController extends sibenController
         $campos = ['nid', 'apellido_paterno', 'apellido_materno', 'nombre', 'curp', 'semestre', 'status', 'id_registro', 'status_conflictos', 'modalidad'];
 
         $buscaData = $request->input('Busca', []);
-        $contador = 0;
-        foreach ($buscaData as $valor) {
-            if (empty($valor)) {
-                $contador++;
-            }
-        }
+        $contador = count(array_filter($buscaData, 'empty'));
 
         $alumnos = collect();
         if ($contador < count($buscaData) || count($buscaData) == 0) {
@@ -703,64 +623,29 @@ class BajasController extends sibenController
         $renglones = [];
         foreach ($alumnos as $alumno) {
             $idRegistro = $alumno->id_registro;
-            $modalidad = $alumno->modalidad;
-            $semestre = $alumno->semestre;
             $statusAlumno = $alumno->status;
             $statusConflictos = $alumno->status_conflictos;
 
             $boton = '';
-            if ($nivel == 2) {
-                if ($opc == 't') {
-                    if ($modalidad == 'e' && $semestre == 8 && $statusAlumno != 't') {
-                        // Lógica condicional original
-                    } elseif ($modalidad == 'm' && $semestre == 12 && $statusAlumno != 't') {
-                        // Lógica condicional original
-                    }
-                }
-            } elseif ($nivel == 4) {
-                if ($opc == 't') {
-                    if ($modalidad == 'e' && $semestre <= 7 && $statusAlumno != 't') {
-                        // Lógica condicional original
-                    } elseif ($modalidad == 'm' && $semestre <= 11 && $statusAlumno != 't') {
-                        // Lógica condicional original
-                    }
-                }
-            }
-
             $optativaTipoBaja = $request->input('Optativa.tipo_baja');
             if ($statusConflictos != 'n' && $statusAlumno != 'd' || ($statusAlumno == 't' && $optativaTipoBaja == 'd')) {
                 $alumno->accion = $boton;
             }
 
-            $estilo = '';
-            $estado = '';
-            switch ($statusAlumno) {
-                case 'x':
-                    $estilo = 'text-align:center;background-color:#cc0000;color:#ffcccc;font-weight:bold;';
-                    $estado = 'No Insc.';
-                    break;
-                case 't':
-                    $estilo = 'text-align:center;background-color:#0066cc;color:#ccffff;font-weight:bold;';
-                    $estado = 'B. Temp.';
-                    break;
-                case 'i':
-                    $estilo = 'text-align:center;background-color:#054205;color:#ccffcc;font-weight:bold;';
-                    $estado = 'Insc.';
-                    break;
-                case 'd':
-                    $estilo = 'text-align:center;background-color:#ff9900;color:#663300;font-weight:bold;';
-                    $estado = 'B. Def.';
-                    break;
-            }
+            $estilos = [
+                'x' => ['bg' => '#cc0000', 'color' => '#ffcccc', 'text' => 'No Insc.'],
+                't' => ['bg' => '#0066cc', 'color' => '#ccffff', 'text' => 'B. Temp.'],
+                'i' => ['bg' => '#054205', 'color' => '#ccffcc', 'text' => 'Insc.'],
+                'd' => ['bg' => '#ff9900', 'color' => '#663300', 'text' => 'B. Def.'],
+            ];
 
-            $alumno->status = "<div style='{$estilo}'>{$estado}</div>";
+            $e = $estilos[$statusAlumno] ?? $estilos['i'];
+            $alumno->status = "<div style='text-align:center;background-color:{$e['bg']};color:{$e['color']};font-weight:bold;'>{$e['text']}</div>";
 
-            $indx = $idRegistro;
             $alumnoArray = $alumno->toArray();
-            
             unset($alumnoArray['id_registro'], $alumnoArray['status_conflictos'], $alumnoArray['modalidad']);
 
-            $renglones[$indx] = $alumnoArray;
+            $renglones[$idRegistro] = $alumnoArray;
         }
 
         $cabeceras = ['No.', 'nid', 'Primer Apellido', 'Segundo Apellido', 'Nombre', 'CURP', 'Sem', 'Estado'];
