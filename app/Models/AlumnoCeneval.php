@@ -20,5 +20,10 @@ class AlumnoCeneval extends Model
             'id'
         );
     }
-
+    public function login($id_usuario, $contrasenia)
+    {
+        return $this->where('id_usuario', $id_usuario)
+            ->where('contrasenia', $contrasenia)
+            ->first();
+    }
 }

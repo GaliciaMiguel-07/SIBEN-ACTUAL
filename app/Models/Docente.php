@@ -16,4 +16,10 @@ class Docente extends Model
     {
         return $this->belongsTo(Personal::class, 'id_personal');
     }
+    public function rules(): array
+    {
+        return [
+            'escuela_egreso' => 'required|string',
+        ];
+    }
 }
