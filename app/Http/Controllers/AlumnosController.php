@@ -137,7 +137,7 @@ class AlumnosController extends sibenController
      * listaEscuelas
      * Muestra la lista de escuelas de la entidad para enlaces.
      */
-    public function listaEscuelas(Request $request = null)
+    public function listaEscuelas(?Request $request = null)
     {
         $ctx        = $this->contexto();
         $modulo     = $ctx['modulo'] ?? null;

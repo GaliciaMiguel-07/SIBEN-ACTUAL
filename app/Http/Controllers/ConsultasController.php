@@ -12,7 +12,7 @@ class ConsultasController extends sibenController
      * listaEscuelas
      * muestra la lista de escuelas deacuerdo a la entidad
      */
-    public function listaEscuelas(Request $request = null)
+    public function listaEscuelas(?Request $request = null)
     {
         // Si el router inyecta el request, lo usamos; si no, recurrimos al helper global
         $request   = $request ?? request();
