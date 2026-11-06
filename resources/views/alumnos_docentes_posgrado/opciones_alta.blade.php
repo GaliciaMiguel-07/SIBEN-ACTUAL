@@ -1,0 +1,1 @@
+<h1>Vista dummy para: alumnos_docentes_posgrado.opciones_alta</h1>

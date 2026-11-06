@@ -22,11 +22,6 @@
           }
       }
   </style>
-
-  <a class="irContent" href="#mainContent">
-    Ir al contenido principal
-  </a>
-
   {{-- 1. Encabezado Institucional Gob.mx (Fijo arriba) --}}
   <section class="mexico">
     <div class="mexico__contenedor">
