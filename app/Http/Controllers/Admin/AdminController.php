@@ -12,6 +12,7 @@ use App\Models\Personal;
 use App\Models\Docente;
 use App\Models\NivelEstudio;
 use App\Models\AreaConocimiento;
+use Illuminate\Support\Facades\DB;
 
 class AdminController extends sibenController
 {
@@ -36,6 +37,84 @@ class AdminController extends sibenController
         ];
 
         return view('admin.index', compact('menu'));
+    }
+    // Paso 1: Alta de alumnos
+
+    /**
+ * Muestra el formulario de alta de alumnos.
+ */
+public function agregaAlumno()
+{
+    $entidadesId = DB::table('cat_entidades')
+    ->where('id', '!=', 33)
+    ->orderBy('entidad')
+    ->pluck('entidad', 'id');
+
+    $entidadesRenapo = DB::table('cat_entidades')
+        ->orderBy('entidad')
+        ->pluck('entidad', 'id_renapo');
+
+    $modalidades = DB::table('cat_modalidades')
+        ->orderBy('id')
+        ->pluck('modalidad', 'id');
+
+    $semestres = range(1, 8);
+
+    $documentos = DB::table('cat_documentos')
+        ->orderBy('id')
+        ->pluck('documento', 'id');
+
+    return view('admin.alumnos.agrega', compact(
+        'entidadesId',
+        'entidadesRenapo',
+        'modalidades',
+        'semestres',
+        'documentos'
+    ));
+}
+
+    /**
+     * Obtiene las escuelas de una entidad para el alta de alumnos.
+     */
+    public function listaEscuelasAlumno(Request $request)
+    {
+        $request->validate([
+            'entidad' => ['required', 'integer', 'exists:cat_entidades,id'],
+        ]);
+
+        $escuelas = Escuela2::where('id_entidad', $request->integer('entidad'))
+            ->where('modulo', auth()->user()->modulo)
+            ->orderBy('escuela')
+            ->pluck('escuela', 'id');
+
+        return response()->json($escuelas);
+    }
+
+    /**
+     * Obtiene la oferta educativa de una escuela para el alta de alumnos.
+     */
+    public function listaOfertaAlumno(Request $request)
+    {
+        $request->validate([
+            'escuela' => ['required', 'integer', 'exists:escuelas2,id'],
+        ]);
+
+        $oferta = DB::table('escuelas_licenciaturas')
+            ->join('cat_licenciaturas', 'cat_licenciaturas.id', '=', 'escuelas_licenciaturas.id_licenciatura')
+            ->join('cat_especialidades', 'cat_especialidades.id', '=', 'escuelas_licenciaturas.id_especialidad')
+            ->where('escuelas_licenciaturas.id_escuela', $request->integer('escuela'))
+            ->select(
+                'escuelas_licenciaturas.id_licenciatura',
+                'cat_licenciaturas.licenciatura',
+                'escuelas_licenciaturas.id_especialidad',
+                'cat_especialidades.especialidad',
+                'escuelas_licenciaturas.modalidad',
+                'escuelas_licenciaturas.turno'
+            )
+            ->distinct()
+            ->get();
+
+        return response()->json($oferta);
     }
 
     // ── Paso 2: Alta de personal ──────────────────────────────────────
@@ -332,5 +411,4 @@ class AdminController extends sibenController
             'escuela' => $personal->id_escuela,
         ])->with('success', "Personal actualizado correctamente (CURP: {$personal->curp}).");
     }
-
 }

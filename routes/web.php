@@ -86,6 +86,12 @@ Route::middleware(['auth', 'no.cache'])->group(function () {
         // Panel de administración (nivel 1)
         Route::get   ('/',                          [AdminController::class, 'index'])
              ->name('index');
+        Route::get('/alumnos/alta', [AdminController::class, 'agregaAlumno'])
+             ->name('alumnos.alta');
+        Route::get('/alumnos/escuelas', [AdminController::class, 'listaEscuelasAlumno'])
+             ->name('alumnos.escuelas');
+        Route::get('/alumnos/oferta', [AdminController::class, 'listaOfertaAlumno'])
+             ->name('alumnos.oferta');
         Route::get   ('/personal/alta',             [AdminController::class, 'agregaPersonal'])
              ->name('personal.alta');
         Route::get   ('/personal/escuelas',         [AdminController::class, 'listaEscuelas'])
