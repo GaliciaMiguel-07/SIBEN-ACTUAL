@@ -35,6 +35,10 @@
     <script src="{{ asset('js/overlay.js') }}"></script>
     <script src="{{ asset('js/overlib.js') }}"></script>
     <script src="{{ asset('js/liveval.js') }}"></script>
+    <!-- Otros scripts -->
+    <script src="{{ asset('js/security.js') }}"></script>
+</body>
+</html>
 
     @stack('scripts')
 </body>
