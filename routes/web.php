@@ -94,7 +94,70 @@ Route::middleware(['auth', 'no.cache'])->group(function () {
             Route::get('/editar-usuario', [DashboardController::class, 'editaUsuario'])->name('edita_usuario');
         });
 
-        Route::get('/alumnos', [AlumnosController::class, 'index'])->name('alumnos.index');
+// ── Módulo de Alumnos ─────────────────────────────────────────
+
+Route::get('/admin/alumnos', [AlumnosController::class, 'index'])
+    ->name('alumnos.index');
+
+Route::get('/alumnos/escuelas', [AlumnosController::class, 'listaEscuelas'])
+    ->name('alumnos.listaEscuelas');
+
+Route::post('/alumnos/escuela/seleccionar', [AlumnosController::class, 'setIdEscuela'])
+    ->name('alumnos.setIdEscuela');
+
+Route::get('/alumnos/busqueda/{opc}/{id_escuela?}', [AlumnosController::class, 'busquedaAlumnos'])
+    ->name('alumnos.busquedaAlumnos');
+
+Route::post('/alumnos/listas/{opc}/{id_escuela?}', [AlumnosController::class, 'listasAlumnos'])
+    ->name('alumnos.listasAlumnos');
+
+Route::match(['get', 'post'], '/alumnos/reinscribir', [AlumnosController::class, 'reinscribirAlumnos'])
+    ->name('alumnos.reinscribirAlumnos');
+
+Route::match(['get', 'post'], '/alumnos/editar', [AlumnosController::class, 'actualizarAlumno'])
+    ->name('alumnos.actualizarAlumno');
+
+Route::get('/alumnos/altas/opciones', [AlumnosController::class, 'opcionesAltaAlumno'])
+    ->name('alumnos.opcionesAltaAlumno');
+
+Route::match(['get', 'post'], '/alumnos/altas', [AlumnosController::class, 'altaAlumno'])
+    ->name('alumnos.altaAlumno');
+
+// ── RUTAS AJAX PARA FORMULARIOS Y CASCADAS DE ALUMNOS ──
+// Rutas para el primer formulario (opciones_alta_alumno)
+Route::post('/alumnos/especialidadOpciones', [AlumnosController::class, 'especialidadOpciones'])
+    ->name('alumnos.especialidadOpciones');
+Route::post('/alumnos/modalidadOpciones', [AlumnosController::class, 'modalidadOpciones'])
+    ->name('alumnos.modalidadOpciones');
+Route::post('/alumnos/turnoOpciones', [AlumnosController::class, 'turnoOpciones'])
+    ->name('alumnos.turnoOpciones');
+
+// Rutas para el segundo formulario (altaAlumno principal)
+Route::post('/alumnos/municipiosBachilleratos', [AlumnosController::class, 'municipiosBachilleratos'])
+    ->name('alumnos.municipiosBachilleratos');
+Route::post('/alumnos/bachilleratoOpciones', [AlumnosController::class, 'bachilleratoOpciones'])
+    ->name('alumnos.bachilleratoOpciones');
+Route::post('/alumnos/municipiosNacimiento', [AlumnosController::class, 'municipiosNacimiento'])
+    ->name('alumnos.municipiosNacimiento');
+Route::post('/alumnos/municipiosNacimiento3', [AlumnosController::class, 'municipiosNacimiento3'])
+    ->name('alumnos.municipiosNacimiento3');
+Route::post('/alumnos/municipiosNacimiento5', [AlumnosController::class, 'municipiosNacimiento5'])
+    ->name('alumnos.municipiosNacimiento5');
+Route::post('/alumnos/municipiosNacimiento6', [AlumnosController::class, 'municipiosNacimiento6'])
+    ->name('alumnos.municipiosNacimiento6');
+Route::post('/alumnos/renglonesAlta', [AlumnosController::class, 'renglonesAlta'])
+    ->name('alumnos.renglonesAlta');
+// ────────────────────────────────────────────────────────
+
+Route::get('/alumnos/cambio-escuela', [AlumnosController::class, 'opcionCambioEscuela'])
+    ->name('alumnos.opcionCambioEscuela');
+
+Route::match(['get', 'post'], '/alumnos/cambio-escuela/alumnos', [AlumnosController::class, 'alumnoCambioEscuela'])
+    ->name('alumnos.alumnoCambioEscuela');
+
+Route::post('/alumnos/cambio-escuela/guardar', [AlumnosController::class, 'cambioEscuela'])
+    ->name('alumnos.cambioEscuela');
+    
         Route::get('/personal', [PersonalController::class, 'menu'])->name('personal.menu');
         Route::get('/informes/estadisticas', [InformesController::class, 'estadisticas'])->name('informes.estadisticas');
         Route::get('/informes/informe-nacional', [InformesController::class, 'informeNacional'])->name('informes.informe_nacional');

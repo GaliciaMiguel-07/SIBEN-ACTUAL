@@ -130,7 +130,7 @@ class AlumnosController extends sibenController
                 break;
         }
 
-        return view('alumnos.index', compact('mensaje', 'opcMenu'));
+        return view('admin.alumnos.index', compact('mensaje', 'opcMenu'));
     }
 
     /**
@@ -730,43 +730,58 @@ class AlumnosController extends sibenController
     /**
      * opcionesAltaAlumno
      */
-    public function opcionesAltaAlumno()
-    {
-        $ctx           = $this->contexto();
-        $id_escuela    = $ctx['id_escuela'] ?? null;
-        $nivel         = $ctx['nivel'] ?? null;
+   public function opcionesAltaAlumno()
+{
+    $ctx        = $this->contexto();
+    $id_escuela = $ctx['id_escuela'] ?? null;
+    $nivel      = $ctx['nivel'] ?? null;
 
-        if ($nivel != 4) {
-            return redirect()->route('alumnos.index');
-        }
-
-        $opciones = EscuelaLicenciatura::with('licenciatura')
-            ->where('id_escuela', $id_escuela)
-            ->whereIn('id_licenciatura', [6, 37, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60])
-            ->get();
-
-        $licenciaturas = [];
-        foreach ($opciones as $op) {
-            if ($op->licenciatura) {
-                $licenciaturas[$op->id_licenciatura] = $op->licenciatura->licenciatura;
-            }
-        }
-
-        $i = 1;
-        $semestre = [];
-        if ($id_escuela == 545 || $id_escuela == 664) {
-            $semestre[$i] = $i;
-        } else {
-            $paridad = ((int) $this->captura_actual) % 2;
-            if ($i % 2 == $paridad) {
-                $semestre[$i] = $i;
-            }
-        }
-
-        $anterior = route('alumnos.index');
-
-        return view('alumnos.opciones_alta_alumno', compact('semestre', 'licenciaturas', 'anterior'));
+    if ($nivel != 4) {
+        return redirect()->route('alumnos.index');
     }
+
+    $opciones = EscuelaLicenciatura::with('licenciatura')
+        ->where('id_escuela', $id_escuela)
+        ->whereIn('id_licenciatura', [
+            6, 37, 41, 42,
+            43, 44, 45, 46,
+            47, 48, 49, 50,
+            51, 52, 53, 54,
+            55, 56, 57, 58,
+            59, 60
+        ])
+        ->get();
+
+    $licenciaturas = [];
+
+    foreach ($opciones as $op) {
+        if ($op->licenciatura) {
+            $licenciaturas[$op->id_licenciatura] =
+                $op->licenciatura->licenciatura;
+        }
+    }
+
+    $i = 1;
+    $semestres = [];
+
+    if ($id_escuela == 545 || $id_escuela == 664) {
+        $semestres[$i] = $i;
+    } else {
+        $paridad = ((int) $this->captura_actual) % 2;
+
+        if ($i % 2 == $paridad) {
+            $semestres[$i] = $i;
+        }
+    }
+
+    $anterior = route('alumnos.index');
+
+    return view('admin.alumnos.opciones_alta_alumno', compact(
+        'semestres',
+        'licenciaturas',
+        'anterior'
+    ));
+}
 
     /**
      * altaAlumno
@@ -882,7 +897,7 @@ class AlumnosController extends sibenController
         $lenguas = Lengua::pluck('nombre', 'id');
         $necesidad = Necesidad::pluck('necesidad', 'id');
 
-        return view('alumnos.alta_alumno', compact(
+        return view('admin.alumnos.alta_alumno', compact(
             'licenciatura', 'especialidad', 'turnos', 'modalidades',
             'discapacidad', 'generos', 'nacionalidad', 'documentos',
             'entidadNac', 'municipioNac', 'entidades', 'opcionesCreacion',
