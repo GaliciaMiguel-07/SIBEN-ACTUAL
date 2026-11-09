@@ -8,6 +8,9 @@
     {{-- CSS heredado del sistema original --}}
     <link rel="stylesheet" href="{{ asset('css/estilos.css') }}">
 
+    {{-- Hoja oficial de estilos del Gobierno de México (apariencia original de SIBEN) --}}
+    <link rel="stylesheet" href="https://framework-gb.cdn.gob.mx/snd/v1.1.0/snd-guinda.css">
+
     {{-- Bootstrap (si lo usas) --}}
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5/dist/css/bootstrap.min.css">
 
@@ -35,10 +38,7 @@
     <script src="{{ asset('js/overlay.js') }}"></script>
     <script src="{{ asset('js/overlib.js') }}"></script>
     <script src="{{ asset('js/liveval.js') }}"></script>
-    <!-- Otros scripts -->
     <script src="{{ asset('js/security.js') }}"></script>
-</body>
-</html>
 
     @stack('scripts')
 </body>

@@ -1,20 +1,15 @@
 <?php
+
 namespace App\Http\Controllers;
 
-use App\Models\Mensaje;
-use Illuminate\View\View;
-
+/**
+ * El dashboard no duplica la lógica de inicio.
+ * Toda la preparación de contexto, menú, mensajes y avisos vive en sibenController.
+ */
 class DashboardController extends sibenController
 {
-    public function index(): View
+    public function index()
     {
-        $usuario = auth()->user();
-        $nivel   = (int) $usuario->nivel;
-
-        // Obtener todos los mensajes activos del sistema.
-        // La tabla `mensajes` tiene las columnas: id, mensaje, fecha_alta
-        $mensajes = Mensaje::orderBy('fecha_alta', 'desc')->get();
-
-        return view('siben.index', compact('mensajes', 'nivel'));
+        return parent::index();
     }
 }

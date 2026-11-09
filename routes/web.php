@@ -9,6 +9,9 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\sibenController;
 use App\Http\Controllers\BusquedaEscuelasController;
 use App\Http\Controllers\Admin\AdminController;
+use App\Http\Controllers\AlumnosController;
+use App\Http\Controllers\PersonalController;
+use App\Http\Controllers\InformesController;
 
 // ─── Rutas públicas ──────────────────────────────────────────────────────────
 
@@ -68,7 +71,35 @@ Route::middleware(['auth', 'no.cache'])->group(function () {
     Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
     // Dashboard principal
-    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/dashboard', [DashboardController::class, 'index'])
+        ->middleware('siben.restricciones')->name('dashboard');
+
+    // ── Núcleo SIBEN y módulos migrados ─────────────────────────────────────
+    // El middleware reproduce las restricciones heredadas para Licenciaturas
+    // niveles 3/4. Se limita a estas rutas; no afecta administración ni 2FA.
+    Route::middleware('siben.restricciones')->group(function () {
+        Route::prefix('siben')->name('siben.')->group(function () {
+            Route::get('/', [DashboardController::class, 'index'])->name('index');
+            Route::get('/archivos', [DashboardController::class, 'archivos'])->name('archivos');
+            Route::get('/datos-generales', [DashboardController::class, 'menuDatos'])->name('menu_datos');
+            Route::get('/listados', [DashboardController::class, 'listados'])->name('listados');
+            Route::get('/parametros', [DashboardController::class, 'parametros'])->name('parametros');
+            Route::get('/captura', [DashboardController::class, 'captura'])->name('captura');
+            Route::get('/usuarios', [DashboardController::class, 'listaUsuarios'])->name('lista_usuarios');
+            Route::get('/prueba-verhoeff', [DashboardController::class, 'pruebaVerhoeff'])->name('prueba_verhoeff');
+            Route::get('/avance-alumnos', [DashboardController::class, 'avanceAlumnos'])->name('avance_alumnos');
+            Route::get('/avance-personal', [DashboardController::class, 'avancePersonal'])->name('avance_personal');
+            Route::get('/supervisores', [DashboardController::class, 'supervisores'])->name('supervisores');
+            Route::get('/directores', [DashboardController::class, 'directores'])->name('directores');
+            Route::get('/editar-usuario', [DashboardController::class, 'editaUsuario'])->name('edita_usuario');
+        });
+
+        Route::get('/alumnos', [AlumnosController::class, 'index'])->name('alumnos.index');
+        Route::get('/personal', [PersonalController::class, 'menu'])->name('personal.menu');
+        Route::get('/informes/estadisticas', [InformesController::class, 'estadisticas'])->name('informes.estadisticas');
+        Route::get('/informes/informe-nacional', [InformesController::class, 'informeNacional'])->name('informes.informe_nacional');
+        Route::get('/informes/directorio', [InformesController::class, 'directorio'])->name('informes.directorio');
+    });
 
     // Desactivar 2FA (bloqueado por política, requiere sesión para mostrar mensaje en flujo normal)
     Route::post('/2fa/desactivar', [TwoFactorController::class, 'disable'])->name('2fa.desactivar');

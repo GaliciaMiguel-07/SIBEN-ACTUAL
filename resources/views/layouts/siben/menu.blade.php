@@ -1,143 +1,87 @@
+{{-- Fragmento del menú SIBEN. El layout principal ya declara html/head/body. --}}
 @php
-    $usuario = session('Usuario', []);
-    $nivel = (int) ($usuario['nivel'] ?? (auth()->check() ? auth()->user()->nivel : 0));
-    $nombreUsuario = $usuario['nombre'] ?? (auth()->check() ? auth()->user()->nombre : '');
-
-    // Mapeo de opciones del sistema según el nivel
-    $opcionesPorNivel = [
-        1 => [
-            ['nombre' => 'Edición', 'url' => \Illuminate\Support\Facades\Route::has('admin.index') ? route('admin.index') : '#'],
-            ['nombre' => 'Mensajes', 'url' => '#'],
-            ['nombre' => 'Directorio', 'url' => '#'],
-            ['nombre' => 'Estadísticas', 'url' => '#'],
-            ['nombre' => 'Informe nacional', 'url' => '#'],
-            ['nombre' => 'Cambiar captura', 'url' => '#'],
-            ['nombre' => 'Lista usuarios', 'url' => '#'],
-            ['nombre' => 'Informes escuelas', 'url' => '#'],
-            ['nombre' => 'Consulta histórico', 'url' => '#'],
-            ['nombre' => 'Consulta docente', 'url' => '#'],
-            ['nombre' => 'Prueba Verhoeff', 'url' => '#'],
-        ],
-        2 => [
-            ['nombre' => 'Conflictos', 'url' => '#'],
-            ['nombre' => 'Directorios', 'url' => '#'],
-            ['nombre' => 'Avance alumnos', 'url' => '#'],
-            ['nombre' => 'Avance personal', 'url' => '#'],
-            ['nombre' => 'Supervisores', 'url' => '#'],
-            ['nombre' => 'Directores', 'url' => '#'],
-            ['nombre' => 'Alumnos', 'url' => '#'],
-            ['nombre' => 'Consulta personal', 'url' => '#'],
-            ['nombre' => 'Listados', 'url' => '#'],
-            ['nombre' => 'Estadísticas', 'url' => '#'],
-        ],
-        3 => [
-            ['nombre' => 'Configurar parámetros', 'url' => '#'],
-            ['nombre' => 'Datos generales', 'url' => '#'],
-            ['nombre' => 'Alumnos', 'url' => '#'],
-            ['nombre' => 'Listados', 'url' => '#'],
-            ['nombre' => 'Estadísticas', 'url' => '#'],
-        ],
-        4 => [
-            ['nombre' => 'Datos generales', 'url' => '#'],
-            ['nombre' => 'Alumnos', 'url' => '#'],
-            ['nombre' => 'Personal', 'url' => '#'],
-            ['nombre' => 'Listados', 'url' => '#'],
-            ['nombre' => 'Estadísticas', 'url' => '#'],
-        ],
-    ];
-
-    $opciones = $opcionesPorNivel[$nivel] ?? [];
-    $permiteDescarga = in_array($nivel, [2, 3, 4]);
+    $nombreUsuario = auth()->user()?->nombre ?? '';
+    $opciones = $menu ?? [];
+    $permiteDescarga = in_array((int) ($nivel ?? 0), [2, 3, 4], true);
 @endphp
 
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <link href="https://framework-gb.cdn.gob.mx/snd/v1.1.0/snd-guinda.css" rel="stylesheet">
-    <title>Opciones del Sistema - SIBEN</title>
-</head>
-<body style="display: flex; flex-direction: column; min-height: 100vh; margin: 0; background-color: var(--neutro200);">
+<section class="contenedor" style="max-width: 900px; margin: 0 auto; padding: 24px 16px; width: 100%; box-sizing: border-box;">
+    <header style="margin-bottom: 24px;">
+        <h1 class="h2r patria" style="color: var(--neutro900); font-size: 1.75rem; margin: 0 0 4px;">
+            Bienvenido,
+        </h1>
+        @if ($nombreUsuario !== '')
+            <p style="color: var(--neutro600); font-size: 1.1rem; margin: 0; font-weight: 500;">
+                {{ $nombreUsuario }}
+            </p>
+        @endif
+    </header>
 
-    <!-- Pleca superior oficial -->
-    @if(view()->exists('pleca_superior'))
-        @include('pleca_superior')
+    @if (!empty($mensajeCaptura))
+        <div role="status" class="alert alert-warning" style="margin-bottom: 18px;">
+            {{ $mensajeCaptura }}
+        </div>
     @endif
 
-    <!-- Contenido Principal: Opciones del Sistema -->
-    <div class="contenedor" style="flex: 1; padding: 32px 16px; max-width: 900px; margin: 0 auto; width: 100%; box-sizing: border-box;">
-
-        <!-- Saludo de bienvenida con tipografía y retícula oficial del gobierno -->
-        <div style="margin-bottom: 24px;">
-            <h1 class="h2r patria" style="color: var(--neutro900); font-size: 1.75rem; margin: 0 0 4px 0;">
-                Bienvenido,
-            </h1>
-            @if(!empty($nombreUsuario))
-                <p style="color: var(--neutro600); font-size: 1.1rem; margin: 0; font-weight: 500;">
-                    {{ $nombreUsuario }}
-                </p>
-            @endif
-        </div>
-
-        <!-- Tarjeta contenedora con el estilo oficial (.buscar01) -->
-        <div class="buscar01" style="margin-bottom: 24px;">
-            
-            @if(count($opciones) > 0)
-                <div style="overflow-x: auto;">
-                    <table style="width: 100%; border-collapse: collapse; text-align: left;">
-                        <thead>
-                            <tr style="border-bottom: 2px solid var(--neutro400);">
-                                <th style="padding: 12px 16px; color: var(--neutro800); font-weight: 600;">Opción</th>
-                                <th style="padding: 12px 16px; color: var(--neutro800); font-weight: 600; text-align: center; width: 130px;">Acceso</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach($opciones as $opcion)
-                                <tr style="border-bottom: 1px solid var(--neutro300);">
-                                    <td style="padding: 14px 16px; color: var(--neutro800); vertical-align: middle;">
-                                        {{ $opcion['nombre'] }}
-                                    </td>
-                                    <td style="padding: 14px 16px; text-align: center; vertical-align: middle;">
-                                        <a href="{{ $opcion['url'] }}" class="boton__primario" style="padding: 6px 16px; font-size: 0.9rem; text-decoration: none; display: inline-block;">
-                                            Acceder
-                                        </a>
-                                    </td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
-            @else
-                <div style="padding: 20px; text-align: center; color: var(--neutro600);">
-                    No hay opciones disponibles para este nivel de usuario.
-                </div>
-            @endif
-        </div>
-
-        <!-- Acciones adicionales (Descargar archivos) -->
-        @if($permiteDescarga)
-            <div style="display: flex; justify-content: flex-start; margin-bottom: 30px;">
-                <a href="#" class="boton__secundario" style="text-decoration: none; padding: 10px 20px; display: inline-block;">
-                    Descargar archivos
-                </a>
-            </div>
+    <div class="buscar01" style="margin-bottom: 24px; overflow-x: auto;">
+        @if (count($opciones))
+            <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                <thead>
+                    <tr style="border-bottom: 2px solid var(--neutro400);">
+                        <th scope="col" style="padding: 12px 16px;">Opción</th>
+                        <th scope="col" style="padding: 12px 16px; text-align: center; width: 160px;">Acceso</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach ($opciones as $opcion)
+                        <tr style="border-bottom: 1px solid var(--neutro300);">
+                            <td style="padding: 14px 16px;">{{ $opcion['nombre'] }}</td>
+                            <td style="padding: 14px 16px; text-align: center;">
+                                @if (!empty($opcion['disponible']) && !empty($opcion['ruta']))
+                                    <a href="{{ $opcion['ruta'] }}" class="boton__primario"
+                                       style="padding: 6px 16px; font-size: .9rem; text-decoration: none; display: inline-block;">
+                                        Acceder
+                                    </a>
+                                @else
+                                    <span class="text-muted" aria-disabled="true"
+                                          title="La ruta de este módulo todavía no está migrada">
+                                        En migración
+                                    </span>
+                                @endif
+                            </td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        @else
+            <p style="padding: 20px; text-align: center; color: var(--neutro600);">
+                No hay opciones disponibles para este módulo y nivel.
+            </p>
         @endif
-
     </div>
 
-    <!-- Pie de página institucional mediante partial foot -->
-    @if(view()->exists('foot'))
-        @include('foot')
-    @elseif(view()->exists('footer'))
-        @include('footer')
+    @if ($permiteDescarga && \Illuminate\Support\Facades\Route::has('siben.archivos'))
+        <div style="margin-bottom: 24px;">
+            <a href="{{ route('siben.archivos') }}" class="boton__secundario"
+               style="text-decoration: none; padding: 10px 20px; display: inline-block;">
+                Descargar archivos
+            </a>
+        </div>
     @endif
 
-    <!-- Script en silencio -->
-<!-- Otros scripts -->
-    <script src="{{ asset('js/security.js') }}"></script>
-</body>
-</html>
-</body>
-</html>
+    @if (count($mensajes ?? []))
+        <section aria-labelledby="mensajes-siben">
+            <h2 id="mensajes-siben" class="h4">Mensajes</h2>
+            @foreach ($mensajes as $mensaje)
+                <article class="alert alert-info" style="margin-bottom: 10px;">
+                    {{ is_array($mensaje) ? ($mensaje['mensaje'] ?? '') : ($mensaje->mensaje ?? '') }}
+                </article>
+            @endforeach
+        </section>
+    @endif
+
+    <form method="POST" action="{{ route('logout') }}" style="margin-top: 24px;">
+        @csrf
+
+    </form>
+</section>

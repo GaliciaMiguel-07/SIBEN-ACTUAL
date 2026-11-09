@@ -17,6 +17,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'verificar.sesion' => VerificarSesion::class,
             'no.cache'         => NoCacheHeaders::class,
             'nivel'            => \App\Http\Middleware\CheckNivel::class,
+            'siben.restricciones' => \App\Http\Middleware\RestriccionesSiben::class,
             // CheckModulo y CheckCaptura no existen aún — comentados hasta implementarlos
             // 'modulo'  => \App\Http\Middleware\CheckModulo::class,
             // 'captura' => \App\Http\Middleware\CheckCaptura::class,

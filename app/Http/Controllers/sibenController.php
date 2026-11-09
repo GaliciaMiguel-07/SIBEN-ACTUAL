@@ -66,7 +66,7 @@ abstract class sibenController
             'entidad'          => null,
             'captura'          => null,
             'estructura'       => null,
-            'status'           => null,
+            'status'           => $usuario?->status,
             'cuenta_clave'     => 0,
             'cuenta_director'  => 0,
             'cuenta_domicilio' => 0,
@@ -110,27 +110,169 @@ abstract class sibenController
             }
         }
 
-        // Cuenta de licenciaturas sin clave de centro de trabajo.
-        if ($idEscuela) {
-            $ctx['cuenta_clave'] = EscuelaLicenciatura::where('id_escuela', $idEscuela)->where('clave', '')->count();
-        }
+        // Estas tres comprobaciones pertenecen al flujo de Licenciatura.
+        // No aplicar la tabla EscuelaLicenciatura a usuarios de Posgrados.
+        if ($idEscuela && $modulo === 'l') {
+            $ctx['cuenta_clave'] = EscuelaLicenciatura::where('id_escuela', $idEscuela)
+                ->where(function ($q) {
+                    $q->whereNull('clave')->orWhere('clave', '');
+                })->count();
 
-        // Cuenta de directores activos (id_funcion 1, status 'a').
-        if ($idEscuela) {
-            $ctx['cuenta_director'] = Personal::where('id_escuela', $idEscuela)->where('id_funcion', 1)->where('status', 'a')->count();
-        }
+            $ctx['cuenta_director'] = Personal::where('id_escuela', $idEscuela)
+                ->where('id_funcion', 1)
+                ->where('status', 'a')
+                ->count();
 
-        // Cuenta de domicilios capturados.
-        if ($idEscuela) {
             $ctx['cuenta_domicilio'] = DomicilioEscuela::where('id_escuela', $idEscuela)->count();
         }
 
         return $this->contexto = $ctx;
     }
 
+
+    /**
+     * Convierte la distribución histórica de AppController en opciones Laravel.
+     * Cada opción usa el nombre de una ruta; las rutas aún no migradas se
+     * muestran deshabilitadas en la vista y nunca apuntan a "#".
+     */
+    protected function menuItem(string $nombre, ?string $ruta = null, array $parametros = []): array
+    {
+        $disponible = $ruta !== null && \Illuminate\Support\Facades\Route::has($ruta);
+
+        return [
+            'nombre' => $nombre,
+            'ruta' => $disponible ? route($ruta, $parametros) : null,
+            'ruta_nombre' => $ruta,
+            'disponible' => $disponible,
+        ];
+    }
+
+    protected function menusLicenciatura(int $nivel, array $ctx = []): array
+    {
+        $status = $ctx['status'] ?? null;
+
+        if ($nivel === 2 && $status === 'x') {
+            return [
+                $this->menuItem('Actualizar datos', 'siben.edita_usuario'),
+            ];
+        }
+
+        $menus = [
+            1 => [
+                ['Edición', 'admin.index'],
+                ['Mensajes', null],
+                ['Directorio', null],
+                ['Estadísticas', 'informes.estadisticas'],
+                ['Informe nacional', 'informes.informe_nacional'],
+                ['Cambiar captura', 'siben.captura'],
+                ['Lista usuarios', 'siben.lista_usuarios'],
+                ['Informes escuelas', null],
+                ['Consulta histórico', null],
+                ['Consulta docente', null],
+                ['Prueba Verhoeff', 'siben.prueba_verhoeff'],
+            ],
+            2 => [
+                ['Conflictos', null],
+                ['Directorio', null],
+                ['Avance alumnos', 'siben.avance_alumnos'],
+                ['Avance personal', 'siben.avance_personal'],
+                ['Supervisores', 'siben.supervisores'],
+                ['Directores', 'siben.directores'],
+                ['Alumnos', 'alumnos.index'],
+                ['Consulta personal', null],
+                ['Listados', 'siben.listados'],
+                ['Estadísticas', 'informes.estadisticas'],
+            ],
+            3 => [
+                ['Configurar parámetros', 'siben.parametros'],
+                ['Datos generales', 'siben.menu_datos'],
+                ['Alumnos', 'alumnos.index'],
+                ['Personal', 'personal.menu'],
+                ['Listados', 'siben.listados'],
+                ['Estadísticas', 'informes.estadisticas'],
+            ],
+            4 => [
+                ['Datos generales', 'siben.menu_datos'],
+                ['Alumnos', 'alumnos.index'],
+                ['Personal', 'personal.menu'],
+                ['Listados', 'siben.listados'],
+                ['Estadísticas', 'informes.estadisticas'],
+            ],
+            5 => [
+                ['Escuelas', null],
+                ['Directorio', null],
+                ['Estadísticas', 'informes.estadisticas'],
+                ['Consulta alumno', null],
+                ['Consulta docente', null],
+            ],
+            6 => [
+                ['Directorio', 'informes.directorio'],
+                ['Ver avance alumnos', 'siben.avance_alumnos'],
+                ['Ver avance personal', 'siben.avance_personal'],
+                ['Consulta alumnos', 'alumnos.index'],
+                ['Consulta personal', null],
+                ['Supervisores', 'siben.supervisores'],
+                ['Listados', 'siben.listados'],
+                ['Estadísticas', 'informes.estadisticas'],
+            ],
+            7 => [
+                ['Consulta alumno', null],
+                ['Consulta personal', null],
+            ],
+        ];
+
+        return array_map(
+            fn ($item) => $this->menuItem($item[0], $item[1]),
+            $menus[$nivel] ?? []
+        );
+    }
+
+    protected function menusPosgrado(int $nivel): array
+    {
+        $menus = [
+            1 => [],
+            2 => [
+                ['Entidad Posgrados', null],
+                ['Avance', null],
+                ['Supervisores', 'siben.supervisores'],
+                ['Listados', null],
+            ],
+            3 => [
+                ['Parámetros', null],
+                ['Posgrados', null],
+                ['Corregir Alumnos', null],
+                ['Corregir Docentes', null],
+                ['Listados', null],
+            ],
+            4 => [
+                ['Alumnos', null],
+                ['Docentes', null],
+                ['Listados', null],
+            ],
+        ];
+
+        return array_map(
+            fn ($item) => $this->menuItem($item[0], $item[1]),
+            $menus[$nivel] ?? []
+        );
+    }
+
+    protected function obtenerMenu(array $ctx): array
+    {
+        $nivel = (int) ($ctx['nivel'] ?? 0);
+        $modulo = $ctx['modulo'] ?? null;
+
+        return match ($modulo) {
+            'l' => $this->menusLicenciatura($nivel, $ctx),
+            'p' => $this->menusPosgrado($nivel),
+            default => [],
+        };
+    }
+
     public function index()
     {
         $ctx = $this->contexto();
+        $menu = $this->obtenerMenu($ctx);
 
         $nivel           = $ctx['nivel'];
         $captura         = $ctx['captura'];
@@ -153,7 +295,7 @@ abstract class sibenController
                 $mensajeCaptura = 'La captura está finalizada';
             } elseif ($captura == 2) {
                 $mensajeCaptura = 'Demasiadas conexiones, por favor intente más tarde';
-            } elseif ($estructura == 0 && $modulo == 1) {
+            } elseif ($estructura == 0 && $modulo === 'l') {
                 $mensajeCaptura = 'Por favor, actualice los Datos Generales';
             } elseif ($cuenta_clave > 0) {
                 $mensajeCaptura = 'Por favor, ingrese sus claves de centro de trabajo';
@@ -186,7 +328,7 @@ abstract class sibenController
 
         return view('siben.index', compact(
             'mensajeCaptura', 'mensajes', 'telefono', 'tipos_mensajes',
-            'nivel', 'estructura', 'cuentaDirector', 'cuentaDomicilio', 'archivos'
+            'nivel', 'estructura', 'cuentaDirector', 'cuentaDomicilio', 'archivos', 'menu'
         ));
     }
 
@@ -1729,7 +1871,7 @@ abstract class sibenController
 
         $title = 'Datos Generales, ' . $nombreEscuela;
 
-        $cuentaDirector = session('Usuario.cuenta_director', 0);
+        $cuentaDirector = $ctx['cuenta_director'] ?? 0;
         $mensaje        = '';
         if ($cuentaDirector >= 2) {
             $mensaje = '.:: Solo debe haber un director por escuela, elimine los directores no activos ::.';
@@ -2139,7 +2281,7 @@ abstract class sibenController
         $ctx            = $this->contexto();
         $nivel          = $ctx['nivel'];
         $captura        = $ctx['captura'];
-        $cuentaDirector = session('Usuario.cuenta_director', 0);
+        $cuentaDirector = $ctx['cuenta_director'] ?? 0;
 
         if (!$captura) {
             $mensaje = 'La captura está finalizada';
