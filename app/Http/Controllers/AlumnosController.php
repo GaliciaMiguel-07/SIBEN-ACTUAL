@@ -289,10 +289,10 @@ class AlumnosController extends sibenController
                 'status_conflictos', 'modalidad'
             ]);
 
-        $url = ($opc === 'i') 
-            ? route('alumnos.reinscribirAlumnos') 
+        $url = ($opc === 'i')
+            ? route('alumnos.reinscribirAlumnos')
             : route('alumnos.actualizarAlumno');
-        
+
         $titulo = ($opc === 'i') ? "Inscribir" : "Editar";
 
         $renglones = [];
@@ -306,13 +306,13 @@ class AlumnosController extends sibenController
                 $evento = "consultaAjax('$url', '$parametros', muestraOverlay, muestraOcupado);";
             }
 
-            if (($alumno->modalidad === 'e' && $alumno->semestre < 9) || 
+            if (($alumno->modalidad === 'e' && $alumno->semestre < 9) ||
                 ($alumno->modalidad === 'm' && $alumno->semestre < 13)) {
                 $boton = '<input id="b_' . $alumno->id_registro . '" type="button" value="' . $titulo . '" onclick="' . $evento . '" class="boton__primario" style="padding: 4px 12px; font-size: 0.85rem; cursor: pointer;" />';
             }
 
             $accion = $boton;
-            if ((($alumno->status === 'x' || $alumno->status === 't') && $opc === 'i') || 
+            if ((($alumno->status === 'x' || $alumno->status === 't') && $opc === 'i') ||
                 ($opc === 'e' && ($alumno->status === 'x' || $alumno->status === 'i'))) {
                 if ($alumno->status_conflictos != 'n') {
                     $accion = $boton;
@@ -379,7 +379,7 @@ class AlumnosController extends sibenController
                 'captura'         => $this->captura_actual
             ];
 
-            $errores = Registro::inscripcionAlumnoStatic($parametros);
+            $errores = (new Registro())->inscripcionAlumno($parametros);
 
             if (empty($errores)) {
                 $datosRegistro['status'] = 'i';
@@ -397,7 +397,7 @@ class AlumnosController extends sibenController
 
                 $regModel = Registro::find($datosRegistro['id'] ?? null);
                 if ($regModel) {
-                    $apoyos = Registro::uneApoyosStatic($datosRegistro);
+                    $apoyos = (new Registro())->uneApoyos($datosRegistro);
                     $datosRegistro['apoyos'] = $apoyos;
                     $regModel->update($datosRegistro);
                 }
@@ -555,7 +555,7 @@ class AlumnosController extends sibenController
                 'captura'         => $this->captura_actual
             ];
 
-            $errores = Registro::inscripcionAlumnoStatic($parametros);
+            $errores = (new Registro())->inscripcionAlumno($parametros);
 
             if (!empty($datosAlumno) && !Alumno::validaNombreStatic($datosAlumno)) {
                 return response("Error: Favor de quitar acentos o diéresis en el nombre: {$datosAlumno['nombre']} {$datosAlumno['apellido_paterno']} {$datosAlumno['apellido_materno']}", 400);
@@ -563,13 +563,20 @@ class AlumnosController extends sibenController
 
             if (empty($errores)) {
                 $datosCurp = Alumno::infoCurpStatic($datosAlumno['curp'] ?? '', $this->captura_actual);
-                if (($datosCurp['dia'] ?? 0) > 31 || ($datosCurp['mes'] ?? 0) > 12) {
+
+                if (
+                    ($datosCurp['dia'] ?? 0) > 31 ||
+                    ($datosCurp['mes'] ?? 0) > 12 ||
+                    empty($datosCurp['entidad'])
+                ) {
                     return response('Error en fecha CURP', 400);
                 }
+
                 $datosAlumno['fecha_nacimiento'] = ($datosCurp['anio'] ?? '') . '-' . ($datosCurp['mes'] ?? '') . '-' . ($datosCurp['dia'] ?? '');
                 $datosAlumno['entidad_nacimiento'] = $datosCurp['entidad'] ?? '';
 
-                $datosRegistro['apoyos'] = Registro::uneApoyosStatic($datosRegistro);
+                // CAMBIO: usar el método de instancia de Registro.
+                $datosRegistro['apoyos'] = (new Registro())->uneApoyos($datosRegistro);
 
                 if (($datosAlumno['discapacidad'] ?? 'n') === 'n') {
                     $datosAlumno['tipo_discapacidad'] = 0;
@@ -626,7 +633,9 @@ class AlumnosController extends sibenController
         $becado = Historia::CriteriosBecadosStatic($sostenimiento, $infoAlumno->semestre, $infoAlumno->modalidad, $infoAlumno->id_licenciatura);
 
         if (!empty($infoAlumno->apoyos)) {
-            $apoyos = Registro::separaApoyosStatic($infoAlumno->apoyos);
+            // CAMBIO: usar el método de instancia de Registro.
+            $apoyos = (new Registro())->separaApoyos($infoAlumno->apoyos);
+
             foreach ($apoyos as $apoyo => $val) {
                 $infoAlumno->setAttribute($apoyo, $val);
             }
@@ -659,11 +668,13 @@ class AlumnosController extends sibenController
 
         $especialAlumno = Historia::isEspecialStatic($infoAlumno->id_licenciatura, $infoAlumno->semestre, $infoAlumno->id_especialidad);
         $turnos = [];
+
         if ($especialAlumno) {
             $especialTurno = EscuelaLicenciatura::where('id_escuela', $id_escuela)
                 ->where('id_licenciatura', $infoAlumno->id_licenciatura)
                 ->where('modalidad', $infoAlumno->modalidad)
                 ->get(['turno']);
+
             foreach ($especialTurno as $t) {
                 if (isset($lista_turno[$t->turno])) {
                     $turnos[$t->turno] = $lista_turno[$t->turno];
@@ -675,6 +686,7 @@ class AlumnosController extends sibenController
                 ->where('id_especialidad', $infoAlumno->id_especialidad)
                 ->where('modalidad', $infoAlumno->modalidad)
                 ->get(['turno']);
+
             foreach ($opcionesTurno as $t) {
                 if (isset($lista_turno[$t->turno])) {
                     $turnos[$t->turno] = $lista_turno[$t->turno];
@@ -688,17 +700,22 @@ class AlumnosController extends sibenController
                 $opcLicenciaturas = EscuelaLicenciatura::with(['licenciatura', 'especialidad'])
                     ->where('id_escuela', $id_escuela)
                     ->get();
+
                 $licenciatura = [];
                 $especialidad = [];
+
                 foreach ($opcLicenciaturas as $ol) {
                     if ($ol->licenciatura) $licenciatura[$ol->id_licenciatura] = $ol->licenciatura->licenciatura;
                     if ($ol->especialidad) $especialidad[$ol->id_especialidad] = $ol->especialidad->especialidad;
                 }
+
                 if ($especialAlumno && $infoAlumno->semestre < 4) {
                     $especialidad[0] = 'n/a';
                 }
+
                 $modalidad = [$infoAlumno->modalidad => $lista_modalidades[$infoAlumno->modalidad] ?? ''];
                 break;
+
             case 3:
                 $lics = Licenciatura::pluck('licenciatura', 'id');
                 $esps = Especialidad::pluck('especialidad', 'id');
@@ -707,6 +724,7 @@ class AlumnosController extends sibenController
                 $modalidad = [$infoAlumno->modalidad => $lista_modalidades[$infoAlumno->modalidad] ?? ''];
                 $semestre = Historia::CalcularSemestreStatic($infoAlumno->semestre, $this->captura_actual, $nombreEntidad, $id_escuela);
                 break;
+
             case 4:
                 $licenciatura = Licenciatura::pluck('licenciatura', 'id');
                 $especialidad = Especialidad::pluck('especialidad', 'id');
@@ -730,58 +748,58 @@ class AlumnosController extends sibenController
     /**
      * opcionesAltaAlumno
      */
-   public function opcionesAltaAlumno()
-{
-    $ctx        = $this->contexto();
-    $id_escuela = $ctx['id_escuela'] ?? null;
-    $nivel      = $ctx['nivel'] ?? null;
+    public function opcionesAltaAlumno()
+    {
+        $ctx        = $this->contexto();
+        $id_escuela = $ctx['id_escuela'] ?? null;
+        $nivel      = $ctx['nivel'] ?? null;
 
-    if ($nivel != 4) {
-        return redirect()->route('alumnos.index');
-    }
-
-    $opciones = EscuelaLicenciatura::with('licenciatura')
-        ->where('id_escuela', $id_escuela)
-        ->whereIn('id_licenciatura', [
-            6, 37, 41, 42,
-            43, 44, 45, 46,
-            47, 48, 49, 50,
-            51, 52, 53, 54,
-            55, 56, 57, 58,
-            59, 60
-        ])
-        ->get();
-
-    $licenciaturas = [];
-
-    foreach ($opciones as $op) {
-        if ($op->licenciatura) {
-            $licenciaturas[$op->id_licenciatura] =
-                $op->licenciatura->licenciatura;
+        if ($nivel != 4) {
+            return redirect()->route('alumnos.index');
         }
-    }
 
-    $i = 1;
-    $semestres = [];
+        $opciones = EscuelaLicenciatura::with('licenciatura')
+            ->where('id_escuela', $id_escuela)
+            ->whereIn('id_licenciatura', [
+                6, 37, 41, 42,
+                43, 44, 45, 46,
+                47, 48, 49, 50,
+                51, 52, 53, 54,
+                55, 56, 57, 58,
+                59, 60
+            ])
+            ->get();
 
-    if ($id_escuela == 545 || $id_escuela == 664) {
-        $semestres[$i] = $i;
-    } else {
-        $paridad = ((int) $this->captura_actual) % 2;
+        $licenciaturas = [];
 
-        if ($i % 2 == $paridad) {
+        foreach ($opciones as $op) {
+            if ($op->licenciatura) {
+                $licenciaturas[$op->id_licenciatura] =
+                    $op->licenciatura->licenciatura;
+            }
+        }
+
+        $i = 1;
+        $semestres = [];
+
+        if ($id_escuela == 545 || $id_escuela == 664) {
             $semestres[$i] = $i;
+        } else {
+            $paridad = ((int) $this->captura_actual) % 2;
+
+            if ($i % 2 == $paridad) {
+                $semestres[$i] = $i;
+            }
         }
+
+        $anterior = route('alumnos.index');
+
+        return view('admin.alumnos.opciones_alta_alumno', compact(
+            'semestres',
+            'licenciaturas',
+            'anterior'
+        ));
     }
-
-    $anterior = route('alumnos.index');
-
-    return view('admin.alumnos.opciones_alta_alumno', compact(
-        'semestres',
-        'licenciaturas',
-        'anterior'
-    ));
-}
 
     /**
      * altaAlumno
@@ -820,16 +838,24 @@ class AlumnosController extends sibenController
                 'captura'         => $this->captura_actual
             ];
 
-            [$errores, $nid] = Registro::altaAlumnoStatic($parametros);
+            [$errores, $nid] = (new Registro())->altaAlumno($parametros);
 
             if (empty($errores)) {
                 $datosCurp = Alumno::infoCurpStatic($datosAlumno['curp'] ?? '', $this->captura_actual);
-                if (($datosCurp['dia'] ?? 0) > 31 || ($datosCurp['mes'] ?? 0) > 12) {
+
+                if (
+                    ($datosCurp['dia'] ?? 0) > 31 ||
+                    ($datosCurp['mes'] ?? 0) > 12 ||
+                    empty($datosCurp['entidad'])
+                ) {
                     return response('Error fecha CURP', 400);
                 }
+
                 $datosAlumno['fecha_nacimiento'] = ($datosCurp['anio'] ?? '') . '-' . ($datosCurp['mes'] ?? '') . '-' . ($datosCurp['dia'] ?? '');
                 $datosAlumno['entidad_nacimiento'] = $datosCurp['entidad'] ?? '';
-                $datosRegistro['apoyos'] = Registro::uneApoyosStatic($datosRegistro);
+
+                // CAMBIO: usar el método de instancia de Registro.
+                $datosRegistro['apoyos'] = (new Registro())->uneApoyos($datosRegistro);
 
                 if (($datosAlumno['discapacidad'] ?? 'n') === 'n') {
                     $datosAlumno['tipo_discapacidad'] = 0;
@@ -838,16 +864,20 @@ class AlumnosController extends sibenController
                 if (!empty($nid)) {
                     if (count($nid) == 1) {
                         $alumId = $nid[0]->numero_identificador ?? $nid[0]['Alumno']['numero_identificador'] ?? null;
+
                         if ($alumId) {
                             Alumno::where('numero_identificador', $alumId)->update(array_intersect_key($datosAlumno, array_flip(['municipio_nacimiento', 'fecha_nacimiento', 'discapacidad', 'tipo_discapacidad'])));
                             $datosRegistro['nid'] = $alumId;
                             $datosBach['nid'] = $alumId;
+
                             if (($datosBach['id_bachillerato'] ?? 0) != 0) {
                                 $datosBach['otro'] = 'no';
                             }
+
                             Registro::create($datosRegistro);
                             AlumnoBachillerato::create($datosBach);
                         }
+
                         return response()->json(['status' => 'success']);
                     } else {
                         return response('Error: Múltiples NIDs encontrados', 400);
@@ -1098,8 +1128,8 @@ class AlumnosController extends sibenController
 
     public function municipiosOpciones(Request $request)
     {
-        $id_entidad = $request->input('EscuelaPractica.id_entidad');
-        $opciones = Municipio::where('id_entidad', $id_entidad)->orderBy('municipio')->pluck('municipio', 'id');
+        $id_municipio = $request->input('EscuelaPractica.id_municipio');
+        $opciones = Municipio::where('id_entidad', $id_municipio)->orderBy('municipio')->pluck('municipio', 'id');
         return view('elements.opciones2', compact('opciones'));
     }
 
@@ -1159,10 +1189,12 @@ class AlumnosController extends sibenController
     {
         $id_municipio = $request->input('EscuelaPractica.id_municipio');
         $escuelas = EscuelaPractica::where('id_municipio', $id_municipio)->orderBy('escuela_practica')->get();
+
         $opciones = [];
         foreach ($escuelas as $esc) {
             $opciones[$esc->id] = $esc->escuela_practica . ' Clave: ' . $esc->clave_ct;
         }
+
         return view('elements.opciones2', compact('opciones'));
     }
 
@@ -1170,10 +1202,12 @@ class AlumnosController extends sibenController
     {
         $id_municipio = $request->input('AlumnoBachillerato.id_municipio');
         $bachilleratos = Bachillerato::where('id_municipio2', $id_municipio)->orderBy('nombre')->get();
+
         $opciones = [];
         foreach ($bachilleratos as $bach) {
             $opciones[$bach->id] = $bach->nombre . ' Clave: ' . $bach->clave;
         }
+
         $opciones[0] = 'Otro';
         return view('elements.opciones2', compact('opciones'));
     }
@@ -1185,12 +1219,14 @@ class AlumnosController extends sibenController
         $especialidadNombre = Especialidad::pluck('especialidad', 'id')->toArray();
 
         $ids = EscuelaLicenciatura::where('id_escuela', $id_escuela)->where('id_licenciatura', 7)->pluck('id_especialidad');
+
         $opciones = [];
         foreach ($ids as $espId) {
             if (isset($especialidadNombre[$espId])) {
                 $opciones[$espId] = $especialidadNombre[$espId];
             }
         }
+
         return view('elements.opciones2', compact('opciones'));
     }
 
@@ -1224,12 +1260,14 @@ class AlumnosController extends sibenController
         $semestre = $request->input('Registro.semestre', 1);
 
         $query = EscuelaLicenciatura::where('id_escuela', $id_escuela)->where('id_licenciatura', $id_lic);
+
         if ($id_esp > 0 || ($id_lic == 7 && $semestre >= 4)) {
             $query->where('id_especialidad', $id_esp);
         }
 
         $lista_modalidades = ['e' => 'Escolarizada', 'm' => 'Mixta', 'i' => 'Intensiva'];
         $mods = $query->pluck('modalidad')->unique();
+
         $opciones = [];
         foreach ($mods as $m) {
             if (isset($lista_modalidades[$m])) {
@@ -1259,6 +1297,7 @@ class AlumnosController extends sibenController
 
         $lista_turno = ['m' => 'Matutino', 'v' => 'Vespertino', 'n' => 'Nocturno', 'd' => 'Discontinuo'];
         $turns = $query->pluck('turno')->unique();
+
         $opciones = [];
         foreach ($turns as $t) {
             if (isset($lista_turno[$t])) {
@@ -1330,6 +1369,7 @@ class AlumnosController extends sibenController
             $request->input('Alumno.apellido_materno'),
             $request->input('Alumno.curp')
         ];
+
         return view('elements.renglon', compact('renglon'));
     }
 }
