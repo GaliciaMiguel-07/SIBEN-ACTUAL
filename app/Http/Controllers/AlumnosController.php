@@ -18,7 +18,7 @@ use App\Models\EscuelaLicenciatura;
 use App\Models\EscuelaPractica;
 use App\Models\Especialidad;
 use App\Models\Historia;
-use App\Models\Lengua;
+use App\Models\Lenguas;
 use App\Models\Licenciatura;
 use App\Models\Municipio;
 use App\Models\Necesidad;
@@ -462,7 +462,7 @@ class AlumnosController extends sibenController
         $licenciatura = Licenciatura::pluck('licenciatura', 'id');
         $especialidad = Especialidad::pluck('especialidad', 'id');
         $paises = Pais::pluck('pais', 'id');
-        $lenguas = Lengua::pluck('nombre', 'id');
+        $lenguas = Lenguas::pluck('nombre', 'id');
         $necesidad = Necesidad::pluck('necesidad', 'id');
 
         $entidadesnal = EntidadNal::where('id_pais', $infoAlumno2->pais ?? 0)->pluck('nombre', 'id');
@@ -575,7 +575,6 @@ class AlumnosController extends sibenController
                 $datosAlumno['fecha_nacimiento'] = ($datosCurp['anio'] ?? '') . '-' . ($datosCurp['mes'] ?? '') . '-' . ($datosCurp['dia'] ?? '');
                 $datosAlumno['entidad_nacimiento'] = $datosCurp['entidad'] ?? '';
 
-                // CAMBIO: usar el método de instancia de Registro.
                 $datosRegistro['apoyos'] = (new Registro())->uneApoyos($datosRegistro);
 
                 if (($datosAlumno['discapacidad'] ?? 'n') === 'n') {
@@ -633,7 +632,6 @@ class AlumnosController extends sibenController
         $becado = Historia::CriteriosBecadosStatic($sostenimiento, $infoAlumno->semestre, $infoAlumno->modalidad, $infoAlumno->id_licenciatura);
 
         if (!empty($infoAlumno->apoyos)) {
-            // CAMBIO: usar el método de instancia de Registro.
             $apoyos = (new Registro())->separaApoyos($infoAlumno->apoyos);
 
             foreach ($apoyos as $apoyo => $val) {
@@ -663,7 +661,7 @@ class AlumnosController extends sibenController
         $entidadesnal3 = EntidadNal::where('id_pais', $infoAlumno->alumno->pais_procedencia ?? 0)->pluck('nombre', 'id');
         $municipios2 = Municipio::where('id_entidad', $infoAlumno->alumno->entidad_domicilio ?? 0)->pluck('municipio', 'id');
         $paises = Pais::pluck('pais', 'id');
-        $lenguas = Lengua::pluck('nombre', 'id');
+        $lenguas = Lenguas::pluck('nombre', 'id');
         $necesidad = Necesidad::pluck('necesidad', 'id');
 
         $especialAlumno = Historia::isEspecialStatic($infoAlumno->id_licenciatura, $infoAlumno->semestre, $infoAlumno->id_especialidad);
@@ -748,10 +746,13 @@ class AlumnosController extends sibenController
     /**
      * opcionesAltaAlumno
      */
+    /**
+     * opcionesAltaAlumno
+     */
     public function opcionesAltaAlumno()
     {
         $ctx        = $this->contexto();
-        $id_escuela = $ctx['id_escuela'] ?? null;
+        $id_escuela = $ctx['id_escuela'] ?? session('Usuario.id_escuela');
         $nivel      = $ctx['nivel'] ?? null;
 
         if ($nivel != 4) {
@@ -779,16 +780,21 @@ class AlumnosController extends sibenController
             }
         }
 
-        $i = 1;
         $semestres = [];
 
         if ($id_escuela == 545 || $id_escuela == 664) {
-            $semestres[$i] = $i;
+            $semestres[1] = 1;
         } else {
             $paridad = ((int) $this->captura_actual) % 2;
 
-            if ($i % 2 == $paridad) {
-                $semestres[$i] = $i;
+            for ($i = 1; $i <= 12; $i++) {
+                if (($i % 2) === $paridad) {
+                    $semestres[$i] = $i;
+                }
+            }
+
+            if (empty($semestres)) {
+                $semestres[1] = 1;
             }
         }
 
@@ -807,7 +813,7 @@ class AlumnosController extends sibenController
     public function altaAlumno(Request $request)
     {
         $ctx        = $this->contexto();
-        $id_escuela = $ctx['id_escuela'] ?? null;
+        $id_escuela = $ctx['id_escuela'] ?? session('Usuario.id_escuela');
 
         $opcionesCreacion = $request->input('Vuelta', []);
 
@@ -854,7 +860,6 @@ class AlumnosController extends sibenController
                 $datosAlumno['fecha_nacimiento'] = ($datosCurp['anio'] ?? '') . '-' . ($datosCurp['mes'] ?? '') . '-' . ($datosCurp['dia'] ?? '');
                 $datosAlumno['entidad_nacimiento'] = $datosCurp['entidad'] ?? '';
 
-                // CAMBIO: usar el método de instancia de Registro.
                 $datosRegistro['apoyos'] = (new Registro())->uneApoyos($datosRegistro);
 
                 if (($datosAlumno['discapacidad'] ?? 'n') === 'n') {
@@ -924,7 +929,7 @@ class AlumnosController extends sibenController
         $entidades = Entidad::where('id', '<', 33)->pluck('entidad', 'id')->toArray();
         $entidades[33] = 'Extranjero';
         $paises = Pais::pluck('pais', 'id');
-        $lenguas = Lengua::pluck('nombre', 'id');
+        $lenguas = Lenguas::pluck('nombre', 'id');
         $necesidad = Necesidad::pluck('necesidad', 'id');
 
         return view('admin.alumnos.alta_alumno', compact(
@@ -941,7 +946,7 @@ class AlumnosController extends sibenController
     public function opcionCambioEscuela()
     {
         $ctx        = $this->contexto();
-        $id_escuela = $ctx['id_escuela'] ?? null;
+        $id_escuela = $ctx['id_escuela'] ?? session('Usuario.id_escuela');
         $nivel      = $ctx['nivel'] ?? null;
 
         if ($nivel != 4) {
@@ -970,7 +975,7 @@ class AlumnosController extends sibenController
     public function alumnoCambioEscuela(Request $request)
     {
         $ctx        = $this->contexto();
-        $id_escuela = $ctx['id_escuela'] ?? null;
+        $id_escuela = $ctx['id_escuela'] ?? session('Usuario.id_escuela');
         $captura    = $this->captura_actual;
 
         $criterios = $request->input('Alumno', []);
@@ -1102,7 +1107,7 @@ class AlumnosController extends sibenController
     public function cambioEscuela(Request $request)
     {
         $ctx        = $this->contexto();
-        $id_escuela = $ctx['id_escuela'] ?? null;
+        $id_escuela = $ctx['id_escuela'] ?? session('Usuario.id_escuela');
 
         $idRegistro = $request->input('Registro.id');
         if ($idRegistro) {
@@ -1215,7 +1220,7 @@ class AlumnosController extends sibenController
     public function EspecialLicOpciones()
     {
         $ctx = $this->contexto();
-        $id_escuela = $ctx['id_escuela'] ?? null;
+        $id_escuela = $ctx['id_escuela'] ?? session('Usuario.id_escuela');
         $especialidadNombre = Especialidad::pluck('especialidad', 'id')->toArray();
 
         $ids = EscuelaLicenciatura::where('id_escuela', $id_escuela)->where('id_licenciatura', 7)->pluck('id_especialidad');
@@ -1233,18 +1238,28 @@ class AlumnosController extends sibenController
     public function especialidadOpciones(Request $request)
     {
         $ctx = $this->contexto();
-        $id_escuela = $ctx['id_escuela'] ?? null;
-        $id_lic = $request->input('Registro.id_licenciatura');
-        $semestre = $request->input('Registro.semestre', 1);
+        $id_escuela = $ctx['id_escuela'] ?? session('Usuario.id_escuela');
+        
+        $id_lic = $request->input('Vuelta.id_licenciatura') 
+                ?? $request->input('Registro.id_licenciatura') 
+                ?? $request->input('id_licenciatura');
+                
+        $semestre = $request->input('Vuelta.semestre') 
+                 ?? $request->input('Registro.semestre', 1);
 
-        $opciones = EscuelaLicenciatura::with('especialidad')
-            ->where('id_escuela', $id_escuela)
+        // 1. Obtener los IDs de especialidades de esta escuela y licenciatura
+        $idsEspecialidad = EscuelaLicenciatura::where('id_escuela', $id_escuela)
             ->where('id_licenciatura', $id_lic)
-            ->get()
-            ->pluck('especialidad.especialidad', 'especialidad.id')
+            ->pluck('id_especialidad')
+            ->unique();
+
+        // 2. Consultar los nombres directamente desde el modelo Especialidad
+        $opciones = Especialidad::whereIn('id', $idsEspecialidad)
+            ->pluck('especialidad', 'id')
             ->toArray();
 
-        if ($semestre < 4 && $id_lic == 7) {
+        // 3. Si no hay especialidades asociadas o la clave es 0 / N/A, mostrar opción 'n/a'
+        if (empty($opciones) || ($semestre < 4 && $id_lic == 7)) {
             $opciones[0] = 'n/a';
         }
 
@@ -1254,12 +1269,14 @@ class AlumnosController extends sibenController
     public function modalidadOpciones(Request $request)
     {
         $ctx = $this->contexto();
-        $id_escuela = $ctx['id_escuela'] ?? null;
-        $id_lic = $request->input('Registro.id_licenciatura');
-        $id_esp = $request->input('Registro.id_especialidad');
-        $semestre = $request->input('Registro.semestre', 1);
+        $id_escuela = $ctx['id_escuela'] ?? session('Usuario.id_escuela');
+        
+        $id_lic = $request->input('Vuelta.id_licenciatura') ?? $request->input('Registro.id_licenciatura') ?? $request->input('id_licenciatura');
+        $id_esp = $request->input('Vuelta.id_especialidad') ?? $request->input('Registro.id_especialidad') ?? $request->input('id_especialidad');
+        $semestre = $request->input('Vuelta.semestre') ?? $request->input('Registro.semestre', 1);
 
-        $query = EscuelaLicenciatura::where('id_escuela', $id_escuela)->where('id_licenciatura', $id_lic);
+        $query = EscuelaLicenciatura::where('id_escuela', $id_escuela)
+            ->where('id_licenciatura', $id_lic);
 
         if ($id_esp > 0 || ($id_lic == 7 && $semestre >= 4)) {
             $query->where('id_especialidad', $id_esp);
@@ -1281,15 +1298,19 @@ class AlumnosController extends sibenController
     public function turnoOpciones(Request $request)
     {
         $ctx = $this->contexto();
-        $id_escuela = $ctx['id_escuela'] ?? null;
-        $id_lic = $request->input('Registro.id_licenciatura');
-        $id_esp = $request->input('Registro.id_especialidad');
-        $mod = $request->input('Registro.modalidad');
-        $semestre = $request->input('Registro.semestre', 1);
+        $id_escuela = $ctx['id_escuela'] ?? session('Usuario.id_escuela');
+        
+        $id_lic = $request->input('Vuelta.id_licenciatura') ?? $request->input('Registro.id_licenciatura') ?? $request->input('id_licenciatura');
+        $id_esp = $request->input('Vuelta.id_especialidad') ?? $request->input('Registro.id_especialidad') ?? $request->input('id_especialidad');
+        $mod    = $request->input('Vuelta.modalidad')       ?? $request->input('Registro.modalidad')       ?? $request->input('modalidad');
+        $semestre = $request->input('Vuelta.semestre')    ?? $request->input('Registro.semestre', 1);
 
         $query = EscuelaLicenciatura::where('id_escuela', $id_escuela)
-            ->where('id_licenciatura', $id_lic)
-            ->where('modalidad', $mod);
+            ->where('id_licenciatura', $id_lic);
+
+        if ($mod) {
+            $query->where('modalidad', $mod);
+        }
 
         if ($id_esp > 0 || ($id_lic == 7 && $semestre >= 4)) {
             $query->where('id_especialidad', $id_esp);
@@ -1310,11 +1331,11 @@ class AlumnosController extends sibenController
 
     public function semestreOpciones(Request $request)
     {
-        $modalidad = $request->input('Registro.modalidad');
-        $id_licenciatura = $request->input('Registro.id_licenciatura');
-        $id_especialidad = $request->input('Registro.id_especialidad');
+        $modalidad       = $request->input('Vuelta.modalidad')       ?? $request->input('Registro.modalidad')       ?? $request->input('modalidad');
+        $id_licenciatura = $request->input('Vuelta.id_licenciatura') ?? $request->input('Registro.id_licenciatura') ?? $request->input('id_licenciatura');
+        $id_especialidad = $request->input('Vuelta.id_especialidad') ?? $request->input('Registro.id_especialidad') ?? $request->input('id_especialidad');
+        
         $semestres = [];
-
         $paridad = ((int) $this->captura_actual) % 2;
 
         if ($modalidad === 'e') {

@@ -34,7 +34,7 @@
                             <select
                                 name="Vuelta[id_licenciatura]"
                                 id="VueltaIdLicenciatura"
-                                nombre="Licenciatura"
+                                data-nombre="Licenciatura"
                                 class="form-select"
                                 required>
                                 <option value="">Seleccione</option>
@@ -54,7 +54,7 @@
                             <select
                                 name="Vuelta[id_especialidad]"
                                 id="VueltaIdEspecialidad"
-                                nombre="Especialidad"
+                                data-nombre="Especialidad"
                                 class="form-select"
                                 required>
                                 <option value="">Seleccione</option>
@@ -73,7 +73,7 @@
                             <select
                                 name="Vuelta[modalidad]"
                                 id="VueltaModalidad"
-                                nombre="Modalidad"
+                                data-nombre="Modalidad"
                                 class="form-select"
                                 required>
                                 <option value="">Seleccione</option>
@@ -92,7 +92,7 @@
                             <select
                                 name="Vuelta[semestre]"
                                 id="VueltaSemestre"
-                                nombre="Semestre"
+                                data-nombre="Semestre"
                                 class="form-select"
                                 required>
                                 <option value="">Seleccione</option>
@@ -112,7 +112,7 @@
                             <select
                                 name="Vuelta[turno]"
                                 id="VueltaTurno"
-                                nombre="Turno"
+                                data-nombre="Turno"
                                 class="form-select"
                                 required>
                                 <option value="">Seleccione</option>
@@ -132,7 +132,7 @@
                                 type="text"
                                 name="Vuelta[grupo]"
                                 id="VueltaGrupo"
-                                nombre="grupo"
+                                data-nombre="Grupo"
                                 maxlength="10"
                                 class="form-control"
                                 onblur="this.value = this.value.trim().toUpperCase();">
@@ -205,14 +205,13 @@
 <script>
     const formularioAlta = document.getElementById('OpcionesAltaAlumno');
 
-    // CORRECCIÓN APLICADA AQUÍ: Se agregan los helpers {{ url() }} para generar la ruta completa
-    // Solución definitiva para las rutas en JavaScript
-    // Solución definitiva usando route() de Laravel
+    // Inyección segura de rutas de Laravel a JavaScript
     const urlsAlta = {
-        especialidad: '{{ route("alumnos.especialidadOpciones") }}',
-        modalidad: '{{ route("alumnos.modalidadOpciones") }}',
-        turno: '{{ route("alumnos.turnoOpciones") }}'
+        especialidad: @json(route('alumnos.especialidadOpciones')),
+        modalidad: @json(route('alumnos.modalidadOpciones')),
+        turno: @json(route('alumnos.turnoOpciones'))
     };
+
     function parametrosFormulario() {
         return new URLSearchParams(new FormData(formularioAlta));
     }
