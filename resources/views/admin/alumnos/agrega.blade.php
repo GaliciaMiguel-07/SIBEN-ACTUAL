@@ -40,7 +40,7 @@
         @endif
 
         {{-- Formulario --}}
-        <form id="formAltaAlumno">
+        <form id="formAltaAlumno" method="POST">
 
             @csrf
 
@@ -200,6 +200,7 @@
                             <option value="">Seleccione</option>
                             <option value="H">Masculino</option>
                             <option value="M">Femenino</option>
+                            <option value="X">No especificado</option>
                         </select>
                     </div>
 
@@ -248,16 +249,15 @@
             </div>
 
             {{-- Botón pendiente de conectar con el controlador --}}
-            <div style="text-align: center;">
-                <button type="button" class="boton__primario" disabled>
-                    Guardar
-                </button>
-            </div>
+            <button type="button" id="btnGuardar" class="boton__primario" disabled>
+                Guardar
+            </button>
 
         </form>
     </div>
 </div>
 <script>
+
 
 document.addEventListener('DOMContentLoaded', function () {
     const entidad = document.getElementById('id_entidad');
@@ -267,7 +267,23 @@ document.addEventListener('DOMContentLoaded', function () {
     const modalidad = document.getElementById('modalidad');
     const turno = document.getElementById('turno');
 
+    const semestre = document.getElementById('semestre');
+    const curp = document.getElementById('curp');
+    const edad = document.getElementById('edad');
+    const genero = document.getElementById('genero');
+    const entidadNacimiento = document.getElementById('id_renapo');
+
+    const apellidoPaterno = document.getElementById('apellido_paterno');
+    const apellidoMaterno = document.getElementById('apellido_materno');
+    const nombre = document.getElementById('nombre');
+    const nacionalidad = document.getElementById('nacionalidad');
+    const documento = document.getElementById('id_documento');
+
+    const btnGuardar = document.getElementById('btnGuardar');
+
     let ofertaActual = [];
+    let curpConsultada = false;
+    let curpDisponible = false;
 
     const modalidades = {
         e: 'Escolarizada',
@@ -282,11 +298,48 @@ document.addEventListener('DOMContentLoaded', function () {
         d: 'Discontinuo'
     };
 
+    // VALIDAR CAMPOS OBLIGATORIOS Y ESTADO DEL BOTÓN
+    function actualizarEstadoGuardar() {
+        const camposObligatorios = [
+            entidad,
+            escuela,
+            licenciatura,
+            especialidad,
+            modalidad,
+            turno,
+            semestre,
+            apellidoPaterno,
+            nombre,
+            curp,
+            genero,
+            edad,
+            entidadNacimiento,
+            nacionalidad,
+            documento
+        ];
+
+        const camposCompletos = camposObligatorios.every(campo =>
+            campo.value.trim() !== ''
+        );
+
+        const edadValida = Number(edad.value) > 0;
+
+        btnGuardar.disabled = !(
+            camposCompletos &&
+            edadValida &&
+            curpConsultada &&
+            curpDisponible
+        );
+    }
+
+    // LIMPIAR SELECT
     function limpiarSelect(select, texto) {
         select.innerHTML = `<option value="">${texto}</option>`;
         select.disabled = true;
+        actualizarEstadoGuardar();
     }
 
+    // LLENAR SELECT
     function llenarSelect(select, opciones, texto) {
         limpiarSelect(select, texto);
 
@@ -298,8 +351,10 @@ document.addEventListener('DOMContentLoaded', function () {
         });
 
         select.disabled = opciones.length === 0;
+        actualizarEstadoGuardar();
     }
 
+    // ELIMINAR OPCIONES REPETIDAS
     function opcionesUnicas(datos, campoId, campoNombre) {
         const opciones = new Map();
 
@@ -316,6 +371,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }));
     }
 
+    // CARGAR ESPECIALIDADES
     function cargarEspecialidades() {
         const registros = ofertaActual.filter(registro =>
             String(registro.id_licenciatura) === licenciatura.value
@@ -327,11 +383,16 @@ document.addEventListener('DOMContentLoaded', function () {
 
         llenarSelect(
             especialidad,
-            opcionesUnicas(registros, 'id_especialidad', 'especialidad'),
+            opcionesUnicas(
+                registros,
+                'id_especialidad',
+                'especialidad'
+            ),
             'Seleccione una especialidad'
         );
     }
 
+    // CARGAR MODALIDADES Y TURNOS
     function cargarModalidadTurno() {
         const registros = ofertaActual.filter(registro =>
             String(registro.id_licenciatura) === licenciatura.value &&
@@ -365,6 +426,7 @@ document.addEventListener('DOMContentLoaded', function () {
         );
     }
 
+    // CAMBIO DE ENTIDAD: CARGAR ESCUELAS
     entidad.addEventListener('change', function () {
         limpiarSelect(escuela, 'Cargando escuelas...');
         limpiarSelect(licenciatura, 'Seleccione una licenciatura');
@@ -392,7 +454,11 @@ document.addEventListener('DOMContentLoaded', function () {
                     nombre
                 }));
 
-                llenarSelect(escuela, opciones, 'Seleccione una escuela');
+                llenarSelect(
+                    escuela,
+                    opciones,
+                    'Seleccione una escuela'
+                );
 
                 if (opciones.length === 0) {
                     limpiarSelect(escuela, 'No hay escuelas disponibles');
@@ -404,6 +470,7 @@ document.addEventListener('DOMContentLoaded', function () {
             });
     });
 
+    // CAMBIO DE ESCUELA: CARGAR LICENCIATURAS
     escuela.addEventListener('change', function () {
         limpiarSelect(licenciatura, 'Cargando licenciaturas...');
         limpiarSelect(especialidad, 'Seleccione una especialidad');
@@ -449,7 +516,119 @@ document.addEventListener('DOMContentLoaded', function () {
 
     licenciatura.addEventListener('change', cargarEspecialidades);
     especialidad.addEventListener('change', cargarModalidadTurno);
+
+    // ACTUALIZAR EL BOTÓN CUANDO CAMBIEN LOS CAMPOS
+    const camposParaValidar = [
+        entidad,
+        escuela,
+        licenciatura,
+        especialidad,
+        modalidad,
+        turno,
+        semestre,
+        apellidoPaterno,
+        apellidoMaterno,
+        nombre,
+        genero,
+        edad,
+        entidadNacimiento,
+        nacionalidad,
+        documento
+    ];
+
+    camposParaValidar.forEach(campo => {
+        campo.addEventListener('input', actualizarEstadoGuardar);
+        campo.addEventListener('change', actualizarEstadoGuardar);
+    });
+
+    // SI SE MODIFICA LA CURP, VOLVER A CONSULTARLA
+    curp.addEventListener('input', function () {
+        curpConsultada = false;
+        curpDisponible = false;
+        actualizarEstadoGuardar();
+    });
+
+    // CONSULTAR CURP
+    curp.addEventListener('blur', function () {
+        const valorCurp = this.value.trim().toUpperCase();
+        this.value = valorCurp;
+
+        curpConsultada = false;
+        curpDisponible = false;
+        actualizarEstadoGuardar();
+
+        if (valorCurp.length !== 18) {
+            return;
+        }
+
+        fetch("{{ route('admin.alumnos.curp') }}?curp=" + encodeURIComponent(valorCurp))
+            .then(async response => {
+                const datos = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(
+                        datos.message ||
+                        datos.mensaje ||
+                        'CURP no válida'
+                    );
+                }
+
+                return datos;
+            })
+            .then(datos => {
+                if (!datos.valida) {
+                    curpConsultada = false;
+                    curpDisponible = false;
+                    actualizarEstadoGuardar();
+
+                    alert(datos.mensaje || 'No fue posible validar la CURP.');
+                    return;
+                }
+
+                const alumno = datos.alumno;
+
+                edad.value = alumno.edad ?? '';
+                genero.value = alumno.genero ?? '';
+                entidadNacimiento.value = alumno.id_renapo ?? '';
+
+                if (datos.existe) {
+                    apellidoPaterno.value = alumno.apellido_paterno ?? '';
+                    apellidoMaterno.value = alumno.apellido_materno ?? '';
+                    nombre.value = alumno.nombre ?? '';
+                    nacionalidad.value = alumno.nacionalidad ?? '';
+                    documento.value = alumno.id_documento ?? '';
+
+                    curpConsultada = true;
+                    curpDisponible = false;
+
+                    alert('El alumno ya existe. No se puede registrar nuevamente.');
+                } else {
+                    apellidoPaterno.value = '';
+                    apellidoMaterno.value = '';
+                    nombre.value = '';
+                    nacionalidad.value = '';
+                    documento.value = '';
+
+                    curpConsultada = true;
+                    curpDisponible = true;
+                }
+
+                actualizarEstadoGuardar();
+            })
+            .catch(error => {
+                curpConsultada = false;
+                curpDisponible = false;
+                actualizarEstadoGuardar();
+
+                console.error('Error al consultar CURP:', error);
+                alert(error.message || 'No fue posible consultar la CURP.');
+            });
+    });
+
+    // ESTADO INICIAL
+    actualizarEstadoGuardar();
 });
+
 
 </script>
 @endsection

@@ -176,7 +176,10 @@ Route::post('/alumnos/cambio-escuela/guardar', [AlumnosController::class, 'cambi
 
     // ── Admin (solo nivel 1) ──────────────────────────────────────────────────
     Route::prefix('admin')->name('admin.')->middleware('nivel:1')->group(function () {
-
+        
+        Route::get('/alumnos/curp', [AdminController::class, 'consultaCurpAlumno'])
+        ->name('alumnos.curp');
+        
         // Panel de administración (nivel 1)
         Route::get   ('/',                          [AdminController::class, 'index'])
              ->name('index');
@@ -186,6 +189,8 @@ Route::post('/alumnos/cambio-escuela/guardar', [AlumnosController::class, 'cambi
              ->name('alumnos.escuelas');
         Route::get('/alumnos/oferta', [AdminController::class, 'listaOfertaAlumno'])
              ->name('alumnos.oferta');
+        Route::post('/alumnos/guardar', [AdminController::class, 'guardarAlumno'])
+             ->name('alumnos.guardar');
         Route::get   ('/personal/alta',             [AdminController::class, 'agregaPersonal'])
              ->name('personal.alta');
         Route::get   ('/personal/escuelas',         [AdminController::class, 'listaEscuelas'])
