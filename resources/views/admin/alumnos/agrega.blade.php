@@ -658,7 +658,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 'Accept': 'application/json',
                 'X-Requested-With': 'XMLHttpRequest'
             },
-            body: new FormData(form) // incluye el token @csrf
+            body: new FormData(form) // incluye el token CSRF del formulario
         })
             .then(async response => {
                 let datos = {};
