@@ -690,4 +690,333 @@ for ($i = 1; $i <= 12; $i++) {
             'escuela' => $personal->id_escuela,
         ])->with('success', "Personal actualizado correctamente (CURP: {$personal->curp}).");
     }
+
+    // ── Edición de alumnos ────────────────────────────────────────────
+
+    /**
+     * Muestra el formulario de búsqueda de alumnos para edición.
+     */
+    public function busquedaAlumno(Request $request)
+    {
+        $entidades = DB::table('cat_entidades')
+            ->where('id', '!=', 33)
+            ->orderBy('entidad')
+            ->pluck('entidad', 'id');
+
+        $modalidades = DB::table('cat_modalidades')->orderBy('id')->pluck('modalidad', 'id');
+        $turnos = ['m' => 'Matutino', 'v' => 'Vespertino', 'n' => 'Nocturno', 'd' => 'Discontinuo'];
+        $status = ['i' => 'Inscrito', 'x' => 'No Inscrito', 't' => 'Baja Temporal', 'd' => 'Baja Definitiva'];
+
+        // Periodos disponibles para el filtro "Captura" (actual y tres anteriores).
+        $capturas = [];
+        $anio = (int) substr($this->captura_actual, 0, 4);
+        $periodo = (int) substr($this->captura_actual, -1);
+        for ($i = 0; $i < 4; $i++) {
+            $capturas[$anio . $periodo] = $anio . '-' . $periodo;
+            if ($periodo === 1) { $periodo = 2; $anio--; } else { $periodo = 1; }
+        }
+
+        $entidad_id = $request->integer('entidad');
+        $escuela_id = $request->integer('escuela');
+
+        return view('admin.alumnos.busqueda', compact(
+            'entidades', 'modalidades', 'turnos', 'status', 'capturas',
+            'entidad_id', 'escuela_id'
+        ));
+    }
+
+    /**
+     * Devuelve (AJAX) el fragmento con la lista de alumnos que coinciden con la búsqueda.
+     */
+    public function listaAlumnosEdicion(Request $request)
+    {
+        $escuelaId = $request->integer('id_escuela');
+        if (!$escuelaId) {
+            return response('<p style="padding:20px;text-align:center;color:var(--neutro600);">Seleccione primero una escuela.</p>');
+        }
+
+        $query = DB::table('registros')
+            ->join('alumnos', 'alumnos.numero_identificador', '=', 'registros.nid')
+            ->where('registros.id_escuela', $escuelaId)
+            ->where('registros.status', '!=', 's');
+
+        if ($request->filled('captura')) {
+            $query->where('registros.captura', (int) $request->input('captura'));
+        }
+        foreach ([
+            'id_licenciatura' => 'registros.id_licenciatura',
+            'id_especialidad' => 'registros.id_especialidad',
+            'semestre'        => 'registros.semestre',
+        ] as $campo => $columna) {
+            if ($request->filled($campo)) {
+                $query->where($columna, (int) $request->input($campo));
+            }
+        }
+        foreach ([
+            'modalidad' => 'registros.modalidad',
+            'turno'     => 'registros.turno',
+            'status'    => 'registros.status',
+        ] as $campo => $columna) {
+            if ($request->filled($campo)) {
+                $query->where($columna, $request->input($campo));
+            }
+        }
+        if ($request->filled('grupo')) {
+            $query->where('registros.grupo', strtoupper(trim($request->input('grupo'))));
+        }
+        if ($request->filled('curp')) {
+            $query->where('alumnos.curp', 'like', '%' . strtoupper(trim($request->input('curp'))) . '%');
+        }
+        if ($request->filled('nid')) {
+            $query->where('alumnos.numero_identificador', 'like', '%' . trim($request->input('nid')) . '%');
+        }
+
+        $alumnos = $query
+            ->orderBy('alumnos.apellido_paterno')
+            ->orderBy('alumnos.apellido_materno')
+            ->orderBy('alumnos.nombre')
+            ->get([
+                'alumnos.numero_identificador as nid',
+                'alumnos.apellido_paterno',
+                'alumnos.apellido_materno',
+                'alumnos.nombre',
+                'alumnos.curp',
+                'registros.id as id_registro',
+                'registros.id_licenciatura',
+                'registros.id_especialidad',
+                'registros.modalidad',
+                'registros.turno',
+                'registros.semestre',
+                'registros.grupo',
+                'registros.matricula',
+                'registros.status',
+            ]);
+
+        // Nombres de licenciatura y especialidad para mostrar en la tabla.
+        $licenciaturas = DB::table('cat_licenciaturas')->pluck('licenciatura', 'id');
+        $especialidades = DB::table('cat_especialidades')->pluck('especialidad', 'id');
+
+        return view('admin.alumnos.lista_parcial', compact(
+            'alumnos', 'licenciaturas', 'especialidades', 'escuelaId'
+        ));
+    }
+
+    /**
+     * Muestra el formulario de edición de un alumno (datos personales y de inscripción).
+     */
+    public function editaAlumnoEdicion(Request $request, string $nid)
+    {
+        $alumno = DB::table('alumnos')->where('numero_identificador', $nid)->first();
+        if (!$alumno) {
+            return redirect()->route('admin.alumnos.busqueda')
+                ->with('error', "No se encontró el alumno con NID {$nid}.");
+        }
+
+        $registroQuery = DB::table('registros')->where('nid', $nid);
+        if ($request->filled('registro')) {
+            $registroQuery->where('id', $request->integer('registro'));
+        } else {
+            $registroQuery->orderByDesc('captura')->orderByDesc('id');
+        }
+        $registro = $registroQuery->first();
+
+        if (!$registro) {
+            return redirect()->route('admin.alumnos.busqueda')
+                ->with('error', "El alumno {$nid} no tiene inscripciones registradas.");
+        }
+
+        $escuela = Escuela2::find($registro->id_escuela);
+        $entidad_id = $escuela->id_entidad ?? 0;
+
+        $entidades = DB::table('cat_entidades')->where('id', '!=', 33)->orderBy('entidad')->pluck('entidad', 'id');
+        $entidadesRenapo = DB::table('cat_entidades')->orderBy('entidad')->pluck('entidad', 'id_renapo');
+        $documentos = DB::table('cat_documentos')->orderBy('id')->pluck('documento', 'id');
+        $modalidades = DB::table('cat_modalidades')->orderBy('id')->pluck('modalidad', 'id');
+        $turnos = ['m' => 'Matutino', 'v' => 'Vespertino', 'n' => 'Nocturno', 'd' => 'Discontinuo'];
+        $status = ['i' => 'Inscrito', 'x' => 'No Inscrito', 't' => 'Baja Temporal', 'd' => 'Baja Definitiva'];
+
+        // Oferta de la escuela para los selectores de licenciatura/especialidad/modalidad/turno.
+        $oferta = DB::table('escuelas_licenciaturas')
+            ->join('cat_licenciaturas', 'cat_licenciaturas.id', '=', 'escuelas_licenciaturas.id_licenciatura')
+            ->join('cat_especialidades', 'cat_especialidades.id', '=', 'escuelas_licenciaturas.id_especialidad')
+            ->where('escuelas_licenciaturas.id_escuela', $registro->id_escuela)
+            ->select(
+                'escuelas_licenciaturas.id_licenciatura',
+                'cat_licenciaturas.licenciatura',
+                'escuelas_licenciaturas.id_especialidad',
+                'cat_especialidades.especialidad',
+                'escuelas_licenciaturas.modalidad',
+                'escuelas_licenciaturas.turno'
+            )
+            ->distinct()
+            ->get();
+
+        $licenciaturas = $oferta->pluck('licenciatura', 'id_licenciatura')->unique();
+        $especialidades = $oferta->pluck('especialidad', 'id_especialidad')->unique();
+
+        $semestres = [];
+        $paridad = ((int) $this->captura_actual) % 2;
+        for ($i = 1; $i <= 13; $i++) {
+            if (($i % 2) === $paridad) {
+                $semestres[$i] = $i;
+            }
+        }
+        $semestres[$registro->semestre] = $registro->semestre;
+        ksort($semestres);
+
+        return view('admin.alumnos.edita', compact(
+            'alumno', 'registro', 'escuela', 'entidad_id', 'entidades', 'entidadesRenapo',
+            'documentos', 'modalidades', 'turnos', 'status', 'licenciaturas',
+            'especialidades', 'semestres'
+        ));
+    }
+
+    /**
+     * Guarda los cambios de la edición de un alumno.
+     */
+    public function actualizaAlumno(Request $request)
+    {
+        $request->merge([
+            'curp'             => strtoupper(trim((string) $request->input('curp', ''))),
+            'apellido_paterno' => strtoupper(trim((string) $request->input('apellido_paterno', ''))),
+            'apellido_materno' => strtoupper(trim((string) $request->input('apellido_materno', ''))),
+            'nombre'           => strtoupper(trim((string) $request->input('nombre', ''))),
+            'grupo'            => strtoupper(trim((string) $request->input('grupo', ''))),
+            'matricula'        => strtoupper(trim((string) $request->input('matricula', ''))),
+        ]);
+
+        $datos = $request->validate([
+            'nid'              => ['required', 'string', 'max:10'],
+            'id_registro'      => ['required', 'integer'],
+            'apellido_paterno' => ['required', 'string', 'max:60'],
+            'apellido_materno' => ['nullable', 'string', 'max:60'],
+            'nombre'           => ['required', 'string', 'max:60'],
+            'curp'             => ['required', 'string', 'size:18',
+                                   'regex:/^[A-Z]{4}\d{6}[HMX][A-Z]{2}[B-DF-HJ-NP-TV-Z]{3}[A-Z0-9]\d$/'],
+            'genero'           => ['required', 'in:H,M,X'],
+            'edad'             => ['required', 'integer', 'between:1,99'],
+            'id_renapo'        => ['required', 'string', 'exists:cat_entidades,id_renapo'],
+            'nacionalidad'     => ['required', 'in:m,e'],
+            'id_documento'     => ['required', 'integer', 'exists:cat_documentos,id'],
+            'id_licenciatura'  => ['required', 'integer'],
+            'id_especialidad'  => ['required', 'integer'],
+            'modalidad'        => ['required', 'string', 'size:1'],
+            'turno'            => ['required', 'string', 'size:1'],
+            'semestre'         => ['required', 'integer', 'between:1,13'],
+            'grupo'            => ['nullable', 'string', 'max:5'],
+            'matricula'        => ['nullable', 'string', 'max:14'],
+            'status'           => ['required', 'in:i,x,t,d'],
+        ], [
+            'required' => 'El campo :attribute es obligatorio.',
+            'integer'  => 'El campo :attribute debe ser un número.',
+            'string'   => 'El campo :attribute no es válido.',
+            'max'      => 'El campo :attribute no debe exceder :max caracteres.',
+            'size'     => 'El campo :attribute debe tener :size caracteres.',
+            'between'  => 'El campo :attribute debe estar entre :min y :max.',
+            'in'       => 'El valor de :attribute no es válido.',
+            'exists'   => 'El valor de :attribute no existe en el catálogo.',
+            'regex'    => 'El formato de :attribute no es válido.',
+        ], [
+            'nid' => 'NID', 'curp' => 'CURP', 'nombre' => 'nombre', 'edad' => 'edad',
+            'semestre' => 'semestre', 'grupo' => 'grupo', 'modalidad' => 'modalidad',
+            'turno' => 'turno', 'status' => 'estatus', 'nacionalidad' => 'nacionalidad',
+            'apellido_paterno' => 'primer apellido', 'apellido_materno' => 'segundo apellido',
+            'id_renapo' => 'entidad de nacimiento', 'id_documento' => 'documentación',
+            'id_licenciatura' => 'licenciatura', 'id_especialidad' => 'especialidad',
+            'matricula' => 'matrícula', 'genero' => 'género',
+        ]);
+
+        $alumno = DB::table('alumnos')->where('numero_identificador', $datos['nid'])->first();
+        if (!$alumno) {
+            return back()->withErrors(['nid' => "No se encontró el alumno con NID {$datos['nid']}."])->withInput();
+        }
+
+        $registro = DB::table('registros')->where('id', $datos['id_registro'])->first();
+        if (!$registro) {
+            return back()->withErrors(['id_registro' => 'No se encontró la inscripción del alumno.'])->withInput();
+        }
+
+        if (!Alumno::validaNombreStatic($datos)) {
+            return back()->withErrors([
+                'nombre' => 'El nombre o los apellidos contienen caracteres no permitidos (solo letras, Ñ y espacios).',
+            ])->withInput();
+        }
+
+        if (!Alumno::validaEntidadStatic($datos)) {
+            return back()->withErrors([
+                'id_renapo' => 'La entidad de nacimiento no coincide con la de la CURP.',
+            ])->withInput();
+        }
+
+        $infoCurp = Alumno::infoCurpStatic($datos['curp'], $this->captura_actual);
+        if ($infoCurp['entidad'] === 0) {
+            return back()->withErrors([
+                'curp' => 'No fue posible obtener la fecha/entidad de nacimiento de la CURP.',
+            ])->withInput();
+        }
+
+        $curpOcupada = DB::table('alumnos')
+            ->where('curp', $datos['curp'])
+            ->where('id', '!=', $alumno->id)
+            ->exists();
+        if ($curpOcupada) {
+            return back()->withErrors([
+                'curp' => "Ya existe otro alumno registrado con la CURP {$datos['curp']}.",
+            ])->withInput();
+        }
+
+        $matricula = $datos['matricula'] ?? '';
+        if ($matricula !== '') {
+            $matriculaOcupada = DB::table('registros')
+                ->where('id_escuela', $registro->id_escuela)
+                ->where('matricula', $matricula)
+                ->where('captura', $registro->captura)
+                ->where('id', '!=', $registro->id)
+                ->exists();
+            if ($matriculaOcupada) {
+                return back()->withErrors([
+                    'matricula' => "La matrícula {$matricula} ya está asignada a otro alumno de esta escuela.",
+                ])->withInput();
+            }
+        }
+
+        try {
+            DB::table('alumnos')->where('id', $alumno->id)->update([
+                'apellido_paterno'   => $datos['apellido_paterno'],
+                'apellido_materno'   => $datos['apellido_materno'] ?? '',
+                'nombre'             => $datos['nombre'],
+                'curp'               => $datos['curp'],
+                'edad'               => $datos['edad'],
+                'genero'             => $datos['genero'],
+                'fecha_nacimiento'   => $infoCurp['anio'] . '-' . $infoCurp['mes'] . '-' . $infoCurp['dia'],
+                'entidad_nacimiento' => $infoCurp['entidad'],
+                'nacionalidad'       => $datos['nacionalidad'],
+                'id_documento'       => $datos['id_documento'],
+            ]);
+
+            DB::table('registros')->where('id', $registro->id)->update([
+                'id_licenciatura'     => $datos['id_licenciatura'],
+                'id_especialidad'     => $datos['id_especialidad'],
+                'modalidad'           => $datos['modalidad'],
+                'turno'               => $datos['turno'],
+                'semestre'            => $datos['semestre'],
+                'grupo'               => $datos['grupo'] ?? '',
+                'matricula'           => $matricula !== '' ? $matricula : null,
+                'status'              => $datos['status'],
+                'fecha_actualizacion' => now()->toDateString(),
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return back()->withErrors([
+                'general' => 'No se pudo guardar la edición. Inténtelo de nuevo.',
+            ])->withInput();
+        }
+
+        return redirect()->route('admin.alumnos.busqueda', [
+            'entidad' => $request->input('id_entidad', 0),
+            'escuela' => $registro->id_escuela,
+        ])->with('success', "Alumno actualizado correctamente (NID: {$datos['nid']}).");
+    }
+
 }
