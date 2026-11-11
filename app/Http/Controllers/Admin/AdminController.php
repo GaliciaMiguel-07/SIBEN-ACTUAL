@@ -12,6 +12,7 @@ use App\Models\Personal;
 use App\Models\Docente;
 use App\Models\NivelEstudio;
 use App\Models\AreaConocimiento;
+use App\Models\Alumno;
 use Illuminate\Support\Facades\DB;
 
 class AdminController extends sibenController
@@ -58,7 +59,18 @@ public function agregaAlumno()
         ->orderBy('id')
         ->pluck('modalidad', 'id');
 
-    $semestres = range(1, 8);
+    $periodo = (int) substr((string) $this->captura_actual, -1);
+
+$semestres = [];
+
+for ($i = 1; $i <= 12; $i++) {
+    if (
+        ($periodo === 1 && $i % 2 === 0) ||
+        ($periodo === 2 && $i % 2 !== 0)
+    ) {
+        $semestres[$i] = $i;
+    }
+}
 
     $documentos = DB::table('cat_documentos')
         ->orderBy('id')
@@ -115,6 +127,95 @@ public function agregaAlumno()
             ->get();
 
         return response()->json($oferta);
+    }
+
+    /**
+     * Consulta una CURP y obtiene los datos personales del alumno.
+     */
+    public function consultaCurpAlumno(Request $request)
+    {
+        $request->merge([
+            'curp' => strtoupper(trim($request->input('curp', '')))
+        ]);
+
+        $datos = $request->validate([
+            'curp' => [
+                'required',
+                'string',
+                'size:18',
+                'regex:/^[A-Z]{4}\d{6}[HMX][A-Z]{2}[B-DF-HJ-NP-TV-Z]{3}[A-Z0-9]\d$/'
+            ],
+        ]);
+
+        $curp = $datos['curp'];
+
+        // Obtener información derivada de la CURP.
+        $datosCurp = Alumno::infoCurpStatic(
+            $curp,
+            $this->captura_actual
+        );
+
+        if ($datosCurp['entidad'] === 0) {
+            return response()->json([
+                'valida' => false,
+                'mensaje' => 'No fue posible obtener la información de la CURP.'
+            ], 422);
+        }
+
+        // Buscar si el alumno ya existe.
+        $alumno = DB::table('alumnos')
+            ->where('curp', $curp)
+            ->first([
+                'apellido_paterno',
+                'apellido_materno',
+                'nombre',
+                'curp',
+                'edad',
+                'genero',
+                'fecha_nacimiento',
+                'entidad_nacimiento',
+                'nacionalidad',
+                'id_documento',
+            ]);
+
+        if ($alumno) {
+            $idRenapo = DB::table('cat_entidades')
+                ->where('id', $alumno->entidad_nacimiento)
+                ->value('id_renapo');
+
+            return response()->json([
+                'valida' => true,
+                'existe' => true,
+                'mensaje' => 'El alumno ya existe en el sistema.',
+                'alumno' => [
+                    'apellido_paterno' => $alumno->apellido_paterno,
+                    'apellido_materno' => $alumno->apellido_materno,
+                    'nombre' => $alumno->nombre,
+                    'curp' => $alumno->curp,
+                    'edad' => $alumno->edad,
+                    'genero' => $alumno->genero,
+                    'fecha_nacimiento' => $alumno->fecha_nacimiento,
+                    'id_renapo' => $idRenapo,
+                    'nacionalidad' => $alumno->nacionalidad,
+                    'id_documento' => $alumno->id_documento,
+                ]
+            ]);
+        }
+
+        // CURP nueva: devolver solamente los datos que pueden derivarse.
+        return response()->json([
+            'valida' => true,
+            'existe' => false,
+            'mensaje' => 'CURP disponible para registrar.',
+            'alumno' => [
+                'curp' => $curp,
+                'fecha_nacimiento' => $datosCurp['anio'] . '-' .
+                    $datosCurp['mes'] . '-' . $datosCurp['dia'],
+                'edad' => $datosCurp['edad'],
+                'genero' => $datosCurp['genero'],
+                'id_renapo' => $datosCurp['renapo'],
+            ]
+        ]);
     }
 
     // ── Paso 2: Alta de personal ──────────────────────────────────────
