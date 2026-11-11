@@ -40,7 +40,7 @@
         @endif
 
         {{-- Formulario --}}
-        <form id="formAltaAlumno" method="POST">
+        <form id="formAltaAlumno" method="POST" action="{{ route('admin.alumnos.guardar') }}">
 
             @csrf
 
@@ -144,7 +144,7 @@
                         <label for="matricula">Matrícula:</label>
                         <input type="text" name="matricula" id="matricula"
                                value="{{ old('matricula') }}"
-                               maxlength="20"
+                               maxlength="14"
                                onblur="this.value = this.value.trim().toUpperCase();"
                                style="width: 100%; padding: 8px; box-sizing: border-box;">
                     </div>
@@ -248,8 +248,10 @@
                 </div>
             </div>
 
-            {{-- Botón pendiente de conectar con el controlador --}}
-            <button type="button" id="btnGuardar" class="boton__primario" disabled>
+            {{-- Errores devueltos por el servidor al guardar --}}
+            <div id="erroresGuardar" style="display: none; background-color: #f8d7da; color: #721c24; padding: 12px 16px; border-radius: 4px; margin-bottom: 16px;"></div>
+
+            <button type="submit" id="btnGuardar" class="boton__primario" disabled>
                 Guardar
             </button>
 
@@ -603,12 +605,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
                     alert('El alumno ya existe. No se puede registrar nuevamente.');
                 } else {
-                    apellidoPaterno.value = '';
-                    apellidoMaterno.value = '';
-                    nombre.value = '';
-                    nacionalidad.value = '';
-                    documento.value = '';
-
+                    // Mantener los datos ya capturados por el usuario cuando la CURP es nueva.
+                    // Solo se valida disponibilidad y se conservan nombre/apellidos intactos.
                     curpConsultada = true;
                     curpDisponible = true;
                 }
@@ -622,6 +620,71 @@ document.addEventListener('DOMContentLoaded', function () {
 
                 console.error('Error al consultar CURP:', error);
                 alert(error.message || 'No fue posible consultar la CURP.');
+            });
+    });
+
+    // GUARDAR ALUMNO
+    const form = document.getElementById('formAltaAlumno');
+    const cajaErrores = document.getElementById('erroresGuardar');
+
+    function mostrarErrores(mensajes) {
+        cajaErrores.innerHTML = '';
+        mensajes.forEach(mensaje => {
+            const linea = document.createElement('div');
+            linea.textContent = '• ' + mensaje;
+            cajaErrores.appendChild(linea);
+        });
+        cajaErrores.style.display = mensajes.length ? 'block' : 'none';
+        if (mensajes.length) {
+            cajaErrores.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }
+
+    form.addEventListener('submit', function (evento) {
+        evento.preventDefault();
+        actualizarEstadoGuardar();
+        if (btnGuardar.disabled) {
+            return;
+        }
+
+        mostrarErrores([]);
+        btnGuardar.disabled = true;
+        const textoOriginal = btnGuardar.textContent;
+        btnGuardar.textContent = 'Guardando...';
+
+        fetch(form.action, {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: new FormData(form) // incluye el token CSRF del formulario
+        })
+            .then(async response => {
+                let datos = {};
+                try { datos = await response.json(); } catch (e) {}
+
+                if (response.ok && datos.ok) {
+                    window.location.href = datos.redirect || window.location.href;
+                    return;
+                }
+
+                if (response.status === 419) {
+                    mostrarErrores(['La sesión expiró. Recargue la página e inténtelo de nuevo.']);
+                } else if (datos.errors) {
+                    mostrarErrores(Object.values(datos.errors).flat());
+                } else {
+                    mostrarErrores([datos.mensaje || datos.message || 'No se pudo guardar el alumno.']);
+                    if (datos.detalle) console.error(datos.detalle);
+                }
+            })
+            .catch(error => {
+                console.error('Error al guardar alumno:', error);
+                mostrarErrores(['Error de conexión al guardar el alumno.']);
+            })
+            .finally(() => {
+                btnGuardar.textContent = textoOriginal;
+                actualizarEstadoGuardar();
             });
     });
 
