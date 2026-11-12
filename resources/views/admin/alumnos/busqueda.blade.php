@@ -150,7 +150,7 @@
 
         <div id="contenedorLista" style="margin-top: 20px;">
             <p style="color: var(--neutro600); text-align: center; padding: 20px;">
-                Seleccione una escuela y presione Buscar para ver a sus alumnos.
+                Seleccione una escuela, o escriba solo el CURP o el NID del alumno, y presione Buscar.
             </p>
         </div>
 
@@ -321,8 +321,10 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function buscar() {
-        if (!escuela.value) {
-            contenedor.innerHTML = '<p style="color:#721c24;background:#f8d7da;padding:12px 16px;border:1px solid #f5c6cb;border-radius:4px;">Seleccione primero una escuela.</p>';
+        const curpTexto = document.getElementById('curp').value.trim();
+        const nidTexto  = document.getElementById('nid').value.trim();
+        if (!escuela.value && curpTexto.length < 4 && nidTexto.length < 4) {
+            contenedor.innerHTML = '<p style="color:#721c24;background:#f8d7da;padding:12px 16px;border:1px solid #f5c6cb;border-radius:4px;">Seleccione una escuela, o escriba el CURP o el NID del alumno (al menos 4 caracteres).</p>';
             return;
         }
 

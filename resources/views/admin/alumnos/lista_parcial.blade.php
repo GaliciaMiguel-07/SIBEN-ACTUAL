@@ -17,6 +17,10 @@
                     <th style="padding: 10px 12px; color: var(--neutro800); font-weight: 600;">Segundo Apellido</th>
                     <th style="padding: 10px 12px; color: var(--neutro800); font-weight: 600;">Nombre(s)</th>
                     <th style="padding: 10px 12px; color: var(--neutro800); font-weight: 600;">CURP</th>
+                    @if($porIdentificador ?? false)
+                        <th style="padding: 10px 12px; color: var(--neutro800); font-weight: 600;">Escuela</th>
+                        <th style="padding: 10px 12px; color: var(--neutro800); font-weight: 600; text-align: center;">Periodo</th>
+                    @endif
                     <th style="padding: 10px 12px; color: var(--neutro800); font-weight: 600;">Licenciatura</th>
                     <th style="padding: 10px 12px; color: var(--neutro800); font-weight: 600; text-align: center;">Sem.</th>
                     <th style="padding: 10px 12px; color: var(--neutro800); font-weight: 600; text-align: center;">Grupo</th>
@@ -33,6 +37,12 @@
                         <td style="padding: 10px 12px; color: var(--neutro800); vertical-align: middle;">{{ $a->apellido_materno }}</td>
                         <td style="padding: 10px 12px; color: var(--neutro800); vertical-align: middle;">{{ $a->nombre }}</td>
                         <td style="padding: 10px 12px; color: var(--neutro800); vertical-align: middle;">{{ $a->curp }}</td>
+                        @if($porIdentificador ?? false)
+                            <td style="padding: 10px 12px; color: var(--neutro800); vertical-align: middle;">{{ $a->escuela }}</td>
+                            <td style="padding: 10px 12px; color: var(--neutro800); text-align: center; vertical-align: middle;">
+                                {{ substr((string) $a->captura, 0, 4) }}-{{ substr((string) $a->captura, -1) }}
+                            </td>
+                        @endif
                         <td style="padding: 10px 12px; color: var(--neutro800); vertical-align: middle;">
                             {{ $licenciaturas[$a->id_licenciatura] ?? $a->id_licenciatura }}
                         </td>
