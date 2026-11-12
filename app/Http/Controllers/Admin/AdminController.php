@@ -731,16 +731,28 @@ for ($i = 1; $i <= 12; $i++) {
     public function listaAlumnosEdicion(Request $request)
     {
         $escuelaId = $request->integer('id_escuela');
-        if (!$escuelaId) {
-            return response('<p style="padding:20px;text-align:center;color:var(--neutro600);">Seleccione primero una escuela.</p>');
+        $curp = strtoupper(trim((string) $request->input('curp', '')));
+        $nid  = trim((string) $request->input('nid', ''));
+
+        // Sin escuela solo se permite buscar por CURP o NID (mínimo 4 caracteres para no traer listas enormes).
+        $porIdentificador = !$escuelaId;
+        if ($porIdentificador && mb_strlen($curp) < 4 && mb_strlen($nid) < 4) {
+            return response('<p style="color:#721c24;background:#f8d7da;padding:12px 16px;border:1px solid #f5c6cb;border-radius:4px;">Seleccione una escuela, o escriba el CURP o el NID del alumno (al menos 4 caracteres).</p>');
         }
 
+        // Solo se muestran alumnos de escuelas del módulo del usuario.
         $query = DB::table('registros')
             ->join('alumnos', 'alumnos.numero_identificador', '=', 'registros.nid')
-            ->where('registros.id_escuela', $escuelaId)
+            ->join('escuelas2', 'escuelas2.id', '=', 'registros.id_escuela')
+            ->where('escuelas2.modulo', auth()->user()->modulo)
             ->where('registros.status', '!=', 's');
 
-        if ($request->filled('captura')) {
+        if ($escuelaId) {
+            $query->where('registros.id_escuela', $escuelaId);
+        }
+
+        // Al buscar por CURP/NID sin escuela se muestran todos los periodos del alumno.
+        if (!$porIdentificador && $request->filled('captura')) {
             $query->where('registros.captura', (int) $request->input('captura'));
         }
         foreach ([
@@ -764,11 +776,15 @@ for ($i = 1; $i <= 12; $i++) {
         if ($request->filled('grupo')) {
             $query->where('registros.grupo', strtoupper(trim($request->input('grupo'))));
         }
-        if ($request->filled('curp')) {
-            $query->where('alumnos.curp', 'like', '%' . strtoupper(trim($request->input('curp'))) . '%');
+        if ($curp !== '') {
+            $query->where('alumnos.curp', 'like', '%' . $curp . '%');
         }
-        if ($request->filled('nid')) {
-            $query->where('alumnos.numero_identificador', 'like', '%' . trim($request->input('nid')) . '%');
+        if ($nid !== '') {
+            $query->where('alumnos.numero_identificador', 'like', '%' . $nid . '%');
+        }
+
+        if ($porIdentificador) {
+            $query->limit(200);
         }
 
         $alumnos = $query
@@ -781,6 +797,8 @@ for ($i = 1; $i <= 12; $i++) {
                 'alumnos.apellido_materno',
                 'alumnos.nombre',
                 'alumnos.curp',
+                'escuelas2.escuela',
+                'registros.captura',
                 'registros.id as id_registro',
                 'registros.id_licenciatura',
                 'registros.id_especialidad',
@@ -797,7 +815,7 @@ for ($i = 1; $i <= 12; $i++) {
         $especialidades = DB::table('cat_especialidades')->pluck('especialidad', 'id');
 
         return view('admin.alumnos.lista_parcial', compact(
-            'alumnos', 'licenciaturas', 'especialidades', 'escuelaId'
+            'alumnos', 'licenciaturas', 'especialidades', 'escuelaId', 'porIdentificador'
         ));
     }
 
