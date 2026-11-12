@@ -191,6 +191,16 @@ Route::post('/alumnos/cambio-escuela/guardar', [AlumnosController::class, 'cambi
              ->name('alumnos.oferta');
         Route::post('/alumnos/guardar', [AdminController::class, 'guardarAlumno'])
              ->name('alumnos.guardar');
+
+        // Edición de alumnos
+        Route::get('/alumnos/busqueda', [AdminController::class, 'busquedaAlumno'])
+             ->name('alumnos.busqueda');
+        Route::get('/alumnos/lista', [AdminController::class, 'listaAlumnosEdicion'])
+             ->name('alumnos.lista');
+        Route::get('/alumnos/editar/{nid}', [AdminController::class, 'editaAlumnoEdicion'])
+             ->name('alumnos.editar');
+        Route::post('/alumnos/actualizar', [AdminController::class, 'actualizaAlumno'])
+             ->name('alumnos.actualizar');
         Route::get   ('/personal/alta',             [AdminController::class, 'agregaPersonal'])
              ->name('personal.alta');
         Route::get   ('/personal/escuelas',         [AdminController::class, 'listaEscuelas'])
