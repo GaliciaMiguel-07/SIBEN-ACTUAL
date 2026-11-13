@@ -219,6 +219,8 @@ Route::post('/alumnos/cambio-escuela/guardar', [AlumnosController::class, 'cambi
              ->name('usuarios.update');
         Route::patch ('/usuarios/{usuario}/status', [UsuarioController::class, 'toggleStatus'])
              ->name('usuarios.toggle');
+        Route::patch ('/usuarios/status-masivo', [UsuarioController::class, 'toggleStatusMasivo'])
+             ->name('usuarios.toggle.masivo');
         Route::patch ('/usuarios/{usuario}/nombre', [UsuarioController::class, 'cambiarNombre'])
              ->name('usuarios.nombre');
         Route::patch ('/usuarios/{usuario}/2fa',    [UsuarioController::class, 'reset2fa'])

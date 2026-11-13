@@ -91,7 +91,7 @@
     @endif
 
     <!-- Banner de impersonación -->
-    @if (auth()->check() && auth()->user()->impersonating_user_id)
+    @if (auth()->check() && session()->has('suplantacion_admin_id'))
         <div style="background: #fff3cd; border: 1px solid #ffc107; padding: 8px 15px; text-align: center; font-size: 13px; font-weight: bold; color: #856404;">
             ⚠️ Estás operando como <strong>{{ auth()->user()->id_usuario }}</strong>.
             &nbsp;

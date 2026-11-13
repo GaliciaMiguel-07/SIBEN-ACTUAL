@@ -144,6 +144,51 @@ class UsuarioController extends sibenController
     }
 
     /**
+     * Botón masivo: activa o desactiva los usuarios filtrados (nunca nivel 1).
+     */
+    public function toggleStatusMasivo(Request $request): RedirectResponse
+    {
+        $admin = auth()->user();
+
+        if ((int) $admin->nivel !== 1) {
+            return back()->with('error', 'No tienes permisos para esta acción.');
+        }
+
+        $accion  = (string) $request->input('accion', '');
+        $entidad = (string) $request->input('entidad', '');
+        $buscar  = trim((string) $request->input('buscar', ''));
+
+        if (!in_array($accion, ['activar', 'desactivar'], true)) {
+            return back()->with('error', 'Acción inválida para cambio masivo.');
+        }
+
+        $statusObjetivo = $accion === 'activar' ? 'a' : 'x';
+
+        $query = Usuario::query()
+            ->where('modulo', $admin->modulo)
+            ->where('nivel', '!=', 1);
+
+        if ($entidad === 'NE') {
+            $query->where('nivel', 2);
+        } elseif ($entidad !== '') {
+            $query->where('id_renapo', $entidad);
+        }
+
+        if ($buscar !== '') {
+            $query->where('id_usuario', 'like', '%' . $buscar . '%');
+        }
+
+        $afectados = $query->where('status', '!=', $statusObjetivo)
+            ->update(['status' => $statusObjetivo]);
+
+        $mensaje = $accion === 'activar' ? 'activados' : 'desactivados';
+
+        return redirect()
+            ->route('admin.usuarios.index', $request->only(['entidad', 'buscar']))
+            ->with('exito', "Se $mensaje $afectados usuario(s) del filtro actual.");
+    }
+
+    /**
      * Botón "Desactivar 2FA": deja en NULL google2fa_secret para que el usuario
      * vuelva a configurar su segundo factor con el QR en el siguiente inicio de sesión.
      */

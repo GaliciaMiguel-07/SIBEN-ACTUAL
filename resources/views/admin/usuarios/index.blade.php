@@ -45,8 +45,8 @@
         @endif
 
         {{-- Filtro por entidad y búsqueda por nombre de usuario --}}
-        <form method="GET" action="{{ route('admin.usuarios.index') }}"
-              style="display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 24px;">
+        <form id="form-filtros-usuarios" method="GET" action="{{ route('admin.usuarios.index') }}"
+              style="display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 14px;">
 
             <div>
                 <label for="entidad" style="display: block; font-size: 0.9rem; color: var(--neutro800); font-weight: 600; margin-bottom: 6px;">Entidad:</label>
@@ -80,6 +80,34 @@
 
         </form>
 
+        <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 24px;">
+            <form method="POST" action="{{ route('admin.usuarios.toggle.masivo') }}" style="margin: 0;">
+                @csrf
+                @method('PATCH')
+                <input type="hidden" name="accion" value="activar">
+                <input type="hidden" name="entidad" value="{{ $entidad }}">
+                <input type="hidden" name="buscar" value="{{ $buscar }}">
+                <button type="submit" class="boton__secundario"
+                        style="padding: 7px 16px; font-size: 0.85rem;"
+                        onclick="return confirm('¿Activar a todos los usuarios mostrados en el filtro actual?')">
+                    Activar todos
+                </button>
+            </form>
+
+            <form method="POST" action="{{ route('admin.usuarios.toggle.masivo') }}" style="margin: 0;">
+                @csrf
+                @method('PATCH')
+                <input type="hidden" name="accion" value="desactivar">
+                <input type="hidden" name="entidad" value="{{ $entidad }}">
+                <input type="hidden" name="buscar" value="{{ $buscar }}">
+                <button type="submit" class="boton__secundario"
+                        style="padding: 7px 16px; font-size: 0.85rem;"
+                        onclick="return confirm('¿Desactivar a todos los usuarios mostrados en el filtro actual? (Nunca se tocan cuentas nivel 1)')">
+                    Desactivar todos
+                </button>
+            </form>
+        </div>
+
         <div style="margin-bottom: 12px; color: var(--neutro700); font-size: 0.9rem;">
             {{ $usuarios->total() }} {{ $usuarios->total() === 1 ? 'usuario' : 'usuarios' }}
         </div>
@@ -110,23 +138,28 @@
                                 </div>
                             </td>
 
-                            {{-- Nombre y correo editables con el botón Cambiar --}}
+                            {{-- Nombre y correo: en panel admin (nivel 1) solo lectura, sin botón Cambiar --}}
                             <td style="padding: 10px 12px; vertical-align: top;">
-                                <form method="POST" action="{{ route('admin.usuarios.nombre', $u->id) }}" style="margin: 0;">
-                                    @csrf
-                                    @method('PATCH')
-                                    <input type="text" name="nombre" value="{{ $u->nombre }}" maxlength="255"
-                                           aria-label="Nombre de {{ $u->id_usuario }}"
-                                           style="width: 100%; min-width: 260px; padding: 6px 10px; border: 1px solid var(--neutro400); border-radius: 4px; font-size: 0.85rem; box-sizing: border-box; margin-bottom: 6px;">
-                                    <input type="email" name="correo_electronico" value="{{ $u->correo_electronico }}" maxlength="128"
-                                           aria-label="Correo de {{ $u->id_usuario }}"
-                                           style="width: 100%; min-width: 260px; padding: 6px 10px; border: 1px solid var(--neutro400); border-radius: 4px; font-size: 0.85rem; box-sizing: border-box; margin-bottom: 6px;">
-                                    <button type="submit" class="boton__secundario"
-                                            style="padding: 5px 18px; font-size: 0.8rem; cursor: pointer;"
-                                            onclick="return confirm('¿Guardar los cambios de {{ $u->id_usuario }}?')">
-                                        Cambiar
-                                    </button>
-                                </form>
+                                @if ((int) auth()->user()->nivel === 1)
+                                    <div style="font-weight: 600; color: var(--neutro800);">{{ $u->nombre }}</div>
+                                    <div style="font-size: 0.8rem; color: var(--neutro600);">{{ $u->correo_electronico !== '' ? $u->correo_electronico : '-' }}</div>
+                                @else
+                                    <form method="POST" action="{{ route('admin.usuarios.nombre', $u->id) }}" style="margin: 0;">
+                                        @csrf
+                                        @method('PATCH')
+                                        <input type="text" name="nombre" value="{{ $u->nombre }}" maxlength="255"
+                                               aria-label="Nombre de {{ $u->id_usuario }}"
+                                               style="width: 100%; min-width: 260px; padding: 6px 10px; border: 1px solid var(--neutro400); border-radius: 4px; font-size: 0.85rem; box-sizing: border-box; margin-bottom: 6px;">
+                                        <input type="email" name="correo_electronico" value="{{ $u->correo_electronico }}" maxlength="128"
+                                               aria-label="Correo de {{ $u->id_usuario }}"
+                                               style="width: 100%; min-width: 260px; padding: 6px 10px; border: 1px solid var(--neutro400); border-radius: 4px; font-size: 0.85rem; box-sizing: border-box; margin-bottom: 6px;">
+                                        <button type="submit" class="boton__secundario"
+                                                style="padding: 5px 18px; font-size: 0.8rem; cursor: pointer;"
+                                                onclick="return confirm('¿Guardar los cambios de {{ $u->id_usuario }}?')">
+                                            Cambiar
+                                        </button>
+                                    </form>
+                                @endif
                             </td>
 
                             {{-- Activar / Desactivar --}}
@@ -261,4 +294,29 @@
 
 @push('scripts')
 <script src="https://framework-gb.cdn.gob.mx/snd/v1.1.0/snd.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var entidad = document.getElementById('entidad');
+        var formFiltros = document.getElementById('form-filtros-usuarios');
+
+        if (!entidad || !formFiltros) {
+            return;
+        }
+
+        var buscarAplicado = @json($buscar);
+        var urlBase = @json(route('admin.usuarios.index'));
+
+        entidad.addEventListener('change', function () {
+            var params = new URLSearchParams();
+            if (entidad.value !== '') {
+                params.set('entidad', entidad.value);
+            }
+            if (buscarAplicado !== '') {
+                params.set('buscar', buscarAplicado);
+            }
+
+            window.location.href = urlBase + (params.toString() ? ('?' + params.toString()) : '');
+        });
+    });
+</script>
 @endpush

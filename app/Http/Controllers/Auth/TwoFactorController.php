@@ -61,10 +61,8 @@ class TwoFactorController extends sibenController
         $request->session()->regenerate();
         session()->forget(['2fa_pending_user', '2fa_setup_required', '2fa_remember']);
 
-        if ($usuario->impersonating_user_id) {
-            $usuario->impersonating_user_id = null;
-            $usuario->save();
-        }
+        // Si venía de una suplantación previa, limpiamos la referencia de sesión.
+        $request->session()->forget(['suplantacion_admin_id', 'suplantacion_admin_usuario']);
 
         return redirect()->route('dashboard');
     }
@@ -146,10 +144,7 @@ class TwoFactorController extends sibenController
             $request->session()->regenerate();
             session()->forget(['2fa_pending_user', '2fa_setup_required', '2fa_remember']);
 
-            if ($usuario->impersonating_user_id) {
-                $usuario->impersonating_user_id = null;
-                $usuario->save();
-            }
+            $request->session()->forget(['suplantacion_admin_id', 'suplantacion_admin_usuario']);
 
             return redirect()->route('dashboard')->with('ok', '2FA activado correctamente.');
         }
@@ -177,8 +172,10 @@ class TwoFactorController extends sibenController
      */
     public function impersonate(Request $request, $usuarioId)
     {
+        $admin = auth()->user();
+
         // Solo admins (nivel 1) pueden suplantar
-        if (auth()->user()->nivel !== 1) {
+        if ((int) ($admin->nivel ?? 0) !== 1) {
             return redirect()->route('dashboard')
                 ->with('error', 'No tienes permisos para esta acción.');
         }
@@ -191,18 +188,23 @@ class TwoFactorController extends sibenController
         }
 
         // No se puede suplantar la propia cuenta
-        if ($targetUser->id === auth()->id()) {
+        if ((int) $targetUser->id === (int) auth()->id()) {
             return redirect()->route('admin.usuarios.index')
                 ->with('error', 'No puede entrar como su propia cuenta.');
         }
 
-        // Guardar el ID del admin original en el perfil del usuario suplantado
-        $targetUser->impersonating_user_id = auth()->id();
-        $targetUser->save();
+        // La referencia del admin original se guarda en sesión, no en columna de BD.
+        // Esto evita depender de impersonating_user_id (que no existe en la BD productiva).
+        $request->session()->put('suplantacion_admin_id', (int) $admin->id);
+        $request->session()->put('suplantacion_admin_usuario', (string) $admin->id_usuario);
 
         // Hacer logout del admin actual y login como el usuario objetivo
         auth()->logout();
         auth()->loginUsingId($targetUser->id);
+
+        $request->session()->regenerate();
+        $request->session()->put('suplantacion_admin_id', (int) $admin->id);
+        $request->session()->put('suplantacion_admin_usuario', (string) $admin->id_usuario);
 
         // Redirigir al dashboard con aviso
         return redirect()->route('dashboard')
@@ -214,25 +216,29 @@ class TwoFactorController extends sibenController
      *
      * Route: POST /admin/stop-impersonating
      */
-    public function stopImpersonating()
+    public function stopImpersonating(Request $request)
     {
-        // Verificar que hay una suplantación activa
-        $currentUser = auth()->user();
-        if (!$currentUser->impersonating_user_id) {
+        $adminId = (int) $request->session()->get('suplantacion_admin_id', 0);
+
+        if ($adminId <= 0) {
             return redirect()->route('dashboard')
                 ->with('error', 'No estás suplantando a nadie.');
         }
 
-        // Guardar el ID del admin original antes de hacer logout
-        $adminId = $currentUser->impersonating_user_id;
+        $admin = Usuario::find($adminId);
+        if (!$admin) {
+            $request->session()->forget(['suplantacion_admin_id', 'suplantacion_admin_usuario']);
 
-        // Limpiar la bandera de suplantación en el usuario objetivo
-        $currentUser->impersonating_user_id = NULL;
-        $currentUser->save();
+            return redirect()->route('dashboard')
+                ->with('error', 'No fue posible recuperar la cuenta de administrador original.');
+        }
 
         // Logout del usuario suplantado y login del admin original
         auth()->logout();
-        auth()->loginUsingId($adminId);
+        auth()->loginUsingId($admin->id);
+
+        $request->session()->regenerate();
+        $request->session()->forget(['suplantacion_admin_id', 'suplantacion_admin_usuario']);
 
         // Redirigir a la lista de usuarios
         return redirect()->route('admin.usuarios.index')

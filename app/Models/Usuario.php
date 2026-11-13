@@ -17,7 +17,6 @@ class Usuario extends Authenticatable
         'id_usuario',   // login del sistema (varchar)
         'contrasenia',  // contraseña (sha1 o bcrypt)
         'google2fa_secret',
-        'impersonating_user_id',
         'nivel',
         'modulo',
         'id_escuela',
