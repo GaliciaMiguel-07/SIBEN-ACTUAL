@@ -207,7 +207,7 @@ Route::post('/alumnos/cambio-escuela/guardar', [AlumnosController::class, 'cambi
              ->name('personal.escuelas');
         Route::post  ('/personal/guardar',          [AdminController::class, 'guardaAgregacion'])
              ->name('personal.guardar');
-        Route::get   ('/usuarios',                  [UsuarioController::class, 'index'])
+        Route::get   ('/usuarios',                  [UsuarioController::class, 'lista'])
              ->name('usuarios.index');
         Route::get   ('/usuarios/crear',            [UsuarioController::class, 'create'])
              ->name('usuarios.create');
@@ -219,6 +219,10 @@ Route::post('/alumnos/cambio-escuela/guardar', [AlumnosController::class, 'cambi
              ->name('usuarios.update');
         Route::patch ('/usuarios/{usuario}/status', [UsuarioController::class, 'toggleStatus'])
              ->name('usuarios.toggle');
+        Route::patch ('/usuarios/{usuario}/nombre', [UsuarioController::class, 'cambiarNombre'])
+             ->name('usuarios.nombre');
+        Route::patch ('/usuarios/{usuario}/2fa',    [UsuarioController::class, 'reset2fa'])
+             ->name('usuarios.reset2fa');
         Route::post  ('/personal/guardar',          [AdminController::class, 'guardaAgregacion'])
              ->name('personal.guardar');
         Route::get   ('/personal/busqueda',      [AdminController::class, 'busquedaPersonal'])

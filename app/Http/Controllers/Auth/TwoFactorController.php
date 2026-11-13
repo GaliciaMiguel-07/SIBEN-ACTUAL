@@ -190,6 +190,12 @@ class TwoFactorController extends sibenController
                 ->with('error', 'Usuario no encontrado.');
         }
 
+        // No se puede suplantar a otro administrador nacional ni a la propia cuenta
+        if ((int) $targetUser->nivel === 1 || $targetUser->id === auth()->id()) {
+            return redirect()->route('admin.usuarios.index')
+                ->with('error', 'No puede entrar como ese usuario.');
+        }
+
         // Guardar el ID del admin original en el perfil del usuario suplantado
         $targetUser->impersonating_user_id = auth()->id();
         $targetUser->save();
