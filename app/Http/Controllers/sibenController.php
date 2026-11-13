@@ -165,7 +165,7 @@ abstract class sibenController
                 ['Estadísticas', 'informes.estadisticas'],
                 ['Informe nacional', 'informes.informe_nacional'],
                 ['Cambiar captura', 'siben.captura'],
-                ['Lista usuarios', 'siben.lista_usuarios'],
+                ['Lista usuarios', 'admin.usuarios.index'],
                 ['Informes escuelas', null],
                 ['Consulta histórico', null],
                 ['Consulta docente', null],
