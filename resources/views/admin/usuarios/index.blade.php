@@ -184,9 +184,9 @@
             </table>
         </div>
 
-        {{-- Paginación --}}
-        <div style="margin-top: 20px;">
-            {{ $usuarios->links('pagination::bootstrap-5') }}
+        {{-- Paginación (estilo como búsqueda de escuelas) --}}
+        <div class="paginacion-container" style="margin-top: 22px;">
+            {{ $usuarios->withQueryString()->links('pagination::bootstrap-4') }}
         </div>
 
     </div>
@@ -200,6 +200,61 @@
 <style>
     tbody tr:hover {
         background-color: var(--neutro100, #f5f5f5);
+    }
+
+    .paginacion-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 100%;
+    }
+
+    .pagination {
+        list-style-type: none;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        column-gap: 0.5rem;
+        justify-content: center;
+        flex-wrap: wrap;
+        margin: 0;
+    }
+
+    .page-item {
+        margin: 0;
+    }
+
+    .page-link {
+        border-radius: 5rem !important;
+        text-decoration: none;
+        width: 1.875rem;
+        height: 1.875rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 500;
+        color: var(--neutro800);
+        background-color: transparent;
+        border: none !important;
+        padding: 0 !important;
+        transition: all 0.2s ease;
+    }
+
+    .page-link:hover {
+        background: var(--neutro400);
+        color: initial;
+        font-weight: 600;
+    }
+
+    .page-item.active .page-link {
+        background: var(--gama500) !important;
+        color: var(--neutro100) !important;
+        font-weight: 600;
+    }
+
+    .page-item.disabled .page-link {
+        color: var(--neutro500);
+        pointer-events: none;
     }
 </style>
 @endpush
