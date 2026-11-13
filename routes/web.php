@@ -9,6 +9,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\sibenController;
 use App\Http\Controllers\BusquedaEscuelasController;
 use App\Http\Controllers\Admin\AdminController;
+use App\Http\Controllers\Admin\DirectorioController;
 use App\Http\Controllers\AlumnosController;
 use App\Http\Controllers\PersonalController;
 use App\Http\Controllers\InformesController;
@@ -175,6 +176,14 @@ Route::post('/alumnos/cambio-escuela/guardar', [AlumnosController::class, 'cambi
          ->name('admin.stop.impersonating');
 
     // ── Admin (solo nivel 1) ──────────────────────────────────────────────────
+    // Directorio (línea de mando): nivel 1 todas las entidades; nivel 2 solo la suya.
+    Route::prefix('directorio-gestion')->name('directorio.gestion.')->middleware('nivel:1,2')->group(function () {
+        Route::get('/', [DirectorioController::class, 'index'])->name('index');
+        Route::get('/exportar-excel', [DirectorioController::class, 'exportarExcel'])->name('exportar');
+        Route::patch('/{directorio}/jerarquia', [DirectorioController::class, 'moverJerarquia'])->name('jerarquia');
+        Route::delete('/{directorio}', [DirectorioController::class, 'eliminar'])->middleware('nivel:1')->name('eliminar');
+    });
+
     Route::prefix('admin')->name('admin.')->middleware('nivel:1')->group(function () {
         
         Route::get('/alumnos/curp', [AdminController::class, 'consultaCurpAlumno'])
@@ -207,6 +216,7 @@ Route::post('/alumnos/cambio-escuela/guardar', [AlumnosController::class, 'cambi
              ->name('personal.escuelas');
         Route::post  ('/personal/guardar',          [AdminController::class, 'guardaAgregacion'])
              ->name('personal.guardar');
+
         Route::get   ('/usuarios',                  [UsuarioController::class, 'lista'])
              ->name('usuarios.index');
         Route::get   ('/usuarios/crear',            [UsuarioController::class, 'create'])

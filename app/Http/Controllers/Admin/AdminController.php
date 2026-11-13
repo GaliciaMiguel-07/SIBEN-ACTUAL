@@ -35,6 +35,9 @@ class AdminController extends sibenController
                 ['titulo' => 'Jubilar',         'ruta' => 'admin.personal.jubilacion'],
                 ['titulo' => 'Jubilados',       'ruta' => 'admin.personal.jubilados'],
             ],
+            'Directorio' => [
+                ['titulo' => 'Línea de mando por entidad', 'ruta' => 'directorio.gestion.index'],
+            ],
         ];
 
         return view('admin.index', compact('menu'));
@@ -806,7 +809,7 @@ for ($i = 1; $i <= 12; $i++) {
     public function editaPersonal(int $id)
     {
         $p = Personal::with('docente')->findOrFail($id);
-        $d       = $p->docente;
+        $d       = $p->docenteoby;
         $escuela = Escuela2::find($p->id_escuela);
         $entidad_id = $escuela->id_entidad ?? 0;
 
