@@ -6,12 +6,12 @@
 
 <div class="contenedor" style="flex: 1; padding: 32px 16px; max-width: 1200px; margin: 0 auto; width: 100%; box-sizing: border-box;">
 
-    {{-- Regresar al panel --}}
+    {{-- Regresar al inicio --}}
     <div style="margin-bottom: 20px;">
-        <a href="{{ route('admin.index') }}"
+        <a href="{{ route('siben.index') }}"
            class="boton__secundario"
            style="text-decoration: none; padding: 6px 14px; font-size: 0.9rem; display: inline-block;">
-            &larr; Panel
+            &larr; Inicio
         </a>
     </div>
 

@@ -7,134 +7,116 @@ use App\Models\Directorio;
 use App\Models\Disfuncion;
 use App\Models\Entidad;
 use Illuminate\Http\Request;
-use PhpOffice\PhpSpreadsheet\Spreadsheet;
-use PhpOffice\PhpSpreadsheet\Writer\Xls;
 
+/**
+ * Directorio (línea de mando) compartido por nivel 1 y nivel 2.
+ * - Nivel 1: cualquier entidad, puede eliminar.
+ * - Nivel 2: solo su entidad, sin eliminar.
+ */
 class DirectorioController extends sibenController
 {
-    public function index()
+    private function esAdmin(): bool
     {
-        $request = request();
-
-        $entidades = Entidad::where('id', '<', 33)
-            ->orderBy('entidad')
-            ->pluck('entidad', 'id');
-
-        $idEntidad = $request->integer('id_entidad');
-        if (!$idEntidad && $entidades->isNotEmpty()) {
-            $idEntidad = (int) $entidades->keys()->first();
-        }
-
-        $funciones = Disfuncion::orderBy('id')->pluck('funcion', 'id');
-
-        $directorio = collect();
-        if ($idEntidad) {
-            $directorio = Directorio::where('id_entidad', $idEntidad)
-                ->orderBy('id_funcion')
-                ->orderBy('apellido_paterno')
-                ->orderBy('apellido_materno')
-                ->orderBy('nombre')
-                ->get();
-        }
-
-        return view('admin.directorio.index', compact(
-            'entidades',
-            'idEntidad',
-            'funciones',
-            'directorio'
-        ));
+        return (int) auth()->user()?->nivel === 1;
     }
 
-    public function moverJerarquia(Request $request, Directorio $directorio)
+    /** Entidad efectiva: nivel 2 siempre queda fijado a la suya. */
+    private function entidadPermitida(?int $solicitada): ?int
     {
-        $direccion = $request->string('direccion')->toString();
-
-        $idsFuncion = Disfuncion::orderBy('id')->pluck('id')->map(fn ($id) => (int) $id)->values();
-        $indiceActual = $idsFuncion->search((int) $directorio->id_funcion);
-
-        if ($indiceActual !== false) {
-            if ($direccion === 'subir' && $indiceActual > 0) {
-                $directorio->id_funcion = $idsFuncion[$indiceActual - 1];
-                $directorio->save();
-            }
-
-            if ($direccion === 'bajar' && $indiceActual < ($idsFuncion->count() - 1)) {
-                $directorio->id_funcion = $idsFuncion[$indiceActual + 1];
-                $directorio->save();
-            }
+        if ($this->esAdmin()) {
+            return $solicitada ?: null;
         }
 
-        return redirect()->route('admin.directorio.index', [
-            'id_entidad' => $request->integer('id_entidad', $directorio->id_entidad),
-        ]);
+        $propia = (int) ($this->contexto()['id_entidad'] ?? 0);
+        abort_unless($propia, 403, 'Tu usuario no tiene entidad asignada.');
+
+        return $propia;
     }
 
-    public function eliminar(Request $request, Directorio $directorio)
+    private function autorizarRegistro(Directorio $directorio): void
     {
-        $idEntidad = $request->integer('id_entidad', $directorio->id_entidad);
-        $directorio->delete();
-
-        return redirect()->route('admin.directorio.index', ['id_entidad' => $idEntidad]);
+        if (!$this->esAdmin()) {
+            abort_unless((int) $directorio->id_entidad === $this->entidadPermitida(null), 403);
+        }
     }
 
-    public function exportarExcel(Request $request)
+    private function registros(int $idEntidad)
     {
-        $idEntidad = $request->integer('id_entidad');
-
-        abort_unless($idEntidad, 404);
-
-        $entidad = Entidad::find($idEntidad);
-        $funciones = Disfuncion::pluck('funcion', 'id');
-
-        $registros = Directorio::where('id_entidad', $idEntidad)
+        return Directorio::where('id_entidad', $idEntidad)
             ->orderBy('id_funcion')
             ->orderBy('apellido_paterno')
             ->orderBy('apellido_materno')
             ->orderBy('nombre')
             ->get();
+    }
 
-        $spreadsheet = new Spreadsheet();
-        $sheet = $spreadsheet->getActiveSheet();
+    public function index()
+    {
+        $esAdmin = $this->esAdmin();
 
-        $sheet->setCellValue('A1', 'Directorio');
-        $sheet->setCellValue('A2', 'Entidad: ' . ($entidad->entidad ?? ''));
+        $entidades = $esAdmin
+            ? Entidad::where('id', '<', 33)->orderBy('entidad')->pluck('entidad', 'id')
+            : collect();
 
-        $sheet->setCellValue('A4', 'Nombre');
-        $sheet->setCellValue('B4', 'Cargo');
-        $sheet->setCellValue('C4', 'Función');
-        $sheet->setCellValue('D4', 'Correo');
-        $sheet->setCellValue('E4', 'Dirección');
-        $sheet->setCellValue('F4', 'Teléfono');
-
-        $row = 5;
-        foreach ($registros as $registro) {
-            $nombreCompleto = trim(implode(' ', array_filter([
-                $registro->titulo,
-                $registro->nombre,
-                $registro->apellido_paterno,
-                $registro->apellido_materno,
-            ])));
-
-            $sheet->setCellValue("A{$row}", $nombreCompleto);
-            $sheet->setCellValue("B{$row}", $registro->cargo);
-            $sheet->setCellValue("C{$row}", $funciones[$registro->id_funcion] ?? '');
-            $sheet->setCellValue("D{$row}", $registro->correo_electronico);
-            $sheet->setCellValue("E{$row}", $registro->direccion);
-            $sheet->setCellValue("F{$row}", trim("({$registro->lada}) {$registro->telefono}"));
-            $row++;
+        $idEntidad = $this->entidadPermitida(request()->integer('id_entidad'));
+        if (!$idEntidad && $entidades->isNotEmpty()) {
+            $idEntidad = (int) $entidades->keys()->first();
         }
 
-        foreach (range('A', 'F') as $col) {
-            $sheet->getColumnDimension($col)->setAutoSize(true);
+        $nombreEntidad = $idEntidad ? Entidad::where('id', $idEntidad)->value('entidad') : null;
+        $funciones     = Disfuncion::orderBy('id')->pluck('funcion', 'id');
+        $directorio    = $idEntidad ? $this->registros($idEntidad) : collect();
+
+        return view('admin.directorio.index', compact(
+            'esAdmin', 'entidades', 'idEntidad', 'nombreEntidad', 'funciones', 'directorio'
+        ));
+    }
+
+    public function moverJerarquia(Request $request, Directorio $directorio)
+    {
+        $this->autorizarRegistro($directorio);
+
+        $ids    = Disfuncion::orderBy('id')->pluck('id')->map(fn ($id) => (int) $id)->values();
+        $actual = $ids->search((int) $directorio->id_funcion);
+        $paso   = $request->input('direccion') === 'subir' ? -1 : 1;
+
+        if ($actual !== false && isset($ids[$actual + $paso])) {
+            $directorio->id_funcion = $ids[$actual + $paso];
+            $directorio->save();
         }
 
-        $writer = new Xls($spreadsheet);
+        return redirect()->route('directorio.gestion.index', ['id_entidad' => $directorio->id_entidad]);
+    }
 
-        return response()->streamDownload(function () use ($writer) {
-            $writer->save('php://output');
-        }, 'directorio_entidad_' . $idEntidad . '.xls', [
-            'Content-Type' => 'application/vnd.ms-excel; charset=utf-8',
-            'Cache-Control' => 'max-age=0',
+    public function eliminar(Directorio $directorio)
+    {
+        abort_unless($this->esAdmin(), 403);
+
+        $idEntidad = $directorio->id_entidad;
+        $directorio->delete();
+
+        return redirect()->route('directorio.gestion.index', ['id_entidad' => $idEntidad]);
+    }
+
+    /**
+     * Excel sin dependencias externas (tabla HTML con extensión .xls,
+     * Excel la abre directamente). Mantiene el orden jerárquico.
+     */
+    public function exportarExcel(Request $request)
+    {
+        $idEntidad = $this->entidadPermitida($request->integer('id_entidad'));
+        abort_unless($idEntidad, 404);
+
+        $html = view('admin.directorio.excel', [
+            'entidad'    => Entidad::where('id', $idEntidad)->value('entidad'),
+            'funciones'  => Disfuncion::pluck('funcion', 'id'),
+            'registros'  => $this->registros($idEntidad),
+        ])->render();
+
+        return response("\xEF\xBB\xBF" . $html, 200, [
+            'Content-Type'        => 'application/vnd.ms-excel; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="directorio_entidad_' . $idEntidad . '.xls"',
+            'Cache-Control'       => 'max-age=0',
         ]);
     }
 }

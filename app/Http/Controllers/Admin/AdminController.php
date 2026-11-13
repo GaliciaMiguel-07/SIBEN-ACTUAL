@@ -36,7 +36,7 @@ class AdminController extends sibenController
                 ['titulo' => 'Jubilados',       'ruta' => 'admin.personal.jubilados'],
             ],
             'Directorio' => [
-                ['titulo' => 'Línea de mando por entidad', 'ruta' => 'admin.directorio.index'],
+                ['titulo' => 'Línea de mando por entidad', 'ruta' => 'directorio.gestion.index'],
             ],
         ];
 

@@ -161,7 +161,7 @@ abstract class sibenController
             1 => [
                 ['Edición', 'admin.index'],
                 ['Mensajes', null],
-                ['Directorio', 'admin.directorio.index'],
+                ['Directorio', 'directorio.gestion.index'],
                 ['Estadísticas', 'informes.estadisticas'],
                 ['Informe nacional', 'informes.informe_nacional'],
                 ['Cambiar captura', 'siben.captura'],
@@ -173,7 +173,7 @@ abstract class sibenController
             ],
             2 => [
                 ['Conflictos', null],
-                ['Directorio', null],
+                ['Directorio', 'directorio.gestion.index'],
                 ['Avance alumnos', 'siben.avance_alumnos'],
                 ['Avance personal', 'siben.avance_personal'],
                 ['Supervisores', 'siben.supervisores'],

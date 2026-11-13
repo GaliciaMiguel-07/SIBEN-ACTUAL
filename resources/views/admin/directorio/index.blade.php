@@ -1,6 +1,6 @@
 @extends('layouts.siben.siben')
 
-@section('titulo', 'Directorio — Admin')
+@section('titulo', 'Directorio')
 
 @section('content')
 <div class="contenedor" style="flex: 1; padding: 32px 16px; max-width: 1200px; margin: 0 auto; width: 100%; box-sizing: border-box;">
@@ -14,8 +14,9 @@
     <div class="buscar01" style="margin-bottom: 24px; padding: 16px;">
         <h3 style="margin-top: 0; margin-bottom: 12px;">Directorio</h3>
 
-        <form method="GET" action="{{ route('admin.directorio.index') }}" style="display: flex; gap: 10px; align-items: end; flex-wrap: wrap; margin-bottom: 12px;">
-            <div>
+        <form method="GET" action="{{ route('directorio.gestion.index') }}" style="display: flex; gap: 10px; align-items: end; flex-wrap: wrap; margin-bottom: 12px;">
+            @if($esAdmin)
+                <div>
                 <label for="id_entidad" style="display:block; font-weight:600; margin-bottom: 6px;">Entidad</label>
                 <select id="id_entidad" name="id_entidad" class="form-control" style="min-width: 260px;">
                     @foreach($entidades as $id => $nombre)
@@ -24,10 +25,16 @@
                 </select>
             </div>
 
-            <button type="submit" class="boton__primario" style="padding: 8px 16px;">Buscar</button>
+            @else
+                <div style="font-weight:600;">Entidad: {{ $nombreEntidad }}</div>
+            @endif
+
+            @if($esAdmin)
+                <button type="submit" class="boton__primario" style="padding: 8px 16px;">Buscar</button>
+            @endif
 
             @if($idEntidad)
-                <a href="{{ route('admin.directorio.exportar', ['id_entidad' => $idEntidad]) }}" class="boton__secundario" style="text-decoration:none; padding: 8px 16px;">
+                <a href="{{ route('directorio.gestion.exportar', ['id_entidad' => $idEntidad]) }}" class="boton__secundario" style="text-decoration:none; padding: 8px 16px;">
                     Descargar Excel
                 </a>
             @endif
@@ -70,7 +77,7 @@
                         <td style="padding: 10px; vertical-align: top;">({{ $persona->lada }}) {{ $persona->telefono }}</td>
                         <td style="padding: 10px;">
                             <div style="display:flex; gap:6px; justify-content:center; flex-wrap: wrap;">
-                                <form method="POST" action="{{ route('admin.directorio.jerarquia', $persona->id) }}">
+                                <form method="POST" action="{{ route('directorio.gestion.jerarquia', $persona->id) }}">
                                     @csrf
                                     @method('PATCH')
                                     <input type="hidden" name="id_entidad" value="{{ $idEntidad }}">
@@ -78,7 +85,7 @@
                                     <button type="submit" class="boton__secundario" style="padding: 4px 10px;">Subir nivel</button>
                                 </form>
 
-                                <form method="POST" action="{{ route('admin.directorio.jerarquia', $persona->id) }}">
+                                <form method="POST" action="{{ route('directorio.gestion.jerarquia', $persona->id) }}">
                                     @csrf
                                     @method('PATCH')
                                     <input type="hidden" name="id_entidad" value="{{ $idEntidad }}">
@@ -86,12 +93,14 @@
                                     <button type="submit" class="boton__secundario" style="padding: 4px 10px;">Bajar nivel</button>
                                 </form>
 
-                                <form method="POST" action="{{ route('admin.directorio.eliminar', $persona->id) }}" onsubmit="return confirm('¿Eliminar este registro del directorio?');">
+@if($esAdmin)
+                                <form method="POST" action="{{ route('directorio.gestion.eliminar', $persona->id) }}" onsubmit="return confirm('¿Eliminar este registro del directorio?');">
                                     @csrf
                                     @method('DELETE')
                                     <input type="hidden" name="id_entidad" value="{{ $idEntidad }}">
                                     <button type="submit" class="boton__primario" style="padding: 4px 10px; background:#b22222; border-color:#b22222;">Eliminar</button>
                                 </form>
+                                @endif
                             </div>
                         </td>
                     </tr>
