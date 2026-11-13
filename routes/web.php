@@ -231,6 +231,10 @@ Route::post('/alumnos/cambio-escuela/guardar', [AlumnosController::class, 'cambi
              ->name('personal.busqueda');
         Route::get   ('/personal/lista',         [AdminController::class, 'listaPersonal'])
              ->name('personal.lista');
+        Route::get('/personal/jubilacion', [AdminController::class, 'jubilacion'])
+             ->name('personal.jubilacion');
+        Route::get('/personal/jubilacion/lista', [AdminController::class, 'listaPersonalJubilacion'])
+             ->name('personal.jubilacion.lista');
         Route::post  ('/personal/status',        [AdminController::class, 'cambiaStatus'])
              ->name('personal.status');
         Route::get   ('/personal/editar/{id}',   [AdminController::class, 'editaPersonal'])

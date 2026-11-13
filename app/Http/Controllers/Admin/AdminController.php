@@ -520,6 +520,92 @@ for ($i = 1; $i <= 12; $i++) {
             'entidades', 'funciones', 'entidad_id', 'escuela_id'
         ));
     }
+    
+
+    /** Muestra la pantalla para jubilar o registrar bajas de personal */
+    public function jubilacion(Request $request)
+    {
+        $entidades = Entidad::where('id', '<>', 33)
+            ->orderBy('id')
+            ->pluck('entidad', 'id');
+        $funciones = Funcion::orderBy('id')->pluck('funcion', 'id');
+
+        $entidad_id = $request->integer('entidad');
+        $escuela_id = $request->integer('escuela');
+
+        return view('admin.personal.jubilacion', compact(
+            'entidades',
+            'funciones',
+            'entidad_id',
+            'escuela_id'
+        ));
+    }
+
+    /** Devuelve por AJAX el personal disponible para jubilación */
+    public function listaPersonalJubilacion(Request $request)
+    {
+        $request->validate([
+            'escuela' => ['required', 'integer'],
+            'busca.texto' => ['nullable', 'string', 'max:100'],
+            'busca.funcion' => ['nullable', 'integer'],
+        ]);
+
+        $escuelaId = $request->integer('escuela');
+
+        // Verificamos que la escuela pertenezca al módulo del administrador.
+        $escuela = Escuela2::where('id', $escuelaId)
+            ->where('modulo', auth()->user()->modulo)
+            ->where('status', 'a')
+            ->where('unica', '<', 2)
+            ->first();
+
+        if (!$escuela) {
+            return response('<p>La escuela seleccionada no está disponible.</p>', 404);
+        }
+
+        // Consideramos las distintas referencias que puede tener la escuela
+        // en los registros de personal.
+        $ids = [$escuelaId];
+
+        foreach (['clave_escuela', 'escuela_key', 'clave_institucion'] as $campo) {
+            if (!empty($escuela->{$campo})) {
+                $ids[] = $escuela->{$campo};
+            }
+        }
+
+        $ids = array_values(array_unique($ids));
+
+        // Para este proceso solamente se consulta personal con status x.
+        $query = Personal::with('funcion')
+            ->whereIn('id_escuela', $ids)
+            ->whereIn('status', ['a', 'x']);
+
+        $busca = $request->input('busca', []);
+
+        if (!empty($busca['texto'])) {
+            $texto = trim($busca['texto']);
+
+            $query->where(function ($q) use ($texto) {
+                $q->where('nombre', 'like', "%{$texto}%")
+                    ->orWhere('apellido_paterno', 'like', "%{$texto}%")
+                    ->orWhere('apellido_materno', 'like', "%{$texto}%")
+                    ->orWhere('curp', 'like', '%' . strtoupper($texto) . '%');
+            });
+        }
+
+        if (!empty($busca['funcion'])) {
+            $query->where('id_funcion', (int) $busca['funcion']);
+        }
+
+        $personal = $query
+            ->orderBy('apellido_paterno')
+            ->orderBy('apellido_materno')
+            ->orderBy('nombre')
+            ->get();
+
+        return view('admin.personal.lista_jubilacion', compact('personal'));
+    }
+
 
     /** Devuelve (AJAX) el fragmento con la tabla de personal de una escuela */
    /** Devuelve (AJAX) el fragmento con la tabla de personal de una escuela */
@@ -597,7 +683,7 @@ for ($i = 1; $i <= 12; $i++) {
     public function editaPersonal(int $id)
     {
         $p = Personal::with('docente')->findOrFail($id);
-        $d       = $p->docenteoby;
+        $d       = $p->docente;
         $escuela = Escuela2::find($p->id_escuela);
         $entidad_id = $escuela->id_entidad ?? 0;
 
