@@ -9,6 +9,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\sibenController;
 use App\Http\Controllers\BusquedaEscuelasController;
 use App\Http\Controllers\Admin\AdminController;
+use App\Http\Controllers\Admin\DirectorioController;
 use App\Http\Controllers\AlumnosController;
 use App\Http\Controllers\PersonalController;
 use App\Http\Controllers\InformesController;
@@ -207,6 +208,15 @@ Route::post('/alumnos/cambio-escuela/guardar', [AlumnosController::class, 'cambi
              ->name('personal.escuelas');
         Route::post  ('/personal/guardar',          [AdminController::class, 'guardaAgregacion'])
              ->name('personal.guardar');
+        Route::get('/directorio', [DirectorioController::class, 'index'])
+             ->name('directorio.index');
+        Route::patch('/directorio/{directorio}/jerarquia', [DirectorioController::class, 'moverJerarquia'])
+             ->name('directorio.jerarquia');
+        Route::delete('/directorio/{directorio}', [DirectorioController::class, 'eliminar'])
+             ->name('directorio.eliminar');
+        Route::get('/directorio/exportar-excel', [DirectorioController::class, 'exportarExcel'])
+             ->name('directorio.exportar');
+
         Route::get   ('/usuarios',                  [UsuarioController::class, 'lista'])
              ->name('usuarios.index');
         Route::get   ('/usuarios/crear',            [UsuarioController::class, 'create'])

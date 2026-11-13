@@ -161,7 +161,7 @@ abstract class sibenController
             1 => [
                 ['Edición', 'admin.index'],
                 ['Mensajes', null],
-                ['Directorio', null],
+                ['Directorio', 'admin.directorio.index'],
                 ['Estadísticas', 'informes.estadisticas'],
                 ['Informe nacional', 'informes.informe_nacional'],
                 ['Cambiar captura', 'siben.captura'],

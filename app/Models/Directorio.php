@@ -12,4 +12,8 @@ class Directorio extends Model
     public $timestamps = false;
     protected $guarded = [];
 
+    public function entidad()
+    {
+        return $this->belongsTo(Entidad::class, 'id_entidad', 'id');
+    }
 }
