@@ -241,6 +241,8 @@ Route::post('/alumnos/cambio-escuela/guardar', [AlumnosController::class, 'cambi
              ->name('personal.editar');
         Route::post  ('/personal/actualizar',    [AdminController::class, 'guardaEdicion'])
              ->name('personal.actualizar');
+        Route::post('/personal/jubilacion/guardar', [AdminController::class, 'guardarJubilacion'])
+             ->name('personal.jubilacion.guardar');
         // Solo el admin puede INICIAR una suplantación
         Route::post('/impersonate/{usuarioId}', [TwoFactorController::class, 'impersonate'])
              ->name('impersonate');

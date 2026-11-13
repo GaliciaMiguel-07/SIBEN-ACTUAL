@@ -153,6 +153,10 @@
 
             <input type="hidden" id="idPersonalJubilacion">
 
+            <div id="mensajeJubilacion"
+                style="display:none; margin-bottom:16px; padding:10px; border-radius:4px;">
+            </div>
+
             <div style="display: grid;
                         grid-template-columns: repeat(3, 1fr);
                         gap: 12px;
@@ -218,6 +222,8 @@
 <script>
 
     const urlListaJubilacion = '{{ route('admin.personal.jubilacion.lista') }}';
+    const urlGuardarJubilacion = '{{ route('admin.personal.jubilacion.guardar') }}';
+    const tokenCSRF = '{{ csrf_token() }}';
 
     {{-- Cargar escuelas de la entidad seleccionada --}}
     function cargarEscuelas(entidad, seleccionada = null) {
@@ -358,6 +364,8 @@
         idPersonalJubilacion.value = id;
         nombrePersonalJubilacion.textContent = nombre;
 
+        document.getElementById('mensajeJubilacion').style.display = 'none';
+
         modalJubilacion.style.display = 'flex';
 
         validarFechaJubilacion();
@@ -453,6 +461,89 @@
     mesJubilacion.addEventListener('change', cargarDiasJubilacion);
 
     diaJubilacion.addEventListener('change', validarFechaJubilacion);
+    
+    // Mostrar mensajes en el modal.
+    function mostrarMensajeJubilacion(mensaje, correcto = false) {
+        const contenedor = document.getElementById('mensajeJubilacion');
+
+        contenedor.textContent = mensaje;
+        contenedor.style.display = 'block';
+        contenedor.style.backgroundColor = correcto ? '#d4edda' : '#f8d7da';
+        contenedor.style.color = correcto ? '#155724' : '#721c24';
+        contenedor.style.border = correcto
+            ? '1px solid #c3e6cb'
+            : '1px solid #f5c6cb';
+    }
+
+    // Guardar jubilación.
+    async function guardarJubilacion() {
+
+        const idPersonal = idPersonalJubilacion.value;
+        const escuela = document.getElementById('id_escuela').value;
+
+        const anio = anioJubilacion.value;
+        const mes = mesJubilacion.value;
+        const dia = diaJubilacion.value;
+
+        if (!idPersonal || !escuela || !anio || !mes || !dia) {
+            mostrarMensajeJubilacion('Seleccione una fecha completa.');
+            return;
+        }
+
+        const fecha = `${anio}-${mes}-${dia}`;
+
+        btnGuardarJubilacion.disabled = true;
+        btnGuardarJubilacion.textContent = 'Guardando...';
+
+        document.getElementById('mensajeJubilacion').style.display = 'none';
+
+        try {
+
+            const respuesta = await fetch(urlGuardarJubilacion, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': tokenCSRF
+                },
+                body: JSON.stringify({
+                    id_personal: idPersonal,
+                    escuela: escuela,
+                    fecha_jubilacion: fecha
+                })
+            });
+
+            const resultado = await respuesta.json();
+
+            if (!respuesta.ok || !resultado.ok) {
+                throw new Error(
+                    resultado.mensaje || 'No fue posible guardar la jubilación.'
+                );
+            }
+
+            mostrarMensajeJubilacion(resultado.mensaje, true);
+
+            alert(resultado.mensaje);
+
+            cerrarModalJubilacion();
+
+            // Actualizar la tabla: la persona ya no debe aparecer.
+            cargarListaJubilacion();
+
+        } catch (error) {
+
+            mostrarMensajeJubilacion(error.message);
+
+        } finally {
+
+            btnGuardarJubilacion.textContent = 'Guardar';
+            validarFechaJubilacion();
+        }
+    }
+
+    // Evento del botón Guardar.
+    btnGuardarJubilacion.addEventListener('click', guardarJubilacion);
+
 
 </script>
 
