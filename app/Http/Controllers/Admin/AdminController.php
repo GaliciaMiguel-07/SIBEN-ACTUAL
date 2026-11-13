@@ -809,7 +809,7 @@ for ($i = 1; $i <= 12; $i++) {
     public function editaPersonal(int $id)
     {
         $p = Personal::with('docente')->findOrFail($id);
-        $d       = $p->docenteoby;
+        $d       = $p->docente;
         $escuela = Escuela2::find($p->id_escuela);
         $entidad_id = $escuela->id_entidad ?? 0;
 
