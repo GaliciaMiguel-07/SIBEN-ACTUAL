@@ -169,7 +169,6 @@ abstract class sibenController
                 ['Informes escuelas', null],
                 ['Consulta histórico', 'consultas_historico.admin.form'],
                 ['Consulta docente', null],
-                ['Prueba Verhoeff', 'siben.prueba_verhoeff'],
             ],
             2 => [
                 ['Conflictos', null],
