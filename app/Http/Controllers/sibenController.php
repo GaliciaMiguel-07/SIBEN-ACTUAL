@@ -1343,21 +1343,49 @@ abstract class sibenController
         return view('siben.lista_usuarios', compact('usuarios', 'entidades'));
     }
 
-    public function cambiaCaptura(Request $request, $id_escuela = null, $captura = null, $modulo = null, $id_entidad = null)
+    public function cambiaCaptura(Request $request)
     {
-        if ($id_escuela) {
-            $query = EscuelaStatus::where('id_escuela', $id_escuela)->where('modulo', $modulo);
-            if ($captura !== null) {
-                $query->where('captura', $captura);
-            }
-            $status = $query->first();
-            if ($status) {
-                $nuevaCaptura = ($status->captura == 0) ? 1 : 0;
-                $status->update(['captura' => $nuevaCaptura]);
-            }
+        $data = $request->validate([
+            'id_escuela' => ['required', 'integer'],
+            'id_entidad' => ['required', 'integer'],
+            'modulo'     => ['required', 'in:l,p'],
+        ]);
+
+        $escuela = Escuela2::query()
+            ->select('id', 'captura')
+            ->where('id', $data['id_escuela'])
+            ->where('id_entidad', $data['id_entidad'])
+            ->where('modulo', $data['modulo'])
+            ->whereIn('unica', [0, 1])
+            ->where('status', 'a')
+            ->first();
+
+        if (!$escuela) {
+            return redirect()
+                ->route('siben.captura', ['id_entidad' => $data['id_entidad'], 'modulo' => $data['modulo']])
+                ->with('error', 'No se encontró la escuela solicitada para el módulo y entidad seleccionados.');
         }
 
-        return redirect()->route('siben.captura', ['id_entidad' => $id_entidad, 'modulo' => $modulo]);
+        $status = EscuelaStatus::query()
+            ->where('id_escuela', $escuela->id)
+            ->where('modulo', $data['modulo'])
+            ->first();
+
+        if (!$status) {
+            return redirect()
+                ->route('siben.captura', ['id_entidad' => $data['id_entidad'], 'modulo' => $data['modulo']])
+                ->with('error', 'No existe registro de estado para la escuela seleccionada.');
+        }
+
+        $nuevaCaptura = ((string) $status->captura === '1') ? '0' : '1';
+        $status->captura = $nuevaCaptura;
+        $status->save();
+
+        $accion = $nuevaCaptura === '1' ? 'abierta' : 'cerrada';
+
+        return redirect()
+            ->route('siben.captura', ['id_entidad' => $data['id_entidad'], 'modulo' => $data['modulo']])
+            ->with('ok', "Captura {$accion} correctamente.");
     }
 
     public function captura(Request $request, $id_entidad = null, $modulo = null)
@@ -1367,15 +1395,30 @@ abstract class sibenController
             return redirect()->route('login');
         }
 
-        $entidades = Entidad::where('id', '<', 33)->pluck('entidad', 'id');
+        $id_entidad = $id_entidad ?? $request->integer('id_entidad');
+        $modulo = $modulo ?? $request->input('modulo');
 
-        $escuelas = Escuela2::select('id', 'escuela_key', 'escuela', 'captura')
-            ->where('id_entidad', $id_entidad)
-            ->whereIn('unica', [0, 1])
-            ->where('modulo', $modulo)
-            ->where('status', 'a')
-            ->orderBy('escuela')
-            ->get();
+        if (!in_array($modulo, ['l', 'p'], true)) {
+            $modulo = null;
+        }
+
+        $entidades = Entidad::query()
+            ->where('id', '<', 33)
+            ->orderBy('id')
+            ->pluck('entidad', 'id');
+
+        $escuelas = collect();
+
+        if ($id_entidad && $modulo) {
+            $escuelas = Escuela2::query()
+                ->select('id', 'escuela_key', 'escuela', 'captura', 'modulo', 'id_entidad')
+                ->where('id_entidad', $id_entidad)
+                ->whereIn('unica', [0, 1])
+                ->where('modulo', $modulo)
+                ->where('status', 'a')
+                ->orderBy('escuela')
+                ->get();
+        }
 
         return view('siben.captura', compact(
             'escuelas',

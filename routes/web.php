@@ -75,6 +75,14 @@ Route::middleware(['auth', 'no.cache'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])
         ->middleware('siben.restricciones')->name('dashboard');
 
+    // Cambiar captura (solo nivel 1)
+    Route::prefix('siben')->name('siben.')->middleware('nivel:1')->group(function () {
+        Route::get('/captura/{id_entidad?}/{modulo?}', [DashboardController::class, 'captura'])
+            ->name('captura');
+        Route::post('/captura/cambiar', [DashboardController::class, 'cambiaCaptura'])
+            ->name('cambia_captura');
+    });
+
     // ── Núcleo SIBEN y módulos migrados ─────────────────────────────────────
     // El middleware reproduce las restricciones heredadas para Licenciaturas
     // niveles 3/4. Se limita a estas rutas; no afecta administración ni 2FA.
@@ -85,7 +93,6 @@ Route::middleware(['auth', 'no.cache'])->group(function () {
             Route::get('/datos-generales', [DashboardController::class, 'menuDatos'])->name('menu_datos');
             Route::get('/listados', [DashboardController::class, 'listados'])->name('listados');
             Route::get('/parametros', [DashboardController::class, 'parametros'])->name('parametros');
-            Route::get('/captura', [DashboardController::class, 'captura'])->name('captura');
             Route::get('/usuarios', [DashboardController::class, 'listaUsuarios'])->name('lista_usuarios');
             Route::get('/prueba-verhoeff', [DashboardController::class, 'pruebaVerhoeff'])->name('prueba_verhoeff');
             Route::get('/avance-alumnos', [DashboardController::class, 'avanceAlumnos'])->name('avance_alumnos');
