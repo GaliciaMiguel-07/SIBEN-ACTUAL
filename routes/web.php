@@ -13,6 +13,7 @@ use App\Http\Controllers\Admin\DirectorioController;
 use App\Http\Controllers\AlumnosController;
 use App\Http\Controllers\PersonalController;
 use App\Http\Controllers\InformesController;
+use App\Http\Controllers\ConsultasHistoricoController;
 
 // ─── Rutas públicas ──────────────────────────────────────────────────────────
 
@@ -165,6 +166,41 @@ Route::match(['get', 'post'], '/alumnos/cambio-escuela/alumnos', [AlumnosControl
 
 Route::post('/alumnos/cambio-escuela/guardar', [AlumnosController::class, 'cambioEscuela'])
     ->name('alumnos.cambioEscuela');
+
+
+// ── Consultas Histórico ──────────────────────────────────────
+Route::prefix('consultas-historico')->name('consultas_historico.')->group(function () {
+    Route::middleware('nivel:1')->group(function () {
+        Route::match(['get', 'post'], '/admin', [ConsultasHistoricoController::class, 'adminFormulario'])
+            ->name('admin.form');
+        Route::match(['get', 'post'], '/admin/buscar', [ConsultasHistoricoController::class, 'adminBuscar'])
+            ->name('admin.buscar');
+        Route::get('/admin/escuelas/{id_entidad}', [ConsultasHistoricoController::class, 'adminEscuelasPorEntidad'])
+            ->whereNumber('id_entidad')
+            ->name('admin.escuelas');
+    });
+
+    Route::middleware('nivel:2,3,4')->group(function () {
+        Route::match(['get', 'post'], '/individual', [ConsultasHistoricoController::class, 'usuarioIndividualFormulario'])
+            ->name('usuario.individual.form');
+        Route::match(['get', 'post'], '/individual/buscar', [ConsultasHistoricoController::class, 'usuarioIndividualBuscar'])
+            ->name('usuario.individual.buscar');
+
+        Route::match(['get', 'post'], '/global', [ConsultasHistoricoController::class, 'usuarioGlobalFormulario'])
+            ->name('usuario.global.form');
+        Route::match(['get', 'post'], '/global/buscar', [ConsultasHistoricoController::class, 'usuarioGlobalBuscar'])
+            ->name('usuario.global.buscar');
+    });
+
+    Route::middleware('nivel:1,2,3,4')->get('/detalle/{nid}', [ConsultasHistoricoController::class, 'detalle'])
+        ->name('detalle');
+});
+
+// Alias heredado con la misma URL del sistema viejo: /consultasHistorico/detalleAlumno/{nid}
+// Lo usa sibenController::consultaAlumnos() para el botón "Detalle".
+Route::middleware('nivel:1,2,3,4')->match(['get', 'post'], '/consultasHistorico/detalleAlumno/{nid?}', [ConsultasHistoricoController::class, 'detalle'])
+    ->name('consultasHistoricos.detalleAlumno');
+
     
         Route::get('/personal', [PersonalController::class, 'menu'])->name('personal.menu');
         Route::get('/informes/estadisticas', [InformesController::class, 'estadisticas'])->name('informes.estadisticas');
@@ -260,15 +296,6 @@ Route::post('/alumnos/cambio-escuela/guardar', [AlumnosController::class, 'cambi
              ->name('personal.actualizar');
         Route::post('/personal/jubilacion/guardar', [AdminController::class, 'guardarJubilacion'])
              ->name('personal.jubilacion.guardar');
-        Route::get('/personal/jubilados', [AdminController::class, 'jubilados'])
-             ->name('personal.jubilados');
-
-        Route::get('/personal/jubilados/lista', [AdminController::class, 'listaPersonalJubilado'])
-             ->name('personal.jubilados.lista');
-
-        Route::post('/personal/jubilados/activar', [AdminController::class, 'activarJubilado'])
-             ->name('personal.jubilados.activar');
-
         // Solo el admin puede INICIAR una suplantación
         Route::post('/impersonate/{usuarioId}', [TwoFactorController::class, 'impersonate'])
              ->name('impersonate');

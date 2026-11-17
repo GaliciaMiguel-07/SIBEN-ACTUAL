@@ -1,517 +1,372 @@
 <?php
+
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 use App\Models\Entidad;
-use App\Models\Funcion;
 use App\Models\Escuela;
 use App\Models\Escuela2;
-use App\Models\Historia;
-use App\Models\Personal;
-use App\Models\Licenciatura;
 use App\Models\Especialidad;
-use App\Models\NivelEstudio;
-use App\Models\ContratacionDocente;
-use App\Models\FormaContratacion;
-use App\Models\Categorias;
-use App\Models\Asignatura;
-use App\Models\AsignaturaDocente;
-use App\Models\EscuelaLicenciatura;
-use App\Models\NivelSni;
-use App\Models\AreaConocimiento;
-use App\Models\Docente;
+use App\Models\Historia;
+use App\Models\Licenciatura;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
-class ConsultasHistoricoController extends sibenController {
+class ConsultasHistoricoController extends sibenController
+{
+    public function adminFormulario(Request $request)
+    {
+        $entidades = Entidad::where('id', '<', 33)->orderBy('id')->pluck('entidad', 'id');
 
-    public function buscarAlumno(){
-        $ctx = $this->contexto();
-        $nivel = $ctx['nivel'] ?? null;
-
-        $entidades = Entidad::where('id', '<', 33)->pluck('entidad', 'id');
-
-        return view('consultas_historico.buscar_alumno', compact('nivel', 'entidades'));
-    }
-    public function buscarDocente(){
-        $ctx = $this->contexto();
-        $nivel = $ctx['nivel'] ?? null;
-        $idEntidad = $ctx['id_entidad'] ?? null;
-        $idEscuela = $ctx['id_escuela'] ?? null;
-
-        $status = [
-            'a'=>'Activo',
-            'x'=>'Inactivo',
-            'j'=>'Jubilado',
-            'r'=>'Renuncia',
-            'b'=>'Baja administrativa',
-            'd'=>'Defuncion'
+        $criterios = [
+            'id_entidad' => $request->integer('id_entidad') ?: null,
+            'id_escuela' => $request->integer('id_escuela') ?: null,
+            'nid' => '',
+            'apellido_paterno' => '',
+            'apellido_materno' => '',
+            'nombre' => '',
+            'curp' => '',
         ];
-        $funciones = Funcion::pluck('fumcion', 'id');
 
-        $entidades = [];
-        $esculas = [];
+        $escuelas = $this->escuelasDeEntidad($criterios['id_entidad']);
 
-        if($nivel == 1){
-            $entidades = Entidades::where('id', '<', 33)->pluck('entidad', 'id');
-        }elseif($nivel == 2 || $nivel == 6){
-            $escuelas = Escuela::where('id_entidad', $idEntidad)->pluck('escuela', 'id');
-        }elseif(in_array($nivel, [3,4,5])){
-            $escuelas = Escuela::where('id', $idEscuela)->pluck('escuela', 'id');
-        }
-        return view('consultas_historico.buscar_docente', compact('nivel', 'idEntidad', 'idEscuela', 'funciones', 'status', 'entidades', 'escuelas'));
-    }
-    public function alumnos(Request $request){
-        $entradas = $request->input('Historia', []);
-        $condiciones = array_filter($entradas, fn($val) => !empty($val));
-
-        $renglones = [];
-        if(!empty($condiciones)){
-            $query = Historia::query();
-
-            foreach($condiciones as $col => $val){
-                if($col !== 'nid'){
-                    $query->where($col, $val);
-                }
-            }
-            // Parche original para registros con nid vacío
-            if (!isset($condiciones['nid'])) {
-                $query->whereNotNull('nid')->where('nid', '<>', '');
-            } else {
-                $query->where('nid', $condiciones['nid']);
-            }
-
-            $alumnos = $query->select('nid as id', 'apellido_paterno', 'apellido_materno', 'nombre', 'curp')
-                ->groupBy('nid')
-                ->orderBy('apellido_paterno')
-                ->orderBy('apellido_materno')
-                ->orderBy('nombre')
-                ->get();
-
-            $url = route('consultasHistorico.detalleAlumno');
-
-            foreach ($alumnos as $alumno) {
-                $parametros = "data[Historia][nid]=" . $alumno->id;
-                $evento = "consultaAjax('$url', '$parametros', muestraOverlay, muestraOcupado)";
-                $boton = '<input id="' . $alumno->id . '" type="button" value="Detalle" onclick="' . $evento . '" />';
-
-                $renglones[] = [
-                    'id'               => $alumno->id,
-                    'apellido_paterno' => $alumno->apellido_paterno,
-                    'apellido_materno' => $alumno->apellido_materno,
-                    'nombre'           => $alumno->nombre,
-                    'curp'             => $alumno->curp,
-                    'accion'           => $boton
-                ];
-            }
-        }
-
-        $cabeceras = ['No.', 'NID', 'Primer Apellido', 'Segundo Apellido', 'Nombre', 'Curp', 'Acción'];
-
-        return view('elements.tablaAjax', compact('renglones', 'cabeceras'));
+        return view('consultas_historico.admin_buscar', [
+            'entidades' => $entidades,
+            'escuelas' => $escuelas,
+            'criterios' => $criterios,
+            'resultados' => collect(),
+            'mensaje' => null,
+        ]);
     }
 
-    /**
-     * docentes (Petición AJAX)
-     */
-    public function docentes(Request $request)
+    public function adminBuscar(Request $request)
     {
-        $ctx = $this->contexto();
-        $nivel = $ctx['nivel'] ?? null;
-        $id_entidad = $ctx['id_entidad'] ?? null;
-        $id_escuela = $ctx['id_escuela'] ?? null;
+        $entidades = Entidad::where('id', '<', 33)->orderBy('id')->pluck('entidad', 'id');
 
-        $inputPersonal = $request->input('Personal', []);
+        $criterios = [
+            'id_entidad' => $request->integer('id_entidad') ?: null,
+            'id_escuela' => $request->integer('id_escuela') ?: null,
+            'nid' => $this->normalizarTexto($request->input('nid')),
+            'apellido_paterno' => $this->normalizarTexto($request->input('apellido_paterno')),
+            'apellido_materno' => $this->normalizarTexto($request->input('apellido_materno')),
+            'nombre' => $this->normalizarTexto($request->input('nombre')),
+            'curp' => $this->normalizarTexto($request->input('curp')),
+        ];
 
-        if (in_array($nivel, [2, 6])) {
-            $inputPersonal['id_entidad'] = $id_entidad;
-        } elseif (in_array($nivel, [3, 4, 5])) {
-            $inputPersonal['id_entidad'] = $id_entidad;
-            $inputPersonal['id_escuela'] = $id_escuela;
+        $escuelas = $this->escuelasDeEntidad($criterios['id_entidad']);
+
+        if (!$this->hayCriteriosAdmin($criterios)) {
+            return view('consultas_historico.admin_buscar', [
+                'entidades' => $entidades,
+                'escuelas' => $escuelas,
+                'criterios' => $criterios,
+                'resultados' => collect(),
+                'mensaje' => 'Ingrese al menos un criterio de búsqueda.',
+            ]);
         }
 
-        $condiciones = array_filter($inputPersonal, fn($val) => !empty($val));
+        $query = Historia::query()
+            ->select('nid', 'apellido_paterno', 'apellido_materno', 'nombre', 'curp')
+            ->where('nid', '<>', '');
 
-        $renglones = [];
-        if (!empty($condiciones)) {
-            $docentes = Personal::where($condiciones)
-                ->select('id', 'apellido_paterno', 'apellido_materno', 'nombre', 'curp')
-                ->orderBy('apellido_paterno')
-                ->orderBy('apellido_materno')
-                ->orderBy('nombre')
-                ->get();
+        if (!empty($criterios['id_escuela'])) {
+            $query->where('id_escuela', $criterios['id_escuela']);
+        } elseif (!empty($criterios['id_entidad'])) {
+            $idsEscuelasEntidad = Escuela::where('id_entidad', $criterios['id_entidad'])->pluck('id');
+            $query->whereIn('id_escuela', $idsEscuelasEntidad);
+        }
 
-            $url = route('consultasHistorico.detalleDocente');
-
-            foreach ($docentes as $docente) {
-                $parametros = "data[Personal][id]=" . $docente->id;
-                $evento = "consultaAjax('$url', '$parametros', muestraOverlay, muestraOcupado)";
-                $boton = '<input id="' . $docente->id . '" type="button" value="Detalle" onclick="' . $evento . '" />';
-
-                $renglones[] = [
-                    'id'               => $docente->id,
-                    'apellido_paterno' => $docente->apellido_paterno,
-                    'apellido_materno' => $docente->apellido_materno,
-                    'nombre'           => $docente->nombre,
-                    'curp'             => $docente->curp,
-                    'accion'           => $boton
-                ];
+        foreach (['nid', 'apellido_paterno', 'apellido_materno', 'nombre', 'curp'] as $campo) {
+            if (!empty($criterios[$campo])) {
+                $query->where($campo, $criterios[$campo]);
             }
         }
 
-        $cabeceras = ['No.', 'ID', 'Primer Apellido', 'Segundo Apellido', 'Nombre', 'Curp', 'Acción'];
-
-        return view('elements.tablaAjax', compact('renglones', 'cabeceras'));
-    }
-
-    /**
-     * detalleAlumno (AJAX)
-     */
-    public function detalleAlumno(Request $request, $nid = null)
-    {
-        if (!$nid) {
-            $nid = $request->input('Historia.nid');
-        }
-
-        // Asumiendo que Historia tiene definidas las relaciones: licenciatura, especialidad, escuela
-        $historia = Historia::with(['licenciatura', 'especialidad', 'escuela'])
-            ->where('nid', $nid)
-            ->select('nid', 'nombre', 'apellido_paterno', 'apellido_materno', 'curp', 'id_escuela', 'modalidad', 'semestre', 'status', 'captura', 'id_licenciatura', 'id_especialidad', 'matricula')
+        $resultados = $query
+            ->groupBy('nid', 'apellido_paterno', 'apellido_materno', 'nombre', 'curp')
+            ->orderBy('apellido_paterno')
+            ->orderBy('apellido_materno')
+            ->orderBy('nombre')
             ->get();
 
-        $licenciaturas = [];
-        $especialidades = [];
-        $escuela_entidad = [];
-        $nombres_escuelas = [];
-
-        foreach ($historia as $registro) {
-            if ($registro->licenciatura) {
-                $licenciaturas[$registro->licenciatura->id] = $registro->licenciatura->licenciatura;
-            }
-            if ($registro->especialidad) {
-                $especialidades[$registro->especialidad->id] = $registro->especialidad->especialidad;
-            }
-            if ($registro->escuela) {
-                $escuela_entidad[$registro->escuela->id] = $registro->escuela->id_entidad;
-                $nombres_escuelas[$registro->escuela->id] = $registro->escuela->escuela;
-            }
-        }
-
-        $entidades = Entidad::where('id', '<', 33)->pluck('entidad', 'id');
-
-        return view('consultas_historico.detalle_alumno', compact(
-            'historia', 'licenciaturas', 'especialidades', 'entidades', 'nombres_escuelas', 'escuela_entidad'
-        ));
+        return view('consultas_historico.admin_buscar', [
+            'entidades' => $entidades,
+            'escuelas' => $escuelas,
+            'criterios' => $criterios,
+            'resultados' => $resultados,
+            'mensaje' => null,
+        ]);
     }
-    /**
-     * detalleDocente (AJAX)
-     */
-    public function detalleDocente(Request $request, $id = null)
+
+    public function adminEscuelasPorEntidad(int $id_entidad): JsonResponse
     {
-        $id_personal = $request->input('Personal.id') ?? session('Personal.id');
-        session()->forget('Personal.id');
-
-        $ctx = $this->contexto();
-        $captura = $ctx['captura'] ?? null;
-        $nivel = $ctx['nivel'] ?? null;
-        
-        $title = 'Editar Personal';
-
-        // Evitar uso de relaciones complejas, buscar manual para asimilar el unbindModel de Cake
-        $personalObj = Personal::find($id_personal);
-        $personal = $personalObj ? $personalObj->toArray() : [];
-        $docente = Docente::where('id_personal', $id_personal)->first();
-        if ($docente) $personal['Docente'] = $docente->toArray();
-
-        $id_escuela = $personal['id_escuela'] ?? null;
-        $escuela = Escuela::find($id_escuela);
-        $id_entidad = $escuela->id_entidad ?? null;
-        $entidad = Entidad::find($id_entidad);
-
-        if (isset($personal['id_funcion']) && $personal['id_funcion'] <= 6 && isset($personal['Docente'])) {
-            $disciplina = AreaConocimiento::find($personal['Docente']['id_area_conocimiento']);
-            if ($disciplina) {
-                $personal['Docente']['area_conocimiento'] = $disciplina->id_campo;
-                $personal['Docente']['disciplina'] = $disciplina->id;
-            }
-            $personal['Docente']['investigacion'] = empty($personal['Docente']['proyecto_investigacion']) ? 'n' : 's';
-            $personal['Docente']['lengua'] = empty($personal['Docente']['lengua_indigena']) ? 'n' : 's';
-        }
-
-        // Catálogos
-        $niveles_estudio = NivelEstudio::pluck('nivel_estudio', 'id');
-        $funciones = Funcion::pluck('funcion', 'id');
-        $nivel_sni = NivelSni::pluck('nivel_sni', 'id');
-        $sino = ['s' => 'Sí', 'n' => 'No'];
-        $contador = $this->contador(50, false);
-        $horas = $this->contador(30, false);
-
-        $areasConocimiento = AreaConocimiento::groupBy('id_campo')->pluck('campo', 'id_campo');
-        $disciplinas = AreaConocimiento::pluck('disciplina', 'id');
-        $discapacidades = ['1' => 'Auditiva y de lenguaje', '2' => 'Intelectual', '3' => 'Motriz', '4' => 'Visual'];
-
-        $edicion = in_array($nivel, [1, 3, 4]);
-        $directivoDocente = isset($personal['id_funcion']) && $personal['id_funcion'] <= 4;
-        $activaDocente = isset($personal['status']) && $personal['status'] == 'x';
-
-        $mapaStatus = [
-            'x' => 'Inactivo',
-            'a' => 'Activo',
-            'j' => 'Jubilado',
-            'r' => 'Renuncia',
-            'b' => 'Baja administrativa',
-            'd' => 'Defuncion'
-        ];
-        $statusStr = $mapaStatus[$personal['status'] ?? 'a'] ?? 'Activo';
-
-        $formas_contratacion = FormaContratacion::where('id', '<', 20)->pluck('contratacion', 'id');
-        $tiempos_contratacion = FormaContratacion::where('id', '>', 20)->pluck('contratacion', 'id');
-
-        $contrataciones = ContratacionDocente::where('id_personal', $id_personal)->get();
-        $categoria = Categorias::pluck('nombre', 'id');
-        $asignaturasDocente = AsignaturaDocente::where('id_docente', $id_personal)->get();
-        
-        $licenciaturas = Licenciatura::pluck('licenciatura', 'id');
-        $especialidades = Especialidad::pluck('especialidad', 'id');
-        $asignaturasNoCurriculares = Asignatura::where('curricular', 'n')->where('semestre', 0)->pluck('asignatura', 'id');
-
-        // Para inyectar datos principales como array nativo de la vista
-        $data = $personal;
-
-        return view('consultas_historico.detalle_docente', compact(
-            'title', 'data', 'niveles_estudio', 'funciones', 'nivel_sni', 'sino', 'contador',
-            'areasConocimiento', 'disciplinas', 'discapacidades', 'edicion', 'directivoDocente',
-            'activaDocente', 'statusStr', 'id_personal', 'formas_contratacion', 'tiempos_contratacion',
-            'contrataciones', 'horas', 'categoria', 'escuela', 'entidad', 'asignaturasDocente',
-            'licenciaturas', 'especialidades', 'asignaturasNoCurriculares', 'nivel', 'personal'
-        ));
+        return response()->json($this->escuelasDeEntidad($id_entidad));
     }
 
-    /**
-     * busquedaGlobal
-     */
-    public function busquedaGlobal(Request $request, $opc = null)
+    public function usuarioIndividualFormulario()
+    {
+        return view('consultas_historico.usuario_individual', [
+            'criterios' => [
+                'nombre' => '',
+                'apellido_paterno' => '',
+                'apellido_materno' => '',
+                'curp' => '',
+                'nid' => '',
+            ],
+            'mensaje' => null,
+        ]);
+    }
+
+    public function usuarioIndividualBuscar(Request $request)
     {
         $ctx = $this->contexto();
-        $nivel = $ctx['nivel'] ?? null;
-        $id_escuela = $nivel > 2 ? ($ctx['id_escuela'] ?? null) : null;
-        $id_entidad = $ctx['id_entidad'] ?? null;
+        $idEscuela = (int) ($ctx['id_escuela'] ?? 0);
 
-        if (!$opc) {
-            return redirect('/Alumnos');
-        }
-
-        $captura_actual = $this->captura_actual ?? 1; // Ajustar si es propiedad heredada
-
-        $vista = "";
-        $datosVista = [
-            'anterior' => '/Alumnos',
-            'opc' => $opc,
-            'nivel' => $nivel
+        $criterios = [
+            'nombre' => $this->normalizarTexto($request->input('nombre')),
+            'apellido_paterno' => $this->normalizarTexto($request->input('apellido_paterno')),
+            'apellido_materno' => $this->normalizarTexto($request->input('apellido_materno')),
+            'curp' => $this->normalizarTexto($request->input('curp')),
+            'nid' => $this->normalizarTexto($request->input('nid')),
         ];
 
-        if ($opc == 'g') {
-            $vista = "consultas_historico.busqueda_global";
-            
-            $semestres = [];
-            for ($i = 1; $i <= 13; $i++) {
-                if ($i % 2 == $captura_actual % 2) {
-                    $semestres[$i] = $i;
-                }
-            }
-            
-            $status = ['i' => 'Inscrito', 'x' => 'No Inscrito', 't' => 'Baja Temporal', 'd' => 'Baja Definitiva'];
-            $lic = [];
-            $esp = [];
-            $mod = [];
-            $tur = [];
-
-            if ($nivel > 2) {
-                // Relaciones manuales o eager loading
-                $licenciaturasData = EscuelaLicenciatura::with(['licenciatura', 'especialidad'])
-                    ->where('id_escuela', $id_escuela)->get();
-                
-                $modalidadList = ['e' => 'Escolarizada', 'm' => 'Mixta'];
-                $turnoList = ['m' => 'Matutino', 'n' => 'Nocturno', 'v' => 'Vespertino'];
-
-                foreach ($licenciaturasData as $registro) {
-                    if ($registro->licenciatura) $lic[$registro->id_licenciatura] = $registro->licenciatura->licenciatura;
-                    if ($registro->especialidad) $esp[$registro->id_especialidad] = $registro->especialidad->especialidad;
-                    $mod[$registro->modalidad] = $modalidadList[$registro->modalidad] ?? '';
-                    $tur[$registro->turno] = $turnoList[$registro->turno] ?? '';
-                }
-            } else {
-                $escuelas = Escuela2::where('id_entidad', $id_entidad)
-                    ->where('status', 'a')
-                    ->where('unica', '<', 2)
-                    ->where('modulo', 'l')
-                    ->pluck('escuela', 'id');
-                $datosVista['escuelas'] = $escuelas;
-            }
-
-            $datosVista['licenciaturas'] = $lic;
-            $datosVista['especialidades'] = $esp;
-            $datosVista['modalidades'] = $mod;
-            $datosVista['turnos'] = $tur;
-            $datosVista['semestres'] = $semestres;
-            $datosVista['status'] = $status;
-        } elseif ($opc == 'p') {
-            $vista = "consultas_historico.busqueda_individual";
-            $datosVista['url'] = route('consultasHistorico.alumnos');
+        $modo = $this->validarCriteriosIndividual($criterios);
+        if ($modo === null) {
+            return view('consultas_historico.usuario_individual', [
+                'criterios' => $criterios,
+                'mensaje' => 'Debe buscar por CURP, por NID o por nombre completo (nombre y ambos apellidos).',
+            ]);
         }
 
-        return view($vista, $datosVista);
+        $query = Historia::query()
+            ->select('nid', 'apellido_paterno', 'apellido_materno', 'nombre', 'curp')
+            ->where('id_escuela', $idEscuela)
+            ->where('nid', '<>', '');
+
+        if ($modo === 'nid') {
+            $query->where('nid', $criterios['nid']);
+        } elseif ($modo === 'curp') {
+            $query->where('curp', $criterios['curp']);
+        } else {
+            $query->where('nombre', $criterios['nombre'])
+                ->where('apellido_paterno', $criterios['apellido_paterno'])
+                ->where('apellido_materno', $criterios['apellido_materno']);
+        }
+
+        $coincidencias = $query
+            ->groupBy('nid', 'apellido_paterno', 'apellido_materno', 'nombre', 'curp')
+            ->orderBy('apellido_paterno')
+            ->orderBy('apellido_materno')
+            ->orderBy('nombre')
+            ->get();
+
+        if ($coincidencias->count() === 0) {
+            return view('consultas_historico.usuario_individual', [
+                'criterios' => $criterios,
+                'mensaje' => 'No se encontró un alumno con esos datos en su escuela.',
+            ]);
+        }
+
+        if ($coincidencias->count() > 1) {
+            return view('consultas_historico.usuario_individual', [
+                'criterios' => $criterios,
+                'mensaje' => 'La búsqueda devuelve más de un alumno. Complete más datos para identificar un único registro.',
+            ]);
+        }
+
+        $nid = (string) $coincidencias->first()->nid;
+
+        return $this->renderDetalle($nid, route('consultas_historico.usuario.individual.form'), $idEscuela);
     }
 
-    /**
-     * listaGlobal
-     */
-    public function listaGlobal(Request $request)
+    public function usuarioGlobalFormulario()
+    {
+        return view('consultas_historico.usuario_global', [
+            'criterios' => [
+                'nombre' => '',
+                'apellido_paterno' => '',
+                'apellido_materno' => '',
+                'curp' => '',
+                'nid' => '',
+            ],
+            'resultados' => collect(),
+            'mensaje' => null,
+        ]);
+    }
+
+    public function usuarioGlobalBuscar(Request $request)
     {
         $ctx = $this->contexto();
-        $nivel = $ctx['nivel'] ?? null;
-        
-        $historiaInput = $request->input('Historia', []);
-        
-        $id_escuela = $nivel > 2 ? ($ctx['id_escuela'] ?? null) : ($historiaInput['id_escuela'] ?? null);
-        unset($historiaInput['id_escuela']);
+        $idEscuela = (int) ($ctx['id_escuela'] ?? 0);
 
-        $captura_actual = $this->captura_actual ?? 1;
-
-        $condicionesFind = [
-            'id_escuela' => $id_escuela,
-            'captura'    => $captura_actual
+        $criterios = [
+            'nombre' => $this->normalizarTexto($request->input('nombre')),
+            'apellido_paterno' => $this->normalizarTexto($request->input('apellido_paterno')),
+            'apellido_materno' => $this->normalizarTexto($request->input('apellido_materno')),
+            'curp' => $this->normalizarTexto($request->input('curp')),
+            'nid' => $this->normalizarTexto($request->input('nid')),
         ];
 
-        $vacios = 0;
-        foreach ($historiaInput as $val) {
-            if (!$val) $vacios++;
+        $hayCriterio = collect($criterios)->contains(fn ($valor) => $valor !== '');
+        if (!$hayCriterio) {
+            return view('consultas_historico.usuario_global', [
+                'criterios' => $criterios,
+                'resultados' => collect(),
+                'mensaje' => 'Ingrese al menos un criterio de búsqueda.',
+            ]);
         }
 
-        $datoAlumno = [];
-        
-        if ($vacios < 8) {
-            foreach ($historiaInput as $indx => $valor) {
-                if (!empty($valor)) {
-                    $condicionesFind[$indx] = $valor;
-                }
-            }
+        $query = Historia::query()
+            ->select('nid', 'apellido_paterno', 'apellido_materno', 'nombre', 'curp')
+            ->where('id_escuela', $idEscuela)
+            ->where('nid', '<>', '');
 
-            $alumnos = Historia::where($condicionesFind)
-                ->select('nid', 'apellido_paterno', 'apellido_materno', 'nombre', 'curp')
-                ->orderBy('apellido_paterno')
-                ->orderBy('apellido_materno')
-                ->orderBy('nombre')
-                ->get();
-
-            $url = route('consultasHistorico.detalleAlumno');
-
-            foreach ($alumnos as $alumno) {
-                $boton = "";
-                if (!empty($alumno->nid)) {
-                    $parametros = "data[Historia][nid]=" . $alumno->nid;
-                    $evento = "consultaAjax('$url', '$parametros', muestraOverlay, muestraOcupado)";
-                    $boton = '<input id="' . $alumno->nid . '" type="button" value="Detalle" onclick="' . $evento . '" />';
-                }
-
-                $datoAlumno[] = [
-                    'nid' => $alumno->nid,
-                    'nombre' => $alumno->nombre,
-                    'apellido_paterno' => $alumno->apellido_paterno,
-                    'apellido_materno' => $alumno->apellido_materno,
-                    'curp' => $alumno->curp,
-                    'accion' => $boton
-                ];
+        foreach (['nid', 'apellido_paterno', 'apellido_materno', 'nombre', 'curp'] as $campo) {
+            if ($criterios[$campo] !== '') {
+                $query->where($campo, $criterios[$campo]);
             }
         }
 
-        $cabeceras = ['No.', 'NID', 'Nombre', 'Primer Apellido', 'Segundo Apellido', 'Curp', 'Acción'];
+        $resultados = $query
+            ->groupBy('nid', 'apellido_paterno', 'apellido_materno', 'nombre', 'curp')
+            ->orderBy('apellido_paterno')
+            ->orderBy('apellido_materno')
+            ->orderBy('nombre')
+            ->get();
 
-        return view('elements.tablaAjax', ['renglones' => $datoAlumno, 'cabeceras' => $cabeceras]);
+        return view('consultas_historico.usuario_global', [
+            'criterios' => $criterios,
+            'resultados' => $resultados,
+            'mensaje' => null,
+        ]);
     }
-    /**
-     * AJAX Cascade Lookups
-     */
-    public function escuelas(Request $request)
+
+    public function detalle(Request $request, ?string $nid = null)
     {
-        $id_entidad = $request->input('Escuela.id_entidad');
-        $opciones = Escuela2::where('id_entidad', $id_entidad)
+        if (empty($nid)) {
+            $nid = (string) (
+                $request->input('data.Historia.nid')
+                ?? $request->input('data.Alumno2.nid')
+                ?? $request->input('nid')
+                ?? ''
+            );
+        }
+
+        if ($nid === '') {
+            return redirect()->route('dashboard')->with('error', 'No se recibió el NID del alumno a consultar.');
+        }
+
+        $ctx = $this->contexto();
+        $nivel = (int) ($ctx['nivel'] ?? 0);
+
+        $regresar = $request->query('regresar', route('dashboard'));
+
+        $idEscuelaRestriccion = null;
+        if (in_array($nivel, [2, 3, 4, 6], true)) {
+            $idEscuelaRestriccion = (int) ($ctx['id_escuela'] ?? 0);
+        }
+
+        return $this->renderDetalle($nid, $regresar, $idEscuelaRestriccion);
+    }
+
+    private function renderDetalle(string $nid, string $regresar, ?int $idEscuelaRestriccion = null)
+    {
+        $historia = Historia::query()
+            ->select([
+                'nid', 'nombre', 'apellido_paterno', 'apellido_materno', 'curp', 'id_escuela',
+                'modalidad', 'semestre', 'status', 'captura', 'id_licenciatura', 'id_especialidad', 'matricula',
+            ])
+            ->where('nid', $nid)
+            ->when($idEscuelaRestriccion !== null && $idEscuelaRestriccion > 0, function ($query) use ($idEscuelaRestriccion) {
+                $query->where('id_escuela', $idEscuelaRestriccion);
+            })
+            ->orderBy('id_escuela')
+            ->orderByDesc('captura')
+            ->get();
+
+        if ($historia->isEmpty()) {
+            return redirect($regresar)->with('error', 'No existe histórico disponible para ese alumno con las restricciones actuales.');
+        }
+
+        $idsEscuela = $historia->pluck('id_escuela')->unique()->values();
+        $idsLic = $historia->pluck('id_licenciatura')->unique()->values();
+        $idsEsp = $historia->pluck('id_especialidad')->unique()->values();
+
+        $escuelas = Escuela::whereIn('id', $idsEscuela)->get(['id', 'escuela', 'id_entidad'])->keyBy('id');
+        $entidades = Entidad::whereIn('id', $escuelas->pluck('id_entidad')->unique()->values())
+            ->pluck('entidad', 'id');
+        $licenciaturas = Licenciatura::whereIn('id', $idsLic)->pluck('licenciatura', 'id');
+        $especialidades = Especialidad::whereIn('id', $idsEsp)->pluck('especialidad', 'id');
+
+        $statusTexto = [
+            'i' => 'Inscrito',
+            'x' => 'No Inscrito',
+            't' => 'Temporal',
+            'd' => 'Definitiva',
+        ];
+
+        return view('consultas_historico.detalle_alumno', [
+            'historia' => $historia,
+            'escuelas' => $escuelas,
+            'entidades' => $entidades,
+            'licenciaturas' => $licenciaturas,
+            'especialidades' => $especialidades,
+            'statusTexto' => $statusTexto,
+            'regresar' => $regresar,
+        ]);
+    }
+
+    private function escuelasDeEntidad(?int $id_entidad): array
+    {
+        if (empty($id_entidad)) {
+            return [];
+        }
+
+        return Escuela2::query()
+            ->where('id_entidad', $id_entidad)
             ->where('status', 'a')
             ->where('unica', '<', 2)
             ->where('modulo', 'l')
-            ->pluck('escuela', 'id');
-
-        return view('elements.opciones', ['opciones' => $opciones, 'noelegido' => false]);
+            ->orderBy('escuela')
+            ->pluck('escuela', 'id')
+            ->toArray();
     }
 
-    public function licenciaturaOpciones(Request $request)
+    private function normalizarTexto(?string $valor): string
     {
-        $id_escuela = $request->input('Historia.id_escuela');
-        
-        $opciones = EscuelaLicenciatura::with('licenciatura')
-            ->where('id_escuela', $id_escuela)
-            ->get()
-            ->pluck('licenciatura.licenciatura', 'id_licenciatura');
-
-        return view('elements.opciones2', ['opciones' => $opciones]);
+        return mb_strtoupper(trim((string) $valor));
     }
 
-    public function especialidadOpciones(Request $request)
+    private function hayCriteriosAdmin(array $criterios): bool
     {
-        $id_escuela = $request->input('Historia.id_escuela');
-        $id_licenciatura = $request->input('Historia.id_licenciatura');
-        
-        $opciones = EscuelaLicenciatura::with('especialidad')
-            ->where('id_escuela', $id_escuela)
-            ->where('id_licenciatura', $id_licenciatura)
-            ->get()
-            ->pluck('especialidad.especialidad', 'id_especialidad');
-
-        return view('elements.opciones2', ['opciones' => $opciones]);
+        return (bool) (
+            !empty($criterios['id_entidad']) ||
+            !empty($criterios['id_escuela']) ||
+            $criterios['nid'] !== '' ||
+            $criterios['apellido_paterno'] !== '' ||
+            $criterios['apellido_materno'] !== '' ||
+            $criterios['nombre'] !== '' ||
+            $criterios['curp'] !== ''
+        );
     }
 
-    public function modalidadOpciones(Request $request)
+    private function validarCriteriosIndividual(array $criterios): ?string
     {
-        $id_escuela = $request->input('Historia.id_escuela');
-        $id_licenciatura = $request->input('Historia.id_licenciatura');
-        $id_especialidad = $request->input('Historia.id_especialidad');
-        
-        $registros = EscuelaLicenciatura::where('id_escuela', $id_escuela)
-            ->where('id_licenciatura', $id_licenciatura)
-            ->where('id_especialidad', $id_especialidad)
-            ->get();
-
-        $lista_modalidades = ['e' => 'Escolarizada', 'm' => 'Mixta', 'i' => 'Intensiva'];
-        $modalidades = [];
-
-        foreach ($registros as $reg) {
-            $modalidades[$reg->modalidad] = $lista_modalidades[$reg->modalidad] ?? '';
+        if ($criterios['nid'] !== '') {
+            return 'nid';
         }
 
-        return view('elements.opciones2', ['opciones' => $modalidades]);
-    }
-
-    public function turnoOpciones(Request $request)
-    {
-        $id_escuela = $request->input('Historia.id_escuela');
-        $id_licenciatura = $request->input('Historia.id_licenciatura');
-        $id_especialidad = $request->input('Historia.id_especialidad');
-        $modalidad = $request->input('Historia.modalidad');
-        
-        $registros = EscuelaLicenciatura::where('id_escuela', $id_escuela)
-            ->where('id_licenciatura', $id_licenciatura)
-            ->where('id_especialidad', $id_especialidad)
-            ->where('modalidad', $modalidad)
-            ->get();
-
-        $lista_turno = ['m' => 'Matutino', 'v' => 'Vespertino', 'n' => 'Nocturno'];
-        $turnos = [];
-
-        foreach ($registros as $reg) {
-            $turnos[$reg->turno] = $lista_turno[$reg->turno] ?? '';
+        if ($criterios['curp'] !== '') {
+            return 'curp';
         }
 
-        return view('elements.opciones2', ['opciones' => $turnos]);
-    }
+        if (
+            $criterios['nombre'] !== '' &&
+            $criterios['apellido_paterno'] !== '' &&
+            $criterios['apellido_materno'] !== ''
+        ) {
+            return 'nombre_completo';
+        }
 
+        return null;
+    }
 }
-
-?>

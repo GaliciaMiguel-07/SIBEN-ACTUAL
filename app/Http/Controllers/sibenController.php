@@ -167,7 +167,7 @@ abstract class sibenController
                 ['Cambiar captura', 'siben.captura'],
                 ['Lista usuarios', 'admin.usuarios.index'],
                 ['Informes escuelas', null],
-                ['Consulta histórico', null],
+                ['Consulta histórico', 'consultas_historico.admin.form'],
                 ['Consulta docente', null],
                 ['Prueba Verhoeff', 'siben.prueba_verhoeff'],
             ],

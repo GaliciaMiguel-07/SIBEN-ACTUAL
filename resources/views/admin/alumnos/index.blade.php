@@ -11,6 +11,16 @@
         $controlador = $sublista[0] ?? '';
         $accion = $sublista[2] ?? '';
 
+        if ($controlador === 'consultasHistorico') {
+            if ($accion === 'busquedaGlobal/p') {
+                return route('consultas_historico.usuario.individual.form');
+            }
+
+            if ($accion === 'busquedaGlobal/g') {
+                return route('consultas_historico.usuario.global.form');
+            }
+        }
+
         if ($controlador === 'alumnos') {
             if ($accion === 'listaEscuelas') {
                 return route('alumnos.listaEscuelas');
