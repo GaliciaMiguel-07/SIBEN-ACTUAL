@@ -729,7 +729,6 @@ for ($i = 1; $i <= 12; $i++) {
         ]);
     }
 
-
     /** Pantalla para consultar y reactivar personal jubilado */
     public function jubilados(Request $request)
     {
