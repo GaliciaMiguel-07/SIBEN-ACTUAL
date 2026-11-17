@@ -296,6 +296,13 @@ Route::middleware('nivel:1,2,3,4')->match(['get', 'post'], '/consultasHistorico/
              ->name('personal.actualizar');
         Route::post('/personal/jubilacion/guardar', [AdminController::class, 'guardarJubilacion'])
              ->name('personal.jubilacion.guardar');
+        Route::get('/personal/jubilados', [AdminController::class, 'jubilados'])
+             ->name('personal.jubilados');
+        Route::get('/personal/jubilados/lista', [AdminController::class, 'listaPersonalJubilado'])
+             ->name('personal.jubilados.lista');
+        Route::post('/personal/jubilados/activar', [AdminController::class, 'activarJubilado'])
+             ->name('personal.jubilados.activar');
+
         // Solo el admin puede INICIAR una suplantación
         Route::post('/impersonate/{usuarioId}', [TwoFactorController::class, 'impersonate'])
              ->name('impersonate');
