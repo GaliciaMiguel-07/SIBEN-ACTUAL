@@ -730,6 +730,165 @@ for ($i = 1; $i <= 12; $i++) {
     }
 
 
+    /** Pantalla para consultar y reactivar personal jubilado */
+    public function jubilados(Request $request)
+    {
+        $entidades = Entidad::where('id', '<>', 33)
+            ->orderBy('id')
+            ->pluck('entidad', 'id');
+
+        $entidad_id = $request->integer('entidad');
+        $escuela_id = $request->integer('escuela');
+
+        return view('admin.personal.jubilados', compact(
+            'entidades',
+            'entidad_id',
+            'escuela_id'
+        ));
+    }
+
+    /** Devuelve el personal jubilado de la escuela seleccionada */
+    public function listaPersonalJubilado(Request $request)
+    {
+        $request->validate([
+            'escuela' => ['required', 'integer', 'min:1'],
+        ]);
+
+        $escuelaId = $request->integer('escuela');
+
+        $escuela = Escuela2::where('id', $escuelaId)
+            ->where('modulo', auth()->user()->modulo)
+            ->where('status', 'a')
+            ->where('unica', '<', 2)
+            ->first();
+
+        if (!$escuela) {
+            return response('<p>La escuela seleccionada no está disponible.</p>', 404);
+        }
+
+        $idsEscuela = [$escuela->id];
+
+        foreach (['clave_escuela', 'escuela_key', 'clave_institucion'] as $campo) {
+            if (!empty($escuela->{$campo})) {
+                $idsEscuela[] = $escuela->{$campo};
+            }
+        }
+
+        $idsEscuela = array_values(array_unique($idsEscuela));
+
+        $personal = DB::table('jubilados as j')
+            ->join('personal2 as p', 'p.id', '=', 'j.id_personal')
+            ->whereIn('p.id_escuela', $idsEscuela)
+            ->where('p.status', 'j')
+            ->select(
+                'j.id as id_jubilado',
+                'j.fecha_jubilacion',
+                'p.id as id_personal',
+                'p.nombre',
+                'p.apellido_paterno',
+                'p.apellido_materno',
+                'p.curp'
+            )
+            ->orderBy('p.apellido_paterno')
+            ->orderBy('p.apellido_materno')
+            ->orderBy('p.nombre')
+            ->get();
+
+        return view('admin.personal.lista_jubilados', compact('personal'));
+    }
+
+    /** Reactiva al personal jubilado siguiendo la lógica del sistema anterior */
+    public function activarJubilado(Request $request)
+    {
+        $datos = $request->validate([
+            'id_personal' => ['required', 'integer', 'min:1'],
+            'escuela' => ['required', 'integer', 'min:1'],
+        ]);
+
+        $escuela = Escuela2::where('id', $datos['escuela'])
+            ->where('modulo', auth()->user()->modulo)
+            ->where('status', 'a')
+            ->where('unica', '<', 2)
+            ->first();
+
+        if (!$escuela) {
+            return response()->json([
+                'ok' => false,
+                'mensaje' => 'La escuela seleccionada no está disponible.'
+            ], 403);
+        }
+
+        $idsEscuela = [$escuela->id];
+
+        foreach (['clave_escuela', 'escuela_key', 'clave_institucion'] as $campo) {
+            if (!empty($escuela->{$campo})) {
+                $idsEscuela[] = $escuela->{$campo};
+            }
+        }
+
+        $idsEscuela = array_values(array_unique($idsEscuela));
+
+        $registro = DB::table('jubilados as j')
+            ->join('personal2 as p', 'p.id', '=', 'j.id_personal')
+            ->where('j.id_personal', $datos['id_personal'])
+            ->whereIn('p.id_escuela', $idsEscuela)
+            ->where('p.status', 'j')
+            ->select('j.id', 'j.id_personal', 'j.fecha_jubilacion')
+            ->get();
+
+        if ($registro->count() !== 1) {
+            return response()->json([
+                'ok' => false,
+                'mensaje' => 'No se encontró un único registro de jubilación para esta persona.'
+            ], 404);
+        }
+
+        $jubilacion = $registro->first();
+
+        $actualizados = DB::table('personal2')
+            ->where('id', $datos['id_personal'])
+            ->whereIn('id_escuela', $idsEscuela)
+            ->where('status', 'j')
+            ->update([
+                'status' => 'x',
+                'fecha_actualizacion' => now(),
+            ]);
+
+        if ($actualizados !== 1) {
+            return response()->json([
+                'ok' => false,
+                'mensaje' => 'No fue posible actualizar el estado del personal.'
+            ], 409);
+        }
+
+        $eliminados = DB::table('jubilados')
+            ->where('id', $jubilacion->id)
+            ->where('id_personal', $datos['id_personal'])
+            ->delete();
+
+        if ($eliminados !== 1) {
+            DB::table('personal2')
+                ->where('id', $datos['id_personal'])
+                ->where('status', 'x')
+                ->update([
+                    'status' => 'j',
+                    'fecha_actualizacion' => now(),
+                ]);
+
+            return response()->json([
+                'ok' => false,
+                'mensaje' => 'No se pudo retirar el registro de jubilación. Se restauró el estado anterior.'
+            ], 409);
+        }
+
+        return response()->json([
+            'ok' => true,
+            'mensaje' => 'El personal fue reactivado correctamente.'
+        ]);
+    }
+
+
+
     /** Devuelve (AJAX) el fragmento con la tabla de personal de una escuela */
    /** Devuelve (AJAX) el fragmento con la tabla de personal de una escuela */
     public function listaPersonal(Request $request)
