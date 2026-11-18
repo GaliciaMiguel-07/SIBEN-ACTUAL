@@ -94,8 +94,7 @@
       {{-- Botón de Ingresar directo --}}
       <div class="iniciarSesion">
         <a href="{{ route('login') }}" 
-           class="iniciarSesion__a cta"
-           onclick='window.open(this.href, "sibenLogin", "toolbar=no,location=no,directories=no,status=no,menubar=no,scrollbars=yes,resizable=no,width=917,height=600"); return false;'>
+           class="iniciarSesion__a cta">
           <span class="iniciarSesion__txt">
             Ingresar
           </span>
