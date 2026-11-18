@@ -14,6 +14,7 @@ use App\Http\Controllers\AlumnosController;
 use App\Http\Controllers\PersonalController;
 use App\Http\Controllers\InformesController;
 use App\Http\Controllers\ConsultasHistoricoController;
+use App\Http\Controllers\ConsultaPersonalController;
 
 // ─── Rutas públicas ──────────────────────────────────────────────────────────
 
@@ -193,6 +194,20 @@ Route::prefix('consultas-historico')->name('consultas_historico.')->group(functi
     });
 
     Route::middleware('nivel:1,2,3,4')->get('/detalle/{nid}', [ConsultasHistoricoController::class, 'detalle'])
+        ->name('detalle');
+});
+
+// ── Consulta Personal ──────────────────────────────────────
+Route::prefix('consultas-personal')->name('consultas_personal.')->middleware('nivel:1,2,3,4')->group(function () {
+    Route::match(['get', 'post'], '/', [ConsultaPersonalController::class, 'formulario'])
+        ->name('formulario');
+    Route::match(['get', 'post'], '/buscar', [ConsultaPersonalController::class, 'buscar'])
+        ->name('buscar');
+    Route::get('/escuelas/{id_entidad}', [ConsultaPersonalController::class, 'escuelasPorEntidad'])
+        ->whereNumber('id_entidad')
+        ->name('escuelas');
+    Route::get('/detalle/{id}', [ConsultaPersonalController::class, 'detalle'])
+        ->whereNumber('id')
         ->name('detalle');
 });
 
