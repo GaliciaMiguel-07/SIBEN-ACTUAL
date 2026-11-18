@@ -917,13 +917,13 @@ class PersonalController extends sibenController
         switch ($nivel) {
             case 3:
                 $opcionesMenu[] = ['personal', 'Editar', '', 0];
-                $opcionesMenu[] = ['ConsultasHistorico', 'Consulta Personal', 'buscarDocente', 0];
+                $opcionesMenu[] = ['consultas_personal', 'Consulta personal', 'formulario', 0];
                 $opcionesMenu[] = ['personal', 'Lista Bajas', 'jubilados', 0];
                 break;
             case 4:
                 $opcionesMenu[] = ['personal', 'Agregar', 'agrega', 0];
                 $opcionesMenu[] = ['personal', 'Activar', '', 0];
-                $opcionesMenu[] = ['ConsultasHistorico', 'Consulta Personal', 'buscarDocente', 0];
+                $opcionesMenu[] = ['consultas_personal', 'Consulta personal', 'formulario', 0];
                 $opcionesMenu[] = ['personal', 'Baja Personal', 'jubilacion', 0];
                 $opcionesMenu[] = ['personal', 'Lista Bajas', 'jubilados', 0];
                 break;

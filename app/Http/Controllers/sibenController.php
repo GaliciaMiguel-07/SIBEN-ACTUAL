@@ -168,7 +168,8 @@ abstract class sibenController
                 ['Lista usuarios', 'admin.usuarios.index'],
                 ['Informes escuelas', null],
                 ['Consulta histórico', 'consultas_historico.admin.form'],
-                ['Consulta docente', null],
+                ['Consulta personal', 'consultas_personal.formulario'],
+                ['Prueba Verhoeff', 'siben.prueba_verhoeff'],
             ],
             2 => [
                 ['Conflictos', null],
@@ -178,7 +179,7 @@ abstract class sibenController
                 ['Supervisores', 'siben.supervisores'],
                 ['Directores', 'siben.directores'],
                 ['Alumnos', 'alumnos.index'],
-                ['Consulta personal', null],
+                ['Consulta personal', 'consultas_personal.formulario'],
                 ['Listados', 'siben.listados'],
                 ['Estadísticas', 'informes.estadisticas'],
             ],
@@ -202,7 +203,7 @@ abstract class sibenController
                 ['Directorio', null],
                 ['Estadísticas', 'informes.estadisticas'],
                 ['Consulta alumno', null],
-                ['Consulta docente', null],
+                ['Consulta personal', null],
             ],
             6 => [
                 ['Directorio', 'informes.directorio'],
