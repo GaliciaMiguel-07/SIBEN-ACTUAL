@@ -48,4 +48,8 @@ class Escuela extends Model
     {
         return $this->belongsTo(Entidad::class, 'id_entidad');
     }
+    public function caracteristicaEscuela()
+{
+    return $this->hasOne(CaracteristicaEscuela::class, 'id_escuela', 'id');
+}
 }

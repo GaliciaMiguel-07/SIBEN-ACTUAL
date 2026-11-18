@@ -93,6 +93,32 @@ Route::middleware(['auth', 'no.cache'])->group(function () {
             Route::get('/', [DashboardController::class, 'index'])->name('index');
             Route::get('/archivos', [DashboardController::class, 'archivos'])->name('archivos');
             Route::get('/datos-generales', [DashboardController::class, 'menuDatos'])->name('menu_datos');
+
+            // Datos generales de la escuela
+            Route::get('/datos-escuela', [DashboardController::class, 'datosEscuela'])->name('datosEscuela');
+            Route::get('/edita-adicionales', [DashboardController::class, 'editaAdicionales'])->name('editaAdicionales');
+            Route::post('/guarda-escuela', [DashboardController::class, 'guardaEscuela'])->name('guardaEscuela');
+
+            // Domicilio
+            Route::get('/domicilio-escuela', [DashboardController::class, 'domicilioEscuela'])->name('domicilioEscuela');
+            Route::get('/edita-escuela', [DashboardController::class, 'editaEscuela'])->name('editaEscuela');
+            Route::get('/edita-domicilio', [DashboardController::class, 'editaDomicilio'])->name('editaDomicilio');
+            Route::post('/guarda-domicilio', [DashboardController::class, 'guardaDomicilio'])->name('guardaDomicilio');
+            Route::post('/localidades', [DashboardController::class, 'loc'])->name('loc');
+
+            // Infraestructura
+            Route::get('/estructura-escuela/{opc?}', [DashboardController::class, 'estructuraEscuela'])->name('estructuraEscuela');
+            Route::get('/edita-estructura', [DashboardController::class, 'editaEstructura'])->name('editaEstructura');
+            Route::post('/guarda-estructura', [DashboardController::class, 'guardaEstructura'])->name('guardaEstructura');
+
+            // Fotografías
+            Route::get('/imagenes-escuela', [DashboardController::class, 'imagenEscuela'])->name('imagenEscuela');
+            Route::post('/sube-imagen/{id}', [DashboardController::class, 'subeImagen'])->whereNumber('id')->name('subeImagen');
+            Route::post('/borra-imagen/{id}', [DashboardController::class, 'borraImagen'])->whereNumber('id')->name('borraImagen');
+
+            // Directivos
+            Route::get('/directores-escuela/{opc?}', [DashboardController::class, 'directoresEscuela'])->name('directoresEscuela');
+            
             Route::get('/listados', [DashboardController::class, 'listados'])->name('listados');
             Route::get('/parametros', [DashboardController::class, 'parametros'])->name('parametros');
             Route::get('/usuarios', [DashboardController::class, 'listaUsuarios'])->name('lista_usuarios');

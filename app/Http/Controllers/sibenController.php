@@ -414,53 +414,55 @@ abstract class sibenController
 
         return view('siben.listados', compact('opcionesMenu', 'opcionesMenu2'));
     }
-
+  
     public function datosEscuela()
     {
         $ctx = $this->contexto();
 
-        $modulo        = $ctx['modulo'];
-        $nivel         = $ctx['nivel'];
+        $modulo     = $ctx['modulo'];
+        $nivel      = $ctx['nivel'];
+        $id_escuela = $ctx['id_escuela'];
         $nombreEscuela = $ctx['escuela'];
-        $id_escuela    = $ctx['id_escuela'];
 
-        if ($modulo != 'l') {
-            return redirect()->route('siben.index');
+        if ($modulo !== 'l' || !in_array($nivel, [3, 4], true)) {
+            abort(403, 'No tienes permiso para consultar esta información.');
         }
 
-        $escuela  = Escuela::find($id_escuela);
-        $telefono = $escuela ? $escuela->telefono1 : '';
-
-        $title          = 'Datos Adicionales, ' . $nombreEscuela;
-        $turnos         = ['m' => 'Matutino', 'v' => 'Vespertino', 'd' => 'Discontinuo', 'n' => 'Nocturno'];
-        $sostenimientos = ['p' => 'Público', 'q' => 'Particular'];
-
-        $urls['escuela']       = url('/siben/editaAdicionales');
-        $textos['escuela']     = 'Editar';
-        $parametros['escuela'] = "data[Escuela][id]={$id_escuela}";
-        $eventos['escuela']    = "consultaAjax('{$urls['escuela']}', '{$parametros['escuela']}', muestraOverlay, muestraOcupado)";
-        $evento_domicilio      = "locacion('" . url('/siben') . "')";
-
-        $botones = [];
-        switch ($nivel) {
-            case 3:
-                $botones['escuela']  = "<input id='e_{$id_escuela}' type='button' value='{$textos['escuela']}' onclick=\"{$eventos['escuela']}\" class='boton__primario' style='padding: 6px 14px; cursor: pointer;' />";
-                $botones['terminar'] = "<input type='button' value='Terminar' onclick=\"{$evento_domicilio}\" class='boton__secundario' style='padding: 6px 14px; cursor: pointer;' />";
-                break;
+        if (!$id_escuela) {
+            abort(403, 'No tienes una escuela asignada.');
         }
 
-        $anterior = true;
+        $escuela = Escuela::findOrFail($id_escuela);
+
+        $title = 'Datos adicionales, ' . $nombreEscuela;
+
+        $turnos = [
+            'm' => 'Matutino',
+            'v' => 'Vespertino',
+            'd' => 'Discontinuo',
+            'n' => 'Nocturno',
+        ];
+
+        $sostenimientos = [
+            'p' => 'Público',
+            'q' => 'Particular',
+        ];
+
+        $investigacion = [
+            's' => 'Sí',
+            'n' => 'No',
+        ];
 
         return view('siben.datos_escuela', compact(
             'title',
             'escuela',
-            'telefono',
+            'nivel',
             'turnos',
             'sostenimientos',
-            'botones',
-            'anterior'
+            'investigacion'
         ));
     }
+
 
     public function editaEscuela(Request $request)
     {
@@ -468,54 +470,159 @@ abstract class sibenController
 
         $id_escuela = $ctx['id_escuela'];
         $id_entidad = $ctx['id_entidad'];
+        $modulo     = $ctx['modulo'];
+        $nivel      = $ctx['nivel'];
 
-        $escuelaIdInput = $request->input('data.Escuela.id', $request->input('id'));
-
-        if ($id_escuela != $escuelaIdInput) {
+        // Solo se permite trabajar en el módulo de licenciaturas.
+        if ($modulo !== 'l') {
             return redirect()->route('siben.index');
         }
 
+        // Solamente el supervisor estatal (nivel 3) puede editar.
+        if ((int) $nivel !== 3) {
+            abort(403, 'No tienes permiso para editar el domicilio de la escuela.');
+        }
+
+        // Verificar que la escuela solicitada corresponda al usuario.
+        $escuelaIdInput = $request->input(
+            'data.Escuela.id',
+            $request->input('id')
+        );
+
+        if (
+            empty($id_escuela) ||
+            empty($escuelaIdInput) ||
+            (string) $id_escuela !== (string) $escuelaIdInput
+        ) {
+            return redirect()->route('siben.index');
+        }
+
+        // Consultar información de la escuela y su domicilio.
         $domicilioEscuela = DomicilioEscuela::where('id_escuela', $id_escuela)->first();
-        $escuela          = Escuela::find($id_escuela);
-        $id_municipio     = $domicilioEscuela ? $domicilioEscuela->cve_mun : null;
 
-        $municipios = Municipio::where('id_entidad', $id_entidad)->orderBy('municipio')->pluck('municipio', 'id_municipio');
+        $escuela = Escuela::find($id_escuela);
 
-        $locs = Localidad::where('id_entidad', $id_entidad)->where('id_municipio', $id_municipio)->pluck('localidad', 'id_localidad');
+        if (!$escuela) {
+            return redirect()->route('siben.index');
+        }
 
-        $turnos = ['m' => 'Matutino', 'v' => 'Vespertino', 'd' => 'Discontinuo', 'n' => 'Nocturno'];
+        $id_municipio = $domicilioEscuela
+            ? $domicilioEscuela->cve_mun
+            : null;
 
+        // Municipios y localidades.
+        $municipios = Municipio::where('id_entidad', $id_entidad)
+            ->orderBy('municipio')
+            ->pluck('municipio', 'id_municipio');
+
+        $locs = Localidad::where('id_entidad', $id_entidad)
+            ->where('id_municipio', $id_municipio)
+            ->pluck('localidad', 'id_localidad');
+
+        // Turnos.
+        $turnos = [
+            'm' => 'Matutino',
+            'v' => 'Vespertino',
+            'd' => 'Discontinuo',
+            'n' => 'Nocturno'
+        ];
+
+        // Tipos de vialidad.
         $vialidad = [
-            'AMPLIACION' => 'AMPLIACION', 'ANDADOR' => 'ANDADOR', 'AVENIDA' => 'AVENIDA',
-            'BOULEVARD' => 'BOULEVARD', 'CALLE' => 'CALLE', 'CALLEJON' => 'CALLEJON',
-            'CALZADA' => 'CALZADA', 'CAMINO' => 'CAMINO', 'CARRETERA' => 'CARRETERA',
-            'CERRADA' => 'CERRADA', 'CIRCUITO' => 'CIRCUITO', 'CIRCUNVALACION' => 'CIRCUNVALACION',
-            'CONTINUACION' => 'CONTINUACION', 'CORREDOR' => 'CORREDOR', 'DIAGONAL' => 'DIAGONAL',
-            'EJE VIAL' => 'EJE VIAL', 'PASAJE' => 'PASAJE', 'PEATONAL' => 'PEATONAL',
-            'PERIFERICO' => 'PERIFERICO', 'PRIVADA' => 'PRIVADA', 'PROLONGACION' => 'PROLONGACION',
-            'RETORNO' => 'RETORNO', 'VIADUCTO' => 'VIADUCTO',
+            'AMPLIACION' => 'AMPLIACION',
+            'ANDADOR' => 'ANDADOR',
+            'AVENIDA' => 'AVENIDA',
+            'BOULEVARD' => 'BOULEVARD',
+            'CALLE' => 'CALLE',
+            'CALLEJON' => 'CALLEJON',
+            'CALZADA' => 'CALZADA',
+            'CAMINO' => 'CAMINO',
+            'CARRETERA' => 'CARRETERA',
+            'CERRADA' => 'CERRADA',
+            'CIRCUITO' => 'CIRCUITO',
+            'CIRCUNVALACION' => 'CIRCUNVALACION',
+            'CONTINUACION' => 'CONTINUACION',
+            'CORREDOR' => 'CORREDOR',
+            'DIAGONAL' => 'DIAGONAL',
+            'EJE VIAL' => 'EJE VIAL',
+            'PASAJE' => 'PASAJE',
+            'PEATONAL' => 'PEATONAL',
+            'PERIFERICO' => 'PERIFERICO',
+            'PRIVADA' => 'PRIVADA',
+            'PROLONGACION' => 'PROLONGACION',
+            'RETORNO' => 'RETORNO',
+            'VIADUCTO' => 'VIADUCTO',
         ];
 
+        // Tipos de asentamiento.
         $asentamientos = [
-            'AEROPUERTO' => 'AEROPUERTO', 'AMPLIACION' => 'AMPLIACION', 'BARRIO' => 'BARRIO',
-            'CANTON' => 'CANTON', 'CIUDAD' => 'CIUDAD', 'CIUDAD INDUSTRIAL' => 'CIUDAD INDUSTRIAL',
-            'COLONIA' => 'COLONIA', 'CONDOMINIO' => 'CONDOMINIO', 'CONJUNTO HABITACIONAL' => 'CONJUNTO HABITACIONAL',
-            'CORREDOR INDUSTRIAL' => 'CORREDOR INDUSTRIAL', 'COTO' => 'COTO', 'CUARTEL' => 'CUARTEL',
-            'EJIDO' => 'EJIDO', 'EXHACIENDA' => 'EXHACIENDA', 'FRACCION' => 'FRACCION',
-            'FRACCIONAMIENTO' => 'FRACCIONAMIENTO', 'GRANJA' => 'GRANJA', 'HACIENDA' => 'HACIENDA',
-            'INGENIO' => 'INGENIO', 'MANZANA' => 'MANZANA', 'PARAJE' => 'PARAJE', 'PARQUE INDUSTRIAL' => 'PARQUE INDUSTRIAL',
-            'PRIVADA' => 'PRIVADA', 'PROLONGACION' => 'PROLONGACION', 'PUEBLO' => 'PUEBLO', 'PUERTO' => 'PUERTO',
-            'RANCHERIA' => 'RANCHERIA', 'RANCHO' => 'RANCHO', 'REGION' => 'REGION', 'RESIDENCIAL' => 'RESIDENCIAL',
-            'RINCONADA' => 'RINCONADA', 'SECCION' => 'SECCION', 'SECTOR' => 'SECTOR', 'SUPERMANZANA' => 'SUPERMANZANA',
-            'UNIDAD' => 'UNIDAD', 'UNIDAD HABITACIONAL' => 'UNIDAD HABITACIONAL', 'VILLA' => 'VILLA',
-            'ZONA FEDERAL' => 'ZONA FEDERAL', 'ZONA INDUSTRIAL' => 'ZONA INDUSTRIAL', 'ZONA MILITAR' => 'ZONA MILITAR',
+            'AEROPUERTO' => 'AEROPUERTO',
+            'AMPLIACION' => 'AMPLIACION',
+            'BARRIO' => 'BARRIO',
+            'CANTON' => 'CANTON',
+            'CIUDAD' => 'CIUDAD',
+            'CIUDAD INDUSTRIAL' => 'CIUDAD INDUSTRIAL',
+            'COLONIA' => 'COLONIA',
+            'CONDOMINIO' => 'CONDOMINIO',
+            'CONJUNTO HABITACIONAL' => 'CONJUNTO HABITACIONAL',
+            'CORREDOR INDUSTRIAL' => 'CORREDOR INDUSTRIAL',
+            'COTO' => 'COTO',
+            'CUARTEL' => 'CUARTEL',
+            'EJIDO' => 'EJIDO',
+            'EXHACIENDA' => 'EXHACIENDA',
+            'FRACCION' => 'FRACCION',
+            'FRACCIONAMIENTO' => 'FRACCIONAMIENTO',
+            'GRANJA' => 'GRANJA',
+            'HACIENDA' => 'HACIENDA',
+            'INGENIO' => 'INGENIO',
+            'MANZANA' => 'MANZANA',
+            'PARAJE' => 'PARAJE',
+            'PARQUE INDUSTRIAL' => 'PARQUE INDUSTRIAL',
+            'PRIVADA' => 'PRIVADA',
+            'PROLONGACION' => 'PROLONGACION',
+            'PUEBLO' => 'PUEBLO',
+            'PUERTO' => 'PUERTO',
+            'RANCHERIA' => 'RANCHERIA',
+            'RANCHO' => 'RANCHO',
+            'REGION' => 'REGION',
+            'RESIDENCIAL' => 'RESIDENCIAL',
+            'RINCONADA' => 'RINCONADA',
+            'SECCION' => 'SECCION',
+            'SECTOR' => 'SECTOR',
+            'SUPERMANZANA' => 'SUPERMANZANA',
+            'UNIDAD' => 'UNIDAD',
+            'UNIDAD HABITACIONAL' => 'UNIDAD HABITACIONAL',
+            'VILLA' => 'VILLA',
+            'ZONA FEDERAL' => 'ZONA FEDERAL',
+            'ZONA INDUSTRIAL' => 'ZONA INDUSTRIAL',
+            'ZONA MILITAR' => 'ZONA MILITAR',
         ];
 
+        // Seguridad social.
         $seguridad_social = SeguridadSocial::pluck('regimen', 'id');
-        $admon            = ['ESTATAL' => 'ESTATAL', 'FEDERAL' => 'FEDERAL'];
-        $derecho          = ['DE CUOTA' => 'DE CUOTA', 'LIBRE' => 'LIBRE'];
-        $admon2           = ['BRECHA' => 'BRECHA', 'CAMINO' => 'CAMINO', 'TERRACERIA' => 'TERRACERIA', 'VEREDA' => 'VEREDA'];
-        $margen           = ['DERECHO' => 'DERECHO', 'IZQUIERO' => 'IZQUIERDO'];
+
+        // Opciones de administración.
+        $admon = [
+            'ESTATAL' => 'ESTATAL',
+            'FEDERAL' => 'FEDERAL'
+        ];
+
+        $derecho = [
+            'DE CUOTA' => 'DE CUOTA',
+            'LIBRE' => 'LIBRE'
+        ];
+
+        $admon2 = [
+            'BRECHA' => 'BRECHA',
+            'CAMINO' => 'CAMINO',
+            'TERRACERIA' => 'TERRACERIA',
+            'VEREDA' => 'VEREDA'
+        ];
+
+        $margen = [
+            'DERECHO' => 'DERECHO',
+            'IZQUIERO' => 'IZQUIERDO'
+        ];
 
         return view('siben.edita_escuela', compact(
             'escuela',
@@ -535,23 +642,44 @@ abstract class sibenController
 
     public function editaEstructura(Request $request)
     {
-        $id_estructura = $request->input('data.CaracteristicaEscuela.id', $request->input('id'));
+        $ctx = $this->contexto();
 
-        $estructura      = CaracteristicaEscuela::find($id_estructura);
-        $tiposPropiedad  = Construccion::where('id', '<', 20)->pluck('construccion', 'id');
-        $tiposEstructura = Construccion::where('id', '>', 20)->pluck('construccion', 'id');
+        $modulo = $ctx['modulo'];
+        $nivel = (int) $ctx['nivel'];
+        $id_escuela = $ctx['id_escuela'];
 
-        $bandaAncha = ['s' => 'Banda Ancha', 'n' => '56kbps'];
-        $sino       = ['s' => 'Sí', 'n' => 'No'];
+        // Solo el nivel 3 del módulo de licenciatura puede editar.
+        if ($modulo !== 'l' || $nivel !== 3) {
+            abort(403, 'No tienes permiso para editar la infraestructura.');
+        }
 
-        $contador    = $this->contador(10);
-        $contador20  = $this->contador(20);
-        $contador30  = $this->contador(30);
-        $contador40  = $this->contador(40);
-        $contador50  = $this->contador(50);
-        $contador100 = $this->contador(100);
-        $contador150 = $this->contador(150);
-        $contador250 = $this->contador(250);
+        if (!$id_escuela) {
+            abort(403, 'No tienes una escuela asignada.');
+        }
+
+        // Buscar la infraestructura por la escuela del usuario.
+        // Si todavía no existe, preparar un registro nuevo.
+        $estructura = CaracteristicaEscuela::firstOrNew([
+            'id_escuela' => $id_escuela,
+        ]);
+
+        $tiposPropiedad = Construccion::where('id', '<', 20)
+            ->pluck('construccion', 'id');
+
+        $tiposEstructura = Construccion::where('id', '>', 20)
+            ->pluck('construccion', 'id');
+
+        $bandaAncha = [
+            's' => 'Banda ancha',
+            'n' => '56 Kbps',
+        ];
+
+        $sino = [
+            's' => 'Sí',
+            'n' => 'No',
+        ];
+
+        $title = 'Editar infraestructura de la escuela';
 
         return view('siben.edita_estructura', compact(
             'estructura',
@@ -559,15 +687,132 @@ abstract class sibenController
             'tiposEstructura',
             'bandaAncha',
             'sino',
-            'contador',
-            'contador20',
-            'contador30',
-            'contador40',
-            'contador50',
-            'contador100',
-            'contador150',
-            'contador250',
+            'title'
         ));
+    }
+
+
+    public function guardaEstructura(Request $request)
+    {
+        $ctx = $this->contexto();
+
+        $modulo = $ctx['modulo'];
+        $nivel = (int) $ctx['nivel'];
+        $id_escuela = $ctx['id_escuela'];
+
+        // Solo el nivel 3 del módulo de licenciatura puede guardar.
+        if ($modulo !== 'l' || $nivel !== 3) {
+            abort(403, 'No tienes permiso para guardar la infraestructura.');
+        }
+
+        if (!$id_escuela) {
+            abort(403, 'No tienes una escuela asignada.');
+        }
+
+        $camposTinyInt = [
+            'aulas',
+            'bibliotecas',
+            'aulas_computo',
+            'auditorios',
+            'idiomas',
+            'albercas',
+            'gimnasios',
+            'canchas',
+            'pistas',
+            'salas_maestros',
+            'cubiculos_maestros',
+            'salas_multiples',
+            'laboratorios',
+            'talleres',
+            'd_rampas',
+            'd_elevadores',
+            'd_computadoras',
+            'd_banios',
+            'd_libros',
+        ];
+
+        $camposNumericos = [
+            'computo_alumnos',
+            'computo_docentes',
+            'computo_administrativo',
+            'internet_alumnos',
+            'internet_docentes',
+            'internet_administrativo',
+        ];
+
+        $reglas = [
+            'CaracteristicaEscuela.propiedad' => 'required|integer|in:11,12,13,14',
+            'CaracteristicaEscuela.estructura' => 'required|integer|in:21,22',
+
+            'CaracteristicaEscuela.internet' => 'required|in:s,n',
+            'CaracteristicaEscuela.internet_banda_ancha' => 'required|in:s,n',
+            'CaracteristicaEscuela.restriccion_internet' => 'required|in:s,n',
+            'CaracteristicaEscuela.siden' => 'required|in:s,n',
+            'CaracteristicaEscuela.edusat' => 'required|in:s,n',
+            'CaracteristicaEscuela.d_software' => 'required|in:s,n',
+            'CaracteristicaEscuela.d_guias' => 'required|in:s,n',
+        ];
+
+        foreach ($camposTinyInt as $campo) {
+            $reglas["CaracteristicaEscuela.$campo"] = 'required|integer|min:0|max:255';
+        }
+
+        foreach ($camposNumericos as $campo) {
+            $reglas["CaracteristicaEscuela.$campo"] = 'required|integer|min:0|max:100000';
+        }
+
+        // Validar únicamente los campos permitidos.
+        $validado = $request->validate($reglas);
+
+        $datos = $validado['CaracteristicaEscuela'];
+
+        // Validar que los equipos con Internet no superen
+        // el total de equipos de cómputo de cada grupo.
+        $errores = [];
+
+        if ($datos['internet_alumnos'] > $datos['computo_alumnos']) {
+            $errores['CaracteristicaEscuela.internet_alumnos'] =
+                'Las computadoras con Internet para alumnos no pueden superar el total de computadoras para alumnos.';
+        }
+
+        if ($datos['internet_docentes'] > $datos['computo_docentes']) {
+            $errores['CaracteristicaEscuela.internet_docentes'] =
+                'Las computadoras con Internet para docentes no pueden superar el total de computadoras para docentes.';
+        }
+
+        if ($datos['internet_administrativo'] > $datos['computo_administrativo']) {
+            $errores['CaracteristicaEscuela.internet_administrativo'] =
+                'Las computadoras con Internet para administrativos no pueden superar el total de computadoras para administrativos.';
+        }
+
+        if (!empty($errores)) {
+            return back()
+                ->withErrors($errores)
+                ->withInput();
+        }
+
+        // Obtener o crear el registro exclusivamente para esta escuela.
+        $estructura = CaracteristicaEscuela::firstOrNew([
+            'id_escuela' => $id_escuela,
+        ]);
+
+        $estructura->id_escuela = $id_escuela;
+
+        foreach ($datos as $campo => $valor) {
+            $estructura->{$campo} = $valor;
+        }
+
+        $estructura->save();
+
+        // Marcar la infraestructura como registrada, si existe
+        // el registro de estado correspondiente.
+        EscuelaStatus::where('id_escuela', $id_escuela)
+            ->where('modulo', $modulo)
+            ->update(['estructura' => 1]);
+
+        return redirect()
+            ->route('siben.estructuraEscuela')
+            ->with('success', 'La infraestructura se guardó correctamente.');
     }
 
     /* Método auxiliar protegido para generar arreglos de opciones numéricas */
@@ -618,72 +863,67 @@ abstract class sibenController
             'coordinadores'
         ));
     }
-
+    
     public function guardaEscuela(Request $request)
     {
-        $dataEscuela = $request->input('data.Escuela', $request->input('Escuela'));
+        $ctx = $this->contexto();
 
-        if (!empty($dataEscuela)) {
-            $id_escuela = $this->contexto()['id_escuela'];
-            $escuela    = Escuela::find($id_escuela);
+        $modulo     = $ctx['modulo'];
+        $nivel      = $ctx['nivel'];
+        $id_escuela = $ctx['id_escuela'];
 
-            if (!$escuela || !$escuela->update($dataEscuela)) {
-                return response('Error: no se guardo la información', 400);
-            }
+        // Validar permisos
+        if ($modulo !== 'l' || $nivel !== 3) {
+            abort(403, 'No tienes permiso para modificar esta información.');
         }
 
-        return view('elements.vacio');
-    }
-
-    public function guardaEstructura(Request $request)
-    {
-        $dataEstructura = $request->input('data.CaracteristicaEscuela', $request->input('CaracteristicaEscuela'));
-
-        if (!empty($dataEstructura)) {
-            $ctx = $this->contexto();
-
-            $id_escuela = $ctx['id_escuela'];
-            $modulo     = $ctx['modulo'];
-
-            $dataEstructura['id_escuela'] = $id_escuela;
-            $idEstructura                 = $dataEstructura['id'] ?? null;
-
-            $parametros = [
-                'internet_alumnos'        => $dataEstructura['internet_alumnos'] ?? null,
-                'computo_alumnos'         => $dataEstructura['computo_alumnos'] ?? null,
-                'internet_docentes'       => $dataEstructura['internet_docentes'] ?? null,
-                'computo_docentes'        => $dataEstructura['computo_docentes'] ?? null,
-                'internet_administrativo' => $dataEstructura['internet_administrativo'] ?? null,
-                'computo_administrativo'  => $dataEstructura['computo_administrativo'] ?? null,
-            ];
-
-            // Validación equivalente a CaracteristicaEscuela::revisaestructura()
-            $errores = [];
-            if (($parametros['internet_alumnos'] ?? 0) > ($parametros['computo_alumnos'] ?? 0)) {
-                $errores[1] = 'Error 1: El número de Computadoras con Internet para Alumnos no debe ser mayor al número de computadoras para Alumnos.';
-            }
-            if (($parametros['internet_docentes'] ?? 0) > ($parametros['computo_docentes'] ?? 0)) {
-                $errores[2] = 'Error 2: El número de Computadoras con Internet para Docentes no debe ser mayor al número de computadoras para Docentes.';
-            }
-            if (($parametros['internet_administrativo'] ?? 0) > ($parametros['computo_administrativo'] ?? 0)) {
-                $errores[3] = 'Error 3: El número de Computadoras con Internet para Administrativos no debe ser mayor al número de computadoras para Administrativos.';
-            }
-
-            if (empty($errores)) {
-                CaracteristicaEscuela::updateOrCreate(['id' => $idEstructura], $dataEstructura);
-                EscuelaStatus::where('id_escuela', $id_escuela)->where('modulo', $modulo)->update(['estructura' => 1]);
-            } else {
-                $mensajes = '';
-                for ($i = 1; $i <= 3; $i++) {
-                    if (!empty($errores[$i])) {
-                        $mensajes .= $errores[$i] . "\n";
-                    }
-                }
-                return response($mensajes, 400);
-            }
+        if (!$id_escuela) {
+            abort(403, 'No tienes una escuela asignada.');
         }
 
-        return view('elements.vacio');
+        // Obtener exclusivamente la escuela del usuario
+        $escuela = Escuela::findOrFail($id_escuela);
+
+        // Validar los campos permitidos
+        $datos = $request->validate([
+            'telefono1' => ['nullable', 'string', 'max:10'],
+            'telefono2' => ['nullable', 'string', 'max:10'],
+            'telefono3' => ['nullable', 'string', 'max:10'],
+            'fax' => ['nullable', 'string', 'max:10'],
+            'lada' => ['nullable', 'string', 'max:5'],
+            'correo_electronico' => ['nullable', 'email', 'max:128'],
+            'pagina_web' => ['nullable', 'string', 'max:128'],
+            'turno' => ['required', 'in:m,v,d,n'],
+            'sostenimiento' => ['required', 'in:p,q'],
+            'investigacion' => ['required', 'in:s,n'],
+            'fecha_autorizacion' => ['nullable', 'date_format:Y-m-d'],
+            'fecha_inicio' => ['nullable', 'date_format:Y-m-d'],
+        ]);
+
+        // Evitar valores NULL en columnas que no los permiten
+        foreach ([
+            'telefono1',
+            'telefono2',
+            'telefono3',
+            'fax',
+            'lada',
+            'correo_electronico',
+            'pagina_web',
+        ] as $campo) {
+            $datos[$campo] = $datos[$campo] ?? '';
+        }
+
+        // La base de datos utiliza 0000-00-00 para fechas vacías
+        foreach (['fecha_autorizacion', 'fecha_inicio'] as $campo) {
+            $datos[$campo] = $datos[$campo] ?? '0000-00-00';
+        }
+
+        // Actualizar únicamente los campos autorizados
+        $escuela->update($datos);
+
+        return redirect()
+            ->route('siben.datosEscuela')
+            ->with('success', 'La información adicional se guardó correctamente.');
     }
 
     public function guardaCoordinadores(Request $request)
@@ -1429,76 +1669,134 @@ abstract class sibenController
     }
 
     public function imagenEscuela(Request $request)
-    {
-        $nivel = $this->contexto()['nivel'];
-        if ($nivel != 4) {
-            return redirect()->route('siben.index');
-        }
+{
+    $ctx = $this->contexto();
 
-        $id_escuela  = $this->contexto()['id_escuela'];
-        $escuela_key = Escuela2::where('id', $id_escuela)->value('escuela_key');
+    $modulo = $ctx['modulo'];
+    $nivel = (int) $ctx['nivel'];
+    $id_escuela = $ctx['id_escuela'];
 
-        $imagenes = [];
-        $indice   = 1;
-        $id       = 1;
+    // Solo nivel 4 del módulo de licenciatura.
+    if ($modulo !== 'l' || $nivel !== 4) {
+        abort(403, 'No tienes permiso para subir fotografías.');
+    }
 
-        for ($i = 6; $i >= 1; $i--) {
-            $rutaImagen = public_path("img/escuelas/big/{$escuela_key}_{$i}.jpg");
+    if (!$id_escuela) {
+        abort(403, 'No tienes una escuela asignada.');
+    }
 
-            if (file_exists($rutaImagen)) {
-                $imagenes[$i] = $i;
-                $indice++;
-            } else {
-                $imagenes[$i] = 0;
+    $escuela = Escuela::findOrFail($id_escuela);
+    $escuela_key = $escuela->escuela_key ?? '';
+
+    if (!$escuela_key || !preg_match('/^[A-Za-z0-9_-]+$/', $escuela_key)) {
+        abort(404, 'No se encontró la clave de la escuela para sus fotografías.');
+    }
+
+    $imagenes = [];
+    $id = null;
+
+    // Las escuelas pueden tener hasta seis fotografías.
+    for ($i = 1; $i <= 6; $i++) {
+        $rutaImagen = public_path(
+            "img/escuelas/big/{$escuela_key}_{$i}.jpg"
+        );
+
+        if (file_exists($rutaImagen)) {
+            $imagenes[$i] = $i;
+        } else {
+            $imagenes[$i] = 0;
+
+            // Identificar el primer espacio disponible.
+            if ($id === null) {
                 $id = $i;
             }
         }
-
-        $subir    = ($indice <= 6);
-        $anterior = 'datosEscuela';
-
-        ksort($imagenes);
-
-        return view('siben.imagen_escuela', compact(
-            'subir',
-            'escuela_key',
-            'anterior',
-            'imagenes',
-            'id'
-        ));
     }
 
-    public function subeImagen(Request $request, $id)
-    {
-        if ($request->hasFile('imagen') || $request->isMethod('post')) {
-            $id_escuela  = $this->contexto()['id_escuela'];
-            $escuela_key = Escuela2::where('id', $id_escuela)->value('escuela_key');
+    $subir = $id !== null;
+    $anterior = 'estructuraEscuela';
 
-            if ($request->hasFile('imagen') && $escuela_key) {
-                $file          = $request->file('imagen');
-                $nombreArchivo = "{$escuela_key}_{$id}.jpg";
+    return view('siben.imagen_escuela', compact(
+        'escuela',
+        'escuela_key',
+        'imagenes',
+        'id',
+        'subir',
+        'anterior'
+    ));
+}
 
-                $file->move(public_path('img/escuelas/big'), $nombreArchivo);
-            }
-        }
 
-        return redirect()->route('siben.imagenEscuela');
+public function subeImagen(Request $request, $id)
+{
+    $ctx = $this->contexto();
+
+    $modulo = $ctx['modulo'];
+    $nivel = (int) $ctx['nivel'];
+    $id_escuela = $ctx['id_escuela'];
+
+    // Solo nivel 4 del módulo de licenciatura.
+    if ($modulo !== 'l' || $nivel !== 4) {
+        abort(403, 'No tienes permiso para subir fotografías.');
     }
 
-    public function borraImagen(Request $request, $id)
-    {
-        $id_escuela  = $this->contexto()['id_escuela'];
-        $escuela_key = Escuela2::where('id', $id_escuela)->value('escuela_key');
-
-        if ($escuela_key) {
-            $rutaImagenBig = public_path("img/escuelas/big/{$escuela_key}_{$id}.jpg");
-            if (File::exists($rutaImagenBig)) {
-                File::delete($rutaImagenBig);
-            }
-        }
-
-        return redirect()->route('siben.imagenEscuela');
+    if (!$id_escuela) {
+        abort(403, 'No tienes una escuela asignada.');
     }
+
+    // Solo se permiten los seis espacios de fotografía.
+    $id = filter_var($id, FILTER_VALIDATE_INT);
+
+    if (!$id || $id < 1 || $id > 6) {
+        abort(404, 'El espacio de fotografía no es válido.');
+    }
+
+    $escuela = Escuela::findOrFail($id_escuela);
+    $escuela_key = $escuela->escuela_key ?? '';
+
+    if (!$escuela_key || !preg_match('/^[A-Za-z0-9_-]+$/', $escuela_key)) {
+        abort(404, 'No se encontró la clave de la escuela.');
+    }
+
+    // Validar que se haya seleccionado una imagen JPG/JPEG.
+    $request->validate([
+        'imagen' => 'required|image|mimes:jpg,jpeg|max:5120',
+    ], [
+        'imagen.required' => 'Selecciona una fotografía.',
+        'imagen.image' => 'El archivo debe ser una imagen.',
+        'imagen.mimes' => 'La fotografía debe estar en formato JPG o JPEG.',
+        'imagen.max' => 'La fotografía no debe superar los 5 MB.',
+    ]);
+
+    $directorio = public_path('img/escuelas/big');
+
+    if (!is_dir($directorio)) {
+        mkdir($directorio, 0755, true);
+    }
+
+    $nombreArchivo = "{$escuela_key}_{$id}.jpg";
+    $rutaDestino = $directorio . DIRECTORY_SEPARATOR . $nombreArchivo;
+
+    // No reemplazar una fotografía que ya existe.
+    if (file_exists($rutaDestino)) {
+        return redirect()
+            ->route('siben.imagenEscuela')
+            ->with('error', 'Ese espacio ya tiene una fotografía.');
+    }
+
+    $request->file('imagen')->move($directorio, $nombreArchivo);
+
+    return redirect()
+        ->route('siben.imagenEscuela')
+        ->with('success', 'La fotografía se subió correctamente.');
+}
+
+
+// La eliminación queda bloqueada hasta definir el permiso correspondiente.
+public function borraImagen(Request $request, $id)
+{
+    abort(403, 'La eliminación de fotografías no está habilitada.');
+}
 
     public function curpAlumno(Request $request, $id_alumno = null)
     {
@@ -1655,52 +1953,133 @@ abstract class sibenController
         ));
     }
 
+    
     public function editaDomicilio()
     {
         $ctx = $this->contexto();
 
         $id_escuela = $ctx['id_escuela'];
         $id_entidad = $ctx['id_entidad'];
+        $nombre_entidad = Entidad::where('id', $id_entidad)->value('entidad');
+        $modulo     = $ctx['modulo'];
+        $nivel      = (int) $ctx['nivel'];
 
-        $domicilioEscuela = DomicilioEscuela::where('id_escuela', $id_escuela)->first();
-        $id_municipio     = $domicilioEscuela ? $domicilioEscuela->cve_mun : null;
+        // Validar módulo y niveles autorizados.
+        if ($modulo !== 'l' || $nivel !== 3) {
+            abort(403, 'No tienes permiso para consultar este domicilio.');
+        }
+
+        if (!$id_escuela || !$id_entidad) {
+            abort(403, 'No se pudo identificar la escuela del usuario.');
+        }
+
+        // Obtener exclusivamente el domicilio de la escuela del usuario.
+        $domicilioEscuela = DomicilioEscuela::where('id_escuela', $id_escuela)
+            ->first();
+
+        $id_municipio = $domicilioEscuela
+            ? $domicilioEscuela->cve_mun
+            : null;
 
         $vialidad = [
-            'AMPLIACION' => 'AMPLIACION', 'ANDADOR' => 'ANDADOR', 'AVENIDA' => 'AVENIDA',
-            'BOULEVARD' => 'BOULEVARD', 'CALLE' => 'CALLE', 'CALLEJON' => 'CALLEJON',
-            'CALZADA' => 'CALZADA', 'CAMINO' => 'CAMINO', 'CARRETERA' => 'CARRETERA',
-            'CERRADA' => 'CERRADA', 'CIRCUITO' => 'CIRCUITO', 'CIRCUNVALACION' => 'CIRCUNVALACION',
-            'CONTINUACION' => 'CONTINUACION', 'CORREDOR' => 'CORREDOR', 'DIAGONAL' => 'DIAGONAL',
-            'EJE VIAL' => 'EJE VIAL', 'PASAJE' => 'PASAJE', 'PEATONAL' => 'PEATONAL',
-            'PERIFERICO' => 'PERIFERICO', 'PRIVADA' => 'PRIVADA', 'PROLONGACION' => 'PROLONGACION',
-            'RETORNO' => 'RETORNO', 'VIADUCTO' => 'VIADUCTO',
+            'AMPLIACION' => 'AMPLIACION',
+            'ANDADOR' => 'ANDADOR',
+            'AVENIDA' => 'AVENIDA',
+            'BOULEVARD' => 'BOULEVARD',
+            'CALLE' => 'CALLE',
+            'CALLEJON' => 'CALLEJON',
+            'CALZADA' => 'CALZADA',
+            'CAMINO' => 'CAMINO',
+            'CARRETERA' => 'CARRETERA',
+            'CERRADA' => 'CERRADA',
+            'CIRCUITO' => 'CIRCUITO',
+            'CIRCUNVALACION' => 'CIRCUNVALACION',
+            'CONTINUACION' => 'CONTINUACION',
+            'CORREDOR' => 'CORREDOR',
+            'DIAGONAL' => 'DIAGONAL',
+            'EJE VIAL' => 'EJE VIAL',
+            'PASAJE' => 'PASAJE',
+            'PEATONAL' => 'PEATONAL',
+            'PERIFERICO' => 'PERIFERICO',
+            'PRIVADA' => 'PRIVADA',
+            'PROLONGACION' => 'PROLONGACION',
+            'RETORNO' => 'RETORNO',
+            'VIADUCTO' => 'VIADUCTO',
         ];
 
         $asentamientos = [
-            'AEROPUERTO' => 'AEROPUERTO', 'AMPLIACION' => 'AMPLIACION', 'BARRIO' => 'BARRIO',
-            'CANTON' => 'CANTON', 'CIUDAD' => 'CIUDAD', 'CIUDAD INDUSTRIAL' => 'CIUDAD INDUSTRIAL',
-            'COLONIA' => 'COLONIA', 'CONDOMINIO' => 'CONDOMINIO', 'CONJUNTO HABITACIONAL' => 'CONJUNTO HABITACIONAL',
-            'CORREDOR INDUSTRIAL' => 'CORREDOR INDUSTRIAL', 'COTO' => 'COTO', 'CUARTEL' => 'CUARTEL',
-            'EJIDO' => 'EJIDO', 'EXHACIENDA' => 'EXHACIENDA', 'FRACCION' => 'FRACCION',
-            'FRACCIONAMIENTO' => 'FRACCIONAMIENTO', 'GRANJA' => 'GRANJA', 'HACIENDA' => 'HACIENDA',
-            'INGENIO' => 'INGENIO', 'MANZANA' => 'MANZANA', 'PARAJE' => 'PARAJE', 'PARQUE INDUSTRIAL' => 'PARQUE INDUSTRIAL',
-            'PRIVADA' => 'PRIVADA', 'PROLONGACION' => 'PROLONGACION', 'PUEBLO' => 'PUEBLO', 'PUERTO' => 'PUERTO',
-            'RANCHERIA' => 'RANCHERIA', 'RANCHO' => 'RANCHO', 'REGION' => 'REGION', 'RESIDENCIAL' => 'RESIDENCIAL',
-            'RINCONADA' => 'RINCONADA', 'SECCION' => 'SECCION', 'SECTOR' => 'SECTOR', 'SUPERMANZANA' => 'SUPERMANZANA',
-            'UNIDAD' => 'UNIDAD', 'UNIDAD HABITACIONAL' => 'UNIDAD HABITACIONAL', 'VILLA' => 'VILLA',
-            'ZONA FEDERAL' => 'ZONA FEDERAL', 'ZONA INDUSTRIAL' => 'ZONA INDUSTRIAL', 'ZONA MILITAR' => 'ZONA MILITAR',
+            'AEROPUERTO' => 'AEROPUERTO',
+            'AMPLIACION' => 'AMPLIACION',
+            'BARRIO' => 'BARRIO',
+            'CANTON' => 'CANTON',
+            'CIUDAD' => 'CIUDAD',
+            'CIUDAD INDUSTRIAL' => 'CIUDAD INDUSTRIAL',
+            'COLONIA' => 'COLONIA',
+            'CONDOMINIO' => 'CONDOMINIO',
+            'CONJUNTO HABITACIONAL' => 'CONJUNTO HABITACIONAL',
+            'CORREDOR INDUSTRIAL' => 'CORREDOR INDUSTRIAL',
+            'COTO' => 'COTO',
+            'CUARTEL' => 'CUARTEL',
+            'EJIDO' => 'EJIDO',
+            'EXHACIENDA' => 'EXHACIENDA',
+            'FRACCION' => 'FRACCION',
+            'FRACCIONAMIENTO' => 'FRACCIONAMIENTO',
+            'GRANJA' => 'GRANJA',
+            'HACIENDA' => 'HACIENDA',
+            'INGENIO' => 'INGENIO',
+            'MANZANA' => 'MANZANA',
+            'PARAJE' => 'PARAJE',
+            'PARQUE INDUSTRIAL' => 'PARQUE INDUSTRIAL',
+            'PRIVADA' => 'PRIVADA',
+            'PROLONGACION' => 'PROLONGACION',
+            'PUEBLO' => 'PUEBLO',
+            'PUERTO' => 'PUERTO',
+            'RANCHERIA' => 'RANCHERIA',
+            'RANCHO' => 'RANCHO',
+            'REGION' => 'REGION',
+            'RESIDENCIAL' => 'RESIDENCIAL',
+            'RINCONADA' => 'RINCONADA',
+            'SECCION' => 'SECCION',
+            'SECTOR' => 'SECTOR',
+            'SUPERMANZANA' => 'SUPERMANZANA',
+            'UNIDAD' => 'UNIDAD',
+            'UNIDAD HABITACIONAL' => 'UNIDAD HABITACIONAL',
+            'VILLA' => 'VILLA',
+            'ZONA FEDERAL' => 'ZONA FEDERAL',
+            'ZONA INDUSTRIAL' => 'ZONA INDUSTRIAL',
+            'ZONA MILITAR' => 'ZONA MILITAR',
         ];
 
-        $admon   = ['ESTATAL' => 'ESTATAL', 'FEDERAL' => 'FEDERAL'];
-        $derecho = ['DE CUOTA' => 'DE CUOTA', 'LIBRE' => 'LIBRE'];
-        $admon2  = ['BRECHA' => 'BRECHA', 'CAMINO' => 'CAMINO', 'TERRACERIA' => 'TERRACERIA', 'VEREDA' => 'VEREDA'];
-        $margen  = ['DERECHO' => 'DERECHO', 'IZQUIERDO' => 'IZQUIERDO'];
+        $admon = [
+            'ESTATAL' => 'ESTATAL',
+            'FEDERAL' => 'FEDERAL',
+        ];
 
+        $derecho = [
+            'DE CUOTA' => 'DE CUOTA',
+            'LIBRE' => 'LIBRE',
+        ];
+
+        $admon2 = [
+            'BRECHA' => 'BRECHA',
+            'CAMINO' => 'CAMINO',
+            'TERRACERIA' => 'TERRACERIA',
+            'VEREDA' => 'VEREDA',
+        ];
+
+        $margen = [
+            'DERECHO' => 'DERECHO',
+            'IZQUIERDO' => 'IZQUIERDO',
+        ];
+
+        // Municipios de la entidad del usuario.
         $municipios = Municipio::where('id_entidad', $id_entidad)
             ->orderBy('municipio')
             ->pluck('municipio', 'id_municipio');
 
+        // Localidades correspondientes al municipio del domicilio.
         $locs = collect();
+
         if ($id_municipio) {
             $locs = Localidad::where('id_entidad', $id_entidad)
                 ->where('id_municipio', $id_municipio)
@@ -1708,7 +2087,8 @@ abstract class sibenController
                 ->pluck('localidad', 'id_localidad');
         }
 
-        $seguridad_social = SeguridadSocial::pluck('regimen', 'id');
+        $seguridad_social = SeguridadSocial::orderBy('regimen')
+            ->pluck('regimen', 'id');
 
         return view('siben.edita_domicilio', compact(
             'domicilioEscuela',
@@ -1721,9 +2101,11 @@ abstract class sibenController
             'derecho',
             'margen',
             'id_entidad',
+            'nombre_entidad',
             'seguridad_social'
         ));
     }
+
 
     public function domicilioEscuela()
     {
@@ -1753,13 +2135,11 @@ abstract class sibenController
             $seguridad_social = SeguridadSocial::find($domicilioEscuela->id_seguridad_social);
         }
         $botones           = [];
-        $urlEscuela        = route('siben.editaEscuela');
-        $parametrosEscuela = "data[Escuela][id]={$id_escuela}";
-        $eventosEscuela    = "consultaAjax('{$urlEscuela}', '{$parametrosEscuela}', muestraOverlay, muestraOcupado)";
+        $urlEscuela = route('siben.editaDomicilio');
 
         switch ($nivel) {
             case 3:
-                $botones['escuela'] = "<input id='e_{$id_escuela}' type='button' value='Editar' onclick=\"{$eventosEscuela}\" class='boton__primario' style='padding: 6px 14px; cursor: pointer;' />";
+                $botones['escuela'] = "<a href='{$urlEscuela}' class='boton__primario' style='padding: 6px 14px; text-decoration: none;'>Editar</a>";
                 break;
             case 4:
                 $botones['escuela'] = '';
@@ -1780,14 +2160,40 @@ abstract class sibenController
 
     public function loc(Request $request)
     {
-        $id_entidad   = $this->contexto()['id_entidad'];
-        $id_municipio = $request->input('DomicilioEscuela.cve_mun', $request->input('cve_mun'));
+        $ctx = $this->contexto();
 
-        $opciones = Localidad::where('id_entidad', $id_entidad)->where('id_municipio', $id_municipio)->orderBy('localidad')->pluck('localidad', 'id_localidad');
+        $id_entidad = $ctx['id_entidad'];
+        $modulo = $ctx['modulo'];
+        $nivel = (int) $ctx['nivel'];
+
+        // Solo niveles 3 y 4 del módulo de licenciaturas.
+        if ($modulo !== 'l' || !in_array($nivel, [3, 4], true)) {
+            abort(403, 'No tienes permiso para consultar localidades.');
+        }
+
+        $id_municipio = $request->input(
+            'DomicilioEscuela.cve_mun',
+            $request->input('cve_mun')
+        );
+
+        if (!$id_municipio || !$id_entidad) {
+            return view('elements.opciones2', [
+                'opciones' => collect()
+            ]);
+        }
+
+        // Las opciones guardan la clave geográfica id_localidad,
+        // no la llave primaria interna id.
+        $opciones = Localidad::where('id_entidad', $id_entidad)
+            ->where('id_municipio', $id_municipio)
+            ->orderBy('localidad')
+            ->pluck('localidad', 'id_localidad');
 
         return view('elements.opciones2', compact('opciones'));
     }
 
+
+        
     public function guardaDomicilio(Request $request)
     {
         $ctx = $this->contexto();
@@ -1795,45 +2201,166 @@ abstract class sibenController
         $id_escuela = $ctx['id_escuela'];
         $id_entidad = $ctx['id_entidad'];
         $modulo     = $ctx['modulo'];
+        $nivel      = (int) $ctx['nivel'];
 
-        $data = $request->input('DomicilioEscuela', $request->input('data.DomicilioEscuela', []));
+        // Solo nivel 3 del módulo de licenciaturas puede guardar.
+        if ($modulo !== 'l' || $nivel !== 3) {
+            abort(403, 'No tienes permiso para modificar el domicilio.');
+        }
 
-        $data['id_escuela'] = $id_escuela;
-        $data['cve_ent']    = $id_entidad;
+        if (!$id_escuela || !$id_entidad) {
+            abort(403, 'No se pudo identificar la escuela del usuario.');
+        }
 
-        EscuelaStatus::where('id_escuela', $id_escuela)->where('modulo', $modulo)->update(['domicilio' => 1]);
+        $datos = $request->input('DomicilioEscuela', []);
 
-        $vialidad = $data['tipovial'] ?? null;
+        if (!is_array($datos)) {
+            return back()->withErrors([
+                'domicilio' => 'Los datos del domicilio no son válidos.'
+            ])->withInput();
+        }
 
-        if ($vialidad === 'CAMINO') {
-            $admon  = $data['admon'] ?? '';
-            $derecho = $data['derecho'] ?? '';
-            $codigo = $data['codigo'] ?? '';
-            $tramo  = $data['tramo'] ?? '';
-            $cadena = $data['cadena'] ?? '';
+        // Lista blanca: solo se guardan los campos permitidos.
+        $campos = [
+            'tipovial',
+            'nomvial',
+            'carretera',
+            'camino',
+            'numextnum1',
+            'numextnum2',
+            'numextalf1',
+            'numintnum',
+            'numintalf',
+            'tipoasen',
+            'nomasen',
+            'cp',
+            'tiporef1',
+            'nomref1',
+            'tiporef2',
+            'nomref2',
+            'tiporef3',
+            'nomref3',
+            'descrubic',
+            'latitud',
+            'longitud',
+            'id_seguridad_social',
+        ];
 
-            if ($codigo != '' && $tramo != '' && $cadena != '') {
-                $data['nomvial'] = trim("{$admon} {$derecho} {$codigo} TRAMO {$tramo} KILOMETRO {$cadena}");
-            }
-        } elseif ($vialidad === 'CAMINO') {
-            $admon2  = $data['admon2'] ?? '';
-            $tramo2  = $data['tramo2'] ?? '';
-            $margen  = $data['margen'] ?? '';
-            $cadena2 = $data['cadena2'] ?? '';
-            if ($tramo2 != '' && $cadena2 != '') {
-                $data['nomvial'] = trim("{$admon2} {$tramo2} MARGEN {$margen} KILOMETRO {$cadena2}");
+        $datosGuardar = [];
+
+        foreach ($campos as $campo) {
+            if (array_key_exists($campo, $datos)) {
+                $datosGuardar[$campo] = $datos[$campo] === ''
+                    ? null
+                    : $datos[$campo];
             }
         }
+
+        // Validación de los datos recibidos.
+        $validador = \Validator::make($datosGuardar, [
+            'tipovial' => 'nullable|string|max:255',
+            'nomvial' => 'nullable|string|max:255',
+            'carretera' => 'nullable|string|max:255',
+            'camino' => 'nullable|string|max:255',
+            'numextnum1' => 'nullable|string|max:255',
+            'numextnum2' => 'nullable|string|max:255',
+            'numextalf1' => 'nullable|string|max:35',
+            'numintnum' => 'nullable|string|max:5',
+            'numintalf' => 'nullable|string|max:35',
+            'tipoasen' => 'nullable|string|max:255',
+            'nomasen' => 'nullable|string|max:255',
+            'cp' => 'nullable|string|size:5',
+            'tiporef1' => 'nullable|string|max:255',
+            'nomref1' => 'nullable|string|max:255',
+            'tiporef2' => 'nullable|string|max:255',
+            'nomref2' => 'nullable|string|max:255',
+            'tiporef3' => 'nullable|string|max:255',
+            'nomref3' => 'nullable|string|max:255',
+            'descrubic' => 'nullable|string|max:255',
+            'latitud' => 'required|numeric|between:-90,90',
+            'longitud' => 'required|numeric|between:-180,180',
+            'id_seguridad_social' => 'required|integer|exists:cat_seguridad_social,id',
+        ]);
+
+        if ($validador->fails()) {
+            return back()
+                ->withErrors($validador)
+                ->withInput();
+        }
+
+        // El municipio debe pertenecer a la entidad de la escuela.
+        $id_municipio = $request->input('DomicilioEscuela.cve_mun');
+
+        $municipio = Municipio::where('id_entidad', $id_entidad)
+            ->where('id_municipio', $id_municipio)
+            ->first();
+
+        if (!$municipio) {
+            return back()->withErrors([
+                'municipio' => 'El municipio seleccionado no corresponde a la entidad de la escuela.'
+            ])->withInput();
+        }
+
+        // La localidad debe pertenecer al municipio seleccionado.
+        $id_localidad = $request->input('DomicilioEscuela.cve_loc');
+
+        $localidad = Localidad::where('id_entidad', $id_entidad)
+            ->where('id_municipio', $id_municipio)
+            ->where('id_localidad', $id_localidad)
+            ->first();
+
+        if (!$localidad) {
+            return back()->withErrors([
+                'localidad' => 'La localidad seleccionada no corresponde al municipio.'
+            ])->withInput();
+        }
+
+        // Los nombres geográficos se obtienen del catálogo.
+        $entidad = Entidad::find($id_entidad);
+
+        if (!$entidad) {
+            abort(403, 'No se encontró la entidad de la escuela.');
+        }
+
+        $datosGuardar['id_escuela'] = $id_escuela;
+        $datosGuardar['cve_ent'] = $id_entidad;
+        $datosGuardar['nom_ent'] = $entidad->entidad;
+
+        $datosGuardar['cve_mun'] = $municipio->id_municipio;
+        $datosGuardar['nom_mun'] = $municipio->municipio;
+
+        $datosGuardar['cve_loc'] = $localidad->id_localidad;
+        $datosGuardar['nom_loc'] = $localidad->localidad;
+
         try {
-            DomicilioEscuela::updateOrCreate(
-                ['id_escuela' => $id_escuela],
-                $data
-            );
-        } catch (\Exception $e) {
-            return response('Error: no se guardo la informacion', 400);
+            \DB::transaction(function () use (
+                $id_escuela,
+                $modulo,
+                $datosGuardar
+            ) {
+                DomicilioEscuela::updateOrCreate(
+                    ['id_escuela' => $id_escuela],
+                    $datosGuardar
+                );
+
+            });
+
+        } catch (\Throwable $e) {
+            \Log::error('Error al guardar domicilio de escuela', [
+                'id_escuela' => $id_escuela,
+                'error' => $e->getMessage(),
+            ]);
+
+            return back()->withErrors([
+                'domicilio' => 'Ocurrió un error al guardar el domicilio.'
+            ])->withInput();
         }
-        return redirect()->route('siben.editaDomicilio');
+
+        return redirect()
+            ->route('siben.domicilioEscuela')
+            ->with('success', 'El domicilio de la escuela se guardó correctamente.');
     }
+
 
     public function eligeTipo()
     {
@@ -2044,95 +2571,112 @@ abstract class sibenController
         return redirect()->route('siben.directoresEscuela', ['opc' => 'e']);
     }
 
+    
     public function estructuraEscuela(Request $request, $opc = null)
     {
         $ctx = $this->contexto();
 
-        $modulo            = $ctx['modulo'];
-        $nivel             = $ctx['nivel'];
-        $id_escuela        = $ctx['id_escuela'];
-        $nombreEscuela     = session('Usuario.escuela');
-        $estado_estructura = session('Usuario.estructura');
+        $modulo = $ctx['modulo'];
+        $nivel = (int) $ctx['nivel'];
+        $id_escuela = $ctx['id_escuela'];
 
-        if ($modulo != 'l') {
-            return redirect()->route('siben.index');
+        // Solo módulo de licenciatura y niveles 3 y 4.
+        if ($modulo !== 'l' || !in_array($nivel, [3, 4], true)) {
+            abort(403, 'No tienes permiso para consultar esta infraestructura.');
         }
 
-        $title = 'Datos Generales, ' . $nombreEscuela;
+        if (!$id_escuela) {
+            abort(403, 'No tienes una escuela asignada.');
+        }
 
-        $escuela       = Escuela::with('caracteristicaEscuela')->find($id_escuela);
-        $escuela_key   = $escuela ? $escuela->escuela_key : '';
-        $estructura    = $escuela ? $escuela->caracteristicaEscuela : null;
-        $id_estructura = $estructura ? $estructura->id : null;
+        // La escuela siempre se obtiene desde el contexto del usuario.
+        $escuela = Escuela::with('caracteristicaEscuela')
+            ->findOrFail($id_escuela);
+
+        $nombreEscuela = $escuela->escuela;
+        $title = 'Infraestructura, ' . $nombreEscuela;
+
+        $estado_estructura = session('Usuario.estructura');
+        $estructura = $escuela->caracteristicaEscuela;
+        $escuela_key = $escuela->escuela_key ?? '';
 
         $mensaje = '';
+
+        // Obtener las licenciaturas sin utilizar GROUP BY.
+        // DISTINCT evita repetir una misma licenciatura.
+        $idsLicenciaturas = EscuelaLicenciatura::where('id_escuela', $id_escuela)
+            ->select('id_licenciatura')
+            ->distinct()
+            ->pluck('id_licenciatura');
 
         $licenciaturas = EscuelaLicenciatura::with([
             'licenciatura:id,licenciatura',
             'personal:id,nombre,apellido_paterno,apellido_materno,correo_electronico',
         ])
             ->where('id_escuela', $id_escuela)
-            ->groupBy('id_licenciatura')
-            ->get();
+            ->whereIn('id_licenciatura', $idsLicenciaturas)
+            ->get()
+            ->unique('id_licenciatura')
+            ->values();
 
-        $turnos         = ['m' => 'Matutino', 'v' => 'Vespertino', 'd' => 'Discontinuo', 'n' => 'Nocturno'];
-        $sostenimientos = ['p' => 'Público', 'q' => 'Particular'];
-        $posgrados      = ['m' => 'Maestría', 'd' => 'Doctorado', 'e' => 'Especialidad', 'c' => 'Educación Continua', 'i' => 'SEPA Inglés'];
-        $bandaAncha     = ['s' => 'Banda Ancha', 'n' => '56Kbps'];
-        $sino           = ['s' => 'Sí', 'n' => 'No'];
+        $turnos = [
+            'm' => 'Matutino',
+            'v' => 'Vespertino',
+            'd' => 'Discontinuo',
+            'n' => 'Nocturno',
+        ];
 
-        $tiposPropiedad  = Construccion::where('id', '<', 20)->pluck('construccion', 'id');
-        $tiposEstructura = Construccion::where('id', '>', 20)->pluck('construccion', 'id');
-        $localidad       = null;
-        if ($escuela && $escuela->id_localidad) {
+        $sostenimientos = [
+            'p' => 'Público',
+            'q' => 'Particular',
+        ];
+
+        $posgrados = [
+            'm' => 'Maestría',
+            'd' => 'Doctorado',
+            'e' => 'Especialidad',
+            'c' => 'Educación Continua',
+            'i' => 'SEPA Inglés',
+        ];
+
+        $bandaAncha = [
+            's' => 'Banda Ancha',
+            'n' => '56Kbps',
+        ];
+
+        $sino = [
+            's' => 'Sí',
+            'n' => 'No',
+        ];
+
+        $tiposPropiedad = Construccion::where('id', '<', 20)
+            ->pluck('construccion', 'id');
+
+        $tiposEstructura = Construccion::where('id', '>', 20)
+            ->pluck('construccion', 'id');
+
+        $localidad = null;
+
+        if ($escuela->id_localidad) {
             $localidad = Localidad::find($escuela->id_localidad);
         }
 
+        // Comprobar las fotografías existentes.
         $imagenes = [];
+
         for ($i = 1; $i <= 6; $i++) {
-            $pathImagen   = public_path("img/escuelas/big/{$escuela_key}_{$i}.jpg");
+            $pathImagen = public_path(
+                "img/escuelas/big/{$escuela_key}_{$i}.jpg"
+            );
+
             $imagenes[$i] = file_exists($pathImagen) ? $i : 0;
         }
 
-        $urlEscuela    = route('siben.editaEscuela');
-        $urlEstructura = route('siben.editaEstructura');
-        $urlImagenes   = route('siben.imagenEscuela');
+        // Permisos para la vista.
+        $puedeEditar = $nivel === 3;
+        $puedeSubirFotos = $nivel === 4;
 
-        $paramEscuela    = "data[Escuela][id]={$id_escuela}";
-        $paramEstructura = "data[CaracteristicaEscuela][id]={$id_estructura}";
-
-        $eventoEscuela    = "consultaAjax('{$urlEscuela}', '{$paramEscuela}', muestraOverlay, muestraOcupado)";
-        $eventoEstructura = "consultaAjax('{$urlEstructura}', '{$paramEstructura}', muestraOverlay, muestraOcupado)";
-
-        $botones = [];
-        switch ($nivel) {
-            case 3:
-                $botones['escuela']    = "<input id='e_{$id_escuela}' type='button' value='Editar' onclick=\"{$eventoEscuela}\" class='boton__primario' style='padding: 6px 14px; cursor: pointer;' />";
-                $botones['estructura'] = "<input id='s_{$id_estructura}' type='button' value='Editar' onclick=\"{$eventoEstructura}\" class='boton__primario' style='padding: 6px 14px; cursor: pointer;' />";
-                $botones['imagenes']   = '';
-                break;
-            case 4:
-                $botones['escuela']    = '';
-                $botones['estructura'] = '';
-                $botones['imagenes']   = "<input id='f_{$id_escuela}' type='button' value='Subir fotos' onclick=\"locacion('{$urlImagenes}')\" class='boton__primario' style='padding: 6px 14px; cursor: pointer;' />";
-                break;
-        }
-
-        $anterior = false;
-        if ($opc == 'e') {
-            $eventoAtras     = "locacion('" . route('siben.editaDomicilio') . "')";
-            $eventoSiguiente = "locacion('" . route('siben.datosEscuela') . "')";
-            $eventoDomicilio = "locacion('" . route('siben.index') . "')";
-
-            $botones['atras']     = "<input type='button' value='Anterior' onclick=\"{$eventoAtras}\" class='boton__secundario' style='padding: 6px 14px; cursor: pointer;' />";
-            $botones['siguiente'] = "<input type='button' value='Siguiente' onclick=\"{$eventoSiguiente}\" class='boton__primario' style='padding: 6px 14px; cursor: pointer;' />";
-            $botones['terminar']  = "<input type='button' value='Terminar' onclick=\"{$eventoDomicilio}\" class='boton__secundario' style='padding: 6px 14px; cursor: pointer;' />";
-        } else {
-            $botones['terminar']  = '';
-            $botones['atras']     = '';
-            $botones['siguiente'] = '';
-            $anterior             = true;
-        }
+        $anterior = $opc !== 'e';
 
         return view('siben.estructura_escuela', compact(
             'title',
@@ -2151,10 +2695,12 @@ abstract class sibenController
             'tiposPropiedad',
             'tiposEstructura',
             'imagenes',
-            'botones',
+            'puedeEditar',
+            'puedeSubirFotos',
             'anterior'
         ));
     }
+
 
     public function busquedaDirector()
     {
@@ -2348,28 +2894,46 @@ abstract class sibenController
 
     public function editaAdicionales(Request $request)
     {
-        $ctx                = $this->contexto();
-        $id_escuela_session = $ctx['id_escuela'];
-        $id_entidad         = $ctx['id_entidad'];
+        $ctx = $this->contexto();
 
-        $id_escuela_req = $request->input('Escuela.id', $request->input('data.Escuela.id'));
+        $modulo     = $ctx['modulo'];
+        $nivel      = $ctx['nivel'];
+        $id_escuela = $ctx['id_escuela'];
 
-        if ($id_escuela_session != $id_escuela_req) {
-            return redirect()->route('siben.index');
+        // Validar módulo y nivel de acceso
+        if ($modulo !== 'l' || $nivel !== 3) {
+            abort(403, 'No tienes permiso para editar esta información.');
         }
 
-        $escuela = Escuela::find($id_escuela_session);
-        $turnos  = ['m' => 'Matutino', 'v' => 'Vespertino', 'd' => 'Discontinuo', 'n' => 'Nocturno'];
+        if (!$id_escuela) {
+            abort(403, 'No tienes una escuela asignada.');
+        }
 
-        $municipios = Municipio::where('id_entidad', $id_entidad)
-            ->orderBy('municipio')
-            ->pluck('municipio', 'id');
+        $escuela = Escuela::findOrFail($id_escuela);
 
-        $localidades = Localidad::where('id_municipio2', $escuela ? $escuela->id_municipio : null)
-            ->orderBy('localidad')
-            ->pluck('localidad', 'id');
+        $turnos = [
+            'm' => 'Matutino',
+            'v' => 'Vespertino',
+            'd' => 'Discontinuo',
+            'n' => 'Nocturno',
+        ];
 
-        return view('siben.edita_adicionales', compact('escuela', 'turnos', 'municipios', 'localidades'));
+        $sostenimientos = [
+            'p' => 'Público',
+            'q' => 'Particular',
+        ];
+
+        $investigacion = [
+            's' => 'Sí',
+            'n' => 'No',
+        ];
+
+        return view('siben.edita_adicionales', compact(
+            'escuela',
+            'turnos',
+            'sostenimientos',
+            'investigacion'
+        ));
     }
 
     public function directores()
