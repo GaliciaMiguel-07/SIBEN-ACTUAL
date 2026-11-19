@@ -821,48 +821,69 @@ abstract class sibenController
         return array_combine(range(0, $max), range(0, $max));
     }
 
-    public function editaCoordinadores(Request $request)
+    public function editaCoordinadores()
     {
-        $id_escuela = $this->contexto()['id_escuela'];
+        $ctx = $this->contexto();
 
-        $escuelaIdInput = $request->input('data.Escuela.id', $request->input('id'));
+        abort_unless(
+            $ctx['modulo'] === 'l' && (int) $ctx['nivel'] === 3,
+            403
+        );
 
-        if ($id_escuela != $escuelaIdInput) {
-            return redirect()->route('siben.index');
-        }
+        $id_escuela = $ctx['id_escuela'];
+        abort_unless($id_escuela, 403);
 
-        $escuelaLicenciaturas = EscuelaLicenciatura::with(['licenciatura', 'personal'])
+        $escuelaLicenciaturas = EscuelaLicenciatura::with([
+            'licenciatura:id,licenciatura',
+            'personal:id,nombre,apellido_paterno,apellido_materno'
+        ])
             ->where('id_escuela', $id_escuela)
             ->get()
-            ->unique('id_licenciatura');
+            ->unique('id_licenciatura')
+            ->values();
 
-        $licenciaturas = $escuelaLicenciaturas->mapWithKeys(function ($item) {
-            $nombre = $item->licenciatura ? $item->licenciatura->licenciatura : 'Sin definir';
-            return [$item->id_licenciatura => $nombre];
-        });
-
-        $elegidos = $escuelaLicenciaturas->mapWithKeys(function ($item) {
-            $personalId = $item->personal ? $item->personal->id : $item->id_personal;
-            return [$item->id_licenciatura => $personalId];
-        });
-
-        $coordinadoresData = Personal::where('id_escuela', $id_escuela)
+        $coordinadores = Personal::where('id_escuela', (string) $id_escuela)
             ->where('id_funcion', 4)
+            ->where('status', 'a')
             ->orderBy('apellido_paterno')
+            ->orderBy('apellido_materno')
             ->orderBy('nombre')
             ->get();
 
-        $coordinadores = $coordinadoresData->mapWithKeys(function ($personal) {
-            $nombreCompleto = trim("{$personal->nombre} {$personal->apellido_paterno} {$personal->apellido_materno}");
-            return [$personal->id => $nombreCompleto];
-        });
-
         return view('siben.edita_coordinadores', compact(
-            'licenciaturas',
-            'elegidos',
+            'escuelaLicenciaturas',
             'coordinadores'
         ));
     }
+
+
+    public function desactivaDirector($id)
+    {
+        $ctx = $this->contexto();
+
+        abort_unless(
+            $ctx['modulo'] === 'l' && (int) $ctx['nivel'] === 3,
+            403
+        );
+
+        $id_escuela = $ctx['id_escuela'];
+        abort_unless($id_escuela, 403);
+
+        $director = Personal::where('id', $id)
+            ->where('id_escuela', (string) $id_escuela)
+            ->where('id_funcion', 1)
+            ->where('status', 'a')
+            ->firstOrFail();
+
+        $director->update([
+            'status' => 'x',
+        ]);
+
+        return redirect()
+            ->route('siben.directoresEscuela')
+            ->with('success', 'El director se desactivó correctamente.');
+    }
+
     
     public function guardaEscuela(Request $request)
     {
@@ -928,24 +949,60 @@ abstract class sibenController
 
     public function guardaCoordinadores(Request $request)
     {
-        $escuelaLicenciaturas = $request->input('data.EscuelaLicenciatura', $request->input('EscuelaLicenciatura'));
+        $ctx = $this->contexto();
 
-        if (!empty($escuelaLicenciaturas)) {
-            $id_escuela = $this->contexto()['id_escuela'];
+        abort_unless(
+            $ctx['modulo'] === 'l' && (int) $ctx['nivel'] === 3,
+            403
+        );
 
-            foreach ($escuelaLicenciaturas as $id => $id_personal) {
-                $lic             = explode('-', $id);
-                $id_licenciatura = $lic[1] ?? null;
+        $id_escuela = $ctx['id_escuela'];
+        abort_unless($id_escuela, 403);
 
-                if ($id_licenciatura) {
-                    EscuelaLicenciatura::where('id_escuela', $id_escuela)
-                        ->where('id_licenciatura', $id_licenciatura)
-                        ->update(['id_personal' => $id_personal]);
+        $datos = $request->validate([
+            'coordinadores' => ['required', 'array'],
+            'coordinadores.*' => ['nullable', 'integer', 'min:1'],
+        ]);
+
+        \Illuminate\Support\Facades\DB::transaction(function () use ($datos, $id_escuela) {
+            $licenciaturas = EscuelaLicenciatura::where('id_escuela', $id_escuela)
+                ->get()
+                ->unique('id_licenciatura');
+
+            foreach ($licenciaturas as $licenciatura) {
+                $idLicenciatura = (string) $licenciatura->id_licenciatura;
+
+                if (!array_key_exists($idLicenciatura, $datos['coordinadores'])) {
+                    continue;
                 }
-            }
-        }
 
-        return view('elements.vacio');
+                $idPersonal = $datos['coordinadores'][$idLicenciatura];
+
+                if ($idPersonal !== null && $idPersonal !== '') {
+                    $personalValido = Personal::where('id', $idPersonal)
+                        ->where('id_escuela', (string) $id_escuela)
+                        ->where('id_funcion', 4)
+                        ->where('status', 'a')
+                        ->exists();
+
+                    if (!$personalValido) {
+                        throw \Illuminate\Validation\ValidationException::withMessages([
+                            'coordinadores' => 'Uno de los coordinadores seleccionados no pertenece a esta escuela o no está activo.',
+                        ]);
+                    }
+                }
+
+                EscuelaLicenciatura::where('id_escuela', $id_escuela)
+                    ->where('id_licenciatura', $idLicenciatura)
+                    ->update([
+                        'id_personal' => $idPersonal ?: 0,
+                    ]);
+            }
+        });
+
+        return redirect()
+            ->route('siben.directoresEscuela')
+            ->with('success', 'Los coordinadores se actualizaron correctamente.');
     }
 
     public function editaDatos(Request $request)
@@ -2430,79 +2487,53 @@ public function borraImagen(Request $request, $id)
     {
         $ctx = $this->contexto();
 
-        $modulo        = $ctx['modulo'];
-        $nivel         = $ctx['nivel'];
-        $id_escuela    = $ctx['id_escuela'];
-        $nombreEscuela = session('Usuario.escuela');
+        abort_unless(
+            $ctx['modulo'] === 'l' && in_array((int) $ctx['nivel'], [3, 4], true),
+            403
+        );
 
-        if ($modulo != 'l') {
-            return redirect()->route('siben.index');
-        }
+        $id_escuela = $ctx['id_escuela'];
+        abort_unless($id_escuela, 403);
 
-        $title = 'Datos Generales, ' . $nombreEscuela;
-
-        $cuentaDirector = $ctx['cuenta_director'] ?? 0;
-        $mensaje        = '';
-        if ($cuentaDirector >= 2) {
-            $mensaje = '.:: Solo debe haber un director por escuela, elimine los directores no activos ::.';
-        }
-
-        $escuela = Escuela::find($id_escuela);
+        $escuela = Escuela::findOrFail($id_escuela);
 
         $directivos = Personal::with('funcion:id,funcion')
-            ->where('id_escuela', $id_escuela)
+            ->where('id_escuela', (string) $id_escuela)
             ->where('id_funcion', 1)
             ->where('status', 'a')
-            ->orderBy('id_funcion')
-            ->get(['id', 'nombre', 'apellido_paterno', 'apellido_materno', 'correo_electronico', 'id_funcion']);
-
-        $licenciaturas = EscuelaLicenciatura::with([
-            'licenciatura:id,licenciatura',
-            'personal:id,nombre,apellido_paterno,apellido_materno,correo_electronico',
-        ])
-            ->where('id_escuela', $id_escuela)
-            ->groupBy('id_licenciatura')
+            ->orderBy('apellido_paterno')
+            ->orderBy('nombre')
             ->get();
 
-        $urlCoordinadores = route('siben.editaCoordinadores');
-        $urlDirector      = route('siben.busquedaDirector');
+        $escuelaLicenciaturas = EscuelaLicenciatura::with([
+            'licenciatura:id,licenciatura',
+            'personal:id,nombre,apellido_paterno,apellido_materno,correo_electronico'
+        ])
+            ->where('id_escuela', $id_escuela)
+            ->get()
+            ->unique('id_licenciatura')
+            ->values();
 
-        $parametrosCoordinadores = "data[Escuela][id]={$id_escuela}";
-        $eventoCoordinadores     = "consultaAjax('{$urlCoordinadores}', '{$parametrosCoordinadores}', muestraOverlay, muestraOcupado)";
+        $licenciaturas = $escuelaLicenciaturas->map(function ($item) {
+            return [
+                'id' => $item->id_licenciatura,
+                'nombre' => $item->licenciatura?->licenciatura ?? 'Sin definir',
+                'coordinador' => $item->personal
+                    ? trim($item->personal->nombre . ' ' .
+                        $item->personal->apellido_paterno . ' ' .
+                        $item->personal->apellido_materno)
+                    : 'Sin asignar',
+                'correo' => $item->personal?->correo_electronico ?: 'Sin correo registrado',
+            ];
+        });
 
-        $botones = [];
-        switch ($nivel) {
-            case 3:
-                $botones['coordinadores'] = "<input id='c_{$id_escuela}' type='button' value='Editar' onclick=\"{$eventoCoordinadores}\" class='boton__primario' style='padding: 6px 14px; cursor: pointer;' />";
-                $botones['director']      = "<input id='c_{$id_escuela}' type='button' value='Activar director' onclick=\"window.location.href='{$urlDirector}'\" class='boton__secundario' style='padding: 6px 14px; cursor: pointer;' />";
-                break;
-            case 4:
-                $botones['coordinadores'] = '';
-                $botones['director']      = '';
-                break;
-        }
-
-        $anterior = false;
-        if ($opc == 'e') {
-            $eventoAtras    = "locacion('" . route('siben.matricula') . "')";
-            $eventoAdelante = "locacion('" . route('siben.editaDomicilio') . "')";
-
-            $botones['atras']    = "<input type='button' value='Atras' onclick=\"{$eventoAtras}\" class='boton__secundario' style='padding: 6px 14px; cursor: pointer;' />";
-            $botones['adelante'] = "<input type='button' value='Siguiente' onclick=\"{$eventoAdelante}\" class='boton__primario' style='padding: 6px 14px; cursor: pointer;' />";
-        } else {
-            $botones['adelante'] = '';
-            $botones['atras']    = '';
-            $anterior            = true;
-        }
+        $puedeEditar = (int) $ctx['nivel'] === 3;
 
         return view('siben.directores_escuela', compact(
-            'title',
             'escuela',
-            'mensaje',
             'directivos',
             'licenciaturas',
-            'botones',
-            'anterior'
+            'puedeEditar'
         ));
     }
 
@@ -2704,33 +2735,34 @@ public function borraImagen(Request $request, $id)
 
     public function busquedaDirector()
     {
-        $ctx        = $this->contexto();
-        $id_entidad = $ctx['id_entidad'];
+        $ctx = $this->contexto();
 
-        $escuelaEstado = Escuela2::where('status', 'a')
-            ->where('unica', '<', 2)
-            ->where('id_entidad', $id_entidad)
-            ->where('captura', '1')
-            ->pluck('escuela', 'id');
+        abort_unless(
+            $ctx['modulo'] === 'l' && (int) $ctx['nivel'] === 3,
+            403
+        );
 
-        $tituloTabla = [
-            'd' => 'Para la baja definitivas',
-            't' => 'Para las bajas temporales',
-        ];
-        $tituloPag = [
-            'd' => 'DEFINITIVAS',
-            't' => 'TEMPORALES',
-        ];
+        $id_escuela = $ctx['id_escuela'];
+        abort_unless($id_escuela, 403);
 
-        $url      = route('siben.listasDirector');
-        $anterior = true;
+        $directorActivo = Personal::where('id_escuela', (string) $id_escuela)
+            ->where('id_funcion', 1)
+            ->where('status', 'a')
+            ->exists();
+
+        $personal = Personal::where('id_escuela', (string) $id_escuela)
+            ->where(function ($query) {
+                $query->where('status', 'x')
+                    ->orWhere('id_funcion', '<>', 1);
+            })
+            ->orderBy('apellido_paterno')
+            ->orderBy('apellido_materno')
+            ->orderBy('nombre')
+            ->get();
 
         return view('siben.busqueda_director', compact(
-            'url',
-            'tituloTabla',
-            'tituloPag',
-            'escuelaEstado',
-            'anterior'
+            'personal',
+            'directorActivo'
         ));
     }
 
@@ -2809,28 +2841,39 @@ public function borraImagen(Request $request, $id)
 
     public function guardaDirector(Request $request, $id = null)
     {
-        if ($id) {
-            $id_escuela = $this->contexto()['id_escuela'];
+        $ctx = $this->contexto();
 
-            $personal = Personal::where('id', $id)->where('id_escuela', $id_escuela)->first();
+        abort_unless(
+            $ctx['modulo'] === 'l' && (int) $ctx['nivel'] === 3,
+            403
+        );
 
-            if ($personal) {
-                try {
-                    $datosActualizar = [
-                        'status'     => 'a',
-                        'id_funcion' => '1',
-                    ];
-                    $datosFormulario = $request->input('Personal', $request->input('data.Personal', []));
-                    if (!empty($datosFormulario)) {
-                        $datosActualizar = array_merge($datosFormulario, $datosActualizar);
-                    }
-                    $personal->update($datosActualizar);
-                } catch (\Exception $e) {
-                    return response('Error: Inténtelo de nuevo, por favor', 400);
-                }
-            }
+        $id_escuela = $ctx['id_escuela'];
+        abort_unless($id_escuela && $id, 403);
+
+        $directorActivo = Personal::where('id_escuela', (string) $id_escuela)
+            ->where('id_funcion', 1)
+            ->where('status', 'a')
+            ->exists();
+
+        if ($directorActivo) {
+            return redirect()
+                ->route('siben.directoresEscuela')
+                ->with('error', 'La escuela ya tiene un director activo.');
         }
-        return redirect()->route('siben.directoresEscuela', ['opc' => 'e']);
+
+        $personal = Personal::where('id', $id)
+            ->where('id_escuela', (string) $id_escuela)
+            ->firstOrFail();
+
+        $personal->update([
+            'status' => 'a',
+            'id_funcion' => 1,
+        ]);
+
+        return redirect()
+            ->route('siben.directoresEscuela')
+            ->with('success', 'El director se activó correctamente.');
     }
 
     public function editaUsuario()

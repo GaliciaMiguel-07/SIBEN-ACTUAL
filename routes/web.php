@@ -118,7 +118,13 @@ Route::middleware(['auth', 'no.cache'])->group(function () {
 
             // Directivos
             Route::get('/directores-escuela/{opc?}', [DashboardController::class, 'directoresEscuela'])->name('directoresEscuela');
-            
+            Route::get('/edita-coordinadores', [DashboardController::class, 'editaCoordinadores'])->name('editaCoordinadores');
+            Route::post('/guarda-coordinadores', [DashboardController::class, 'guardaCoordinadores'])->name('guardaCoordinadores');
+            Route::get('/busqueda-director', [DashboardController::class, 'busquedaDirector'])->name('busquedaDirector');
+            Route::post('/guarda-director/{id}', [DashboardController::class, 'guardaDirector'])->whereNumber('id')->name('guardaDirector');
+            Route::post('/desactiva-director/{id}', [DashboardController::class, 'desactivaDirector'])
+                ->whereNumber('id')
+                ->name('desactivaDirector');
             Route::get('/listados', [DashboardController::class, 'listados'])->name('listados');
             Route::get('/parametros', [DashboardController::class, 'parametros'])->name('parametros');
             Route::get('/usuarios', [DashboardController::class, 'listaUsuarios'])->name('lista_usuarios');
