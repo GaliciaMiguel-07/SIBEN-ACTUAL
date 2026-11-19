@@ -250,6 +250,31 @@ Route::middleware('nivel:1,2,3,4')->match(['get', 'post'], '/consultasHistorico/
 
     
         Route::get('/personal', [PersonalController::class, 'menu'])->name('personal.menu');
+
+        // Panel Personal (niveles 3 y 4)
+        Route::prefix('personal')->name('personal.panel.')->middleware('nivel:3,4')->group(function () {
+            Route::match(['get', 'post'], '/index', [PersonalController::class, 'panelIndex'])->name('index');
+            Route::get('/jubilados', [PersonalController::class, 'panelJubilados'])->name('jubilados');
+            Route::post('/jubilados/reactivar', [PersonalController::class, 'panelReactivar'])->name('reactivar');
+
+            Route::middleware('nivel:4')->group(function () {
+                Route::get('/agrega', [PersonalController::class, 'panelAgrega'])->name('agrega');
+                Route::post('/agrega/formulario', [PersonalController::class, 'panelAgrega2'])->name('agrega2');
+                Route::post('/agrega/guardar', [PersonalController::class, 'panelGuardar'])->name('guardar');
+
+                Route::match(['get', 'post'], '/jubilacion', [PersonalController::class, 'panelJubilacion'])->name('jubilacion');
+                Route::get('/jubilacion/{id}/tipo', [PersonalController::class, 'panelJubilar'])->whereNumber('id')->name('jubilar');
+                Route::post('/jubilacion/guardar', [PersonalController::class, 'panelGuardarBaja'])->name('guardarBaja');
+
+                Route::post('/status', [PersonalController::class, 'panelCambiarStatus'])->name('status');
+            });
+
+            Route::middleware('nivel:3')->group(function () {
+                Route::get('/editar/{id}', [PersonalController::class, 'panelEdita'])->whereNumber('id')->name('edita');
+                Route::post('/editar/actualizar', [PersonalController::class, 'panelActualizar'])->name('actualizar');
+            });
+        });
+
         Route::get('/informes/estadisticas', [InformesController::class, 'estadisticas'])->name('informes.estadisticas');
         Route::get('/informes/informe-nacional', [InformesController::class, 'informeNacional'])->name('informes.informe_nacional');
         Route::get('/informes/directorio', [InformesController::class, 'directorio'])->name('informes.directorio');

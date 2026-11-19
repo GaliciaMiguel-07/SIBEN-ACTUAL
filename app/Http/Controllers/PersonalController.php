@@ -916,13 +916,13 @@ class PersonalController extends sibenController
         $opcionesMenu = [];
         switch ($nivel) {
             case 3:
-                $opcionesMenu[] = ['personal', 'Editar', '', 0];
+                $opcionesMenu[] = ['personal', 'Editar', 'index', 0];
                 $opcionesMenu[] = ['consultas_personal', 'Consulta personal', 'formulario', 0];
                 $opcionesMenu[] = ['personal', 'Lista Bajas', 'jubilados', 0];
                 break;
             case 4:
                 $opcionesMenu[] = ['personal', 'Agregar', 'agrega', 0];
-                $opcionesMenu[] = ['personal', 'Activar', '', 0];
+                $opcionesMenu[] = ['personal', 'Activar', 'index', 0];
                 $opcionesMenu[] = ['consultas_personal', 'Consulta personal', 'formulario', 0];
                 $opcionesMenu[] = ['personal', 'Baja Personal', 'jubilacion', 0];
                 $opcionesMenu[] = ['personal', 'Lista Bajas', 'jubilados', 0];
@@ -931,7 +931,9 @@ class PersonalController extends sibenController
                 return redirect('/');
         }
 
-        return view('personal.menu', compact('opcionesMenu', 'mensaje'));
+        $mensajeExito = session('mensaje_exito');
+
+        return view('personal.menu', compact('opcionesMenu', 'mensaje', 'mensajeExito'));
     }
 
     /**
@@ -1151,5 +1153,533 @@ class PersonalController extends sibenController
         }
 
         return redirect('/personal/jubilados/');
+    }
+
+    private function panelNormalizaTexto(?string $valor): string
+    {
+        return mb_strtoupper(trim((string) $valor));
+    }
+
+    /**
+     * Normaliza el valor de discapacidad (char(1): '', 's', 'n').
+     */
+    private function panelDiscapacidad(Request $request): string
+    {
+        $valor = (string) $request->input('discapacidad', '');
+
+        return in_array($valor, ['s', 'n'], true) ? $valor : '';
+    }
+
+    /**
+     * Tipo de discapacidad (0 cuando no aplica).
+     */
+    private function panelTipoDiscapacidad(Request $request): int
+    {
+        if ($this->panelDiscapacidad($request) !== 's') {
+            return 0;
+        }
+
+        return (int) $request->input('tipo_discapacidad', 0);
+    }
+
+    /**
+     * Año de antigüedad; '0000' cuando no se selecciona.
+     */
+    private function panelAnio($valor): string
+    {
+        $anio = (int) $valor;
+
+        return $anio >= 1900 ? (string) $anio : '0000';
+    }
+
+    /**
+     * Años disponibles para los desplegables de antigüedad del panel.
+     */
+    private function panelAnios(): array
+    {
+        return range(1950, (int) date('Y'));
+    }
+
+    /**
+     * Panel personal (niveles 3 y 4): búsqueda Activar/Editar.
+     */
+    public function panelIndex(Request $request)
+    {
+        $ctx = $this->contexto();
+        $idEscuela = $ctx['id_escuela'] ?? null;
+        $nivel = (int) ($ctx['nivel'] ?? 0);
+        $cuentaDirector = (int) ($ctx['cuenta_director'] ?? 0);
+
+        if (!$idEscuela) {
+            return redirect()->route('personal.menu');
+        }
+
+        $funciones = Funcion::whereIn('id', [2, 3, 4, 5, 6, 7, 8, 9, 10])
+            ->orderBy('id')
+            ->pluck('funcion', 'id');
+
+        $statusCatalogo = ['a' => 'Activo', 'x' => 'No Activo'];
+
+        $criterios = [
+            'apellido_paterno' => $this->panelNormalizaTexto($request->input('busca.apellido_paterno')),
+            'apellido_materno' => $this->panelNormalizaTexto($request->input('busca.apellido_materno')),
+            'nombre' => $this->panelNormalizaTexto($request->input('busca.nombre')),
+            'curp' => $this->panelNormalizaTexto($request->input('busca.curp')),
+            'id_funcion' => (string) $request->input('busca.id_funcion', ''),
+            'status' => (string) $request->input('busca.status', ''),
+        ];
+
+        $hayBusqueda = collect($criterios)->filter(fn($v) => $v !== '')->isNotEmpty();
+        $resultados = collect();
+
+        if ($hayBusqueda) {
+            $query = Personal::where('id_escuela', $idEscuela)
+                ->whereIn('id_funcion', [2, 3, 4, 5, 6, 7, 8, 9, 10])
+                ->whereIn('status', ['a', 'x']);
+
+            if ($criterios['apellido_paterno'] !== '') {
+                $query->where('apellido_paterno', 'like', '%' . $criterios['apellido_paterno'] . '%');
+            }
+            if ($criterios['apellido_materno'] !== '') {
+                $query->where('apellido_materno', 'like', '%' . $criterios['apellido_materno'] . '%');
+            }
+            if ($criterios['nombre'] !== '') {
+                $query->where('nombre', 'like', '%' . $criterios['nombre'] . '%');
+            }
+            if ($criterios['curp'] !== '') {
+                $query->where('curp', 'like', '%' . $criterios['curp'] . '%');
+            }
+            if ($criterios['id_funcion'] !== '') {
+                $query->where('id_funcion', $criterios['id_funcion']);
+            }
+            if ($criterios['status'] !== '') {
+                $query->where('status', $criterios['status']);
+            }
+
+            $resultados = $query
+                ->orderBy('apellido_paterno')
+                ->orderBy('apellido_materno')
+                ->orderBy('nombre')
+                ->get();
+        }
+
+        $mensaje = '';
+        if ($nivel === 4 && $cuentaDirector === 0) {
+            $mensaje = 'Por favor, agregue o active al Director de la institución';
+        }
+
+        return view('personal.index', compact('funciones', 'statusCatalogo', 'criterios', 'resultados', 'nivel', 'mensaje'));
+    }
+
+    /**
+     * Pantalla "Elija la función" para nivel 4.
+     */
+    public function panelAgrega(Request $request)
+    {
+        $ctx = $this->contexto();
+        $cuentaDirector = (int) ($ctx['cuenta_director'] ?? 0);
+
+        $funciones = Funcion::whereIn('id', [1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+            ->orderBy('id')
+            ->pluck('funcion', 'id');
+
+        $mensaje = $cuentaDirector === 0 ? 'Por favor, agregue o active al Director de la institución' : '';
+
+        return view('personal.agrega', compact('funciones', 'mensaje'));
+    }
+
+    /**
+     * Muestra formulario de alta (docente/no docente) según función.
+     */
+    public function panelAgrega2(Request $request)
+    {
+        $idFuncion = (int) $request->input('id_funcion');
+        if (!$idFuncion) {
+            return redirect()->route('personal.panel.agrega');
+        }
+
+        $docente = in_array($idFuncion, [1, 2, 3, 4, 5, 6], true);
+
+        $nivelesEstudio = NivelEstudio::orderBy('id')->pluck('nivel_estudio', 'id');
+        $areasConocimiento = AreaConocimiento::select('id_campo', 'campo')->distinct()->orderBy('id_campo')->pluck('campo', 'id_campo');
+        $disciplinas = AreaConocimiento::orderBy('disciplina')->pluck('disciplina', 'id');
+        $nivelesSni = NivelSni::orderBy('id')->pluck('nivel_sni', 'id');
+        $lenguas = LenguasIndigenas::orderBy('lengua')->pluck('lengua', 'lengua');
+        $anios = $this->panelAnios();
+        $discapacidades = $this->obtenerDiscapacidades();
+
+        return view($docente ? 'personal.agrega_docente' : 'personal.agrega_nodocente', compact(
+            'idFuncion',
+            'docente',
+            'nivelesEstudio',
+            'areasConocimiento',
+            'disciplinas',
+            'nivelesSni',
+            'lenguas',
+            'anios',
+            'discapacidades'
+        ));
+    }
+
+    /**
+     * Guarda alta de personal.
+     */
+    public function panelGuardar(Request $request)
+    {
+        $ctx = $this->contexto();
+        $idEscuela = $ctx['id_escuela'] ?? null;
+
+        if (!$idEscuela) {
+            return redirect()->route('personal.menu');
+        }
+
+        $idFuncion = (int) $request->input('id_funcion');
+        if (!$idFuncion) {
+            return back()->withInput()->withErrors(['id_funcion' => 'Seleccione una función válida.']);
+        }
+
+        $curp = $this->panelNormalizaTexto($request->input('curp'));
+        $duplicado = Personal::where('id_escuela', $idEscuela)->where('curp', $curp)->exists();
+        if ($duplicado) {
+            return back()->withInput()->withErrors(['curp' => 'Ya existe un registro con esa CURP en su escuela.']);
+        }
+
+        $personal = Personal::create([
+            'apellido_paterno' => $this->panelNormalizaTexto($request->input('apellido_paterno')),
+            'apellido_materno' => $this->panelNormalizaTexto($request->input('apellido_materno')),
+            'nombre' => $this->panelNormalizaTexto($request->input('nombre')),
+            'curp' => $curp,
+            'edad' => (int) $request->input('edad', 0),
+            'genero' => strtoupper((string) $request->input('genero', 'H')),
+            'correo_electronico' => strtolower(trim((string) $request->input('correo_electronico', ''))),
+            'id_funcion' => $idFuncion,
+            'id_escuela' => $idEscuela,
+            'status' => $idFuncion >= 7 ? 'a' : 'x',
+            'fecha_actualizacion' => now(),
+            'discapacidad' => $this->panelDiscapacidad($request),
+            'tipo_discapacidad' => $this->panelTipoDiscapacidad($request),
+        ]);
+
+        if ($idFuncion <= 6) {
+            $hablaLengua = $request->input('habla_lengua') === 's';
+
+            Docente::create([
+                'id_personal' => $personal->id,
+                'id_nivel_estudio' => (int) $request->input('id_nivel_estudio', 0),
+                'titulo' => $request->input('titulado') === 's' ? 's' : 'n',
+                'fecha_titulacion' => $request->input('titulado') === 's' && $request->filled('fecha_titulacion')
+                    ? $request->input('fecha_titulacion')
+                    : '0000-00-00',
+                'tema_titulacion' => trim((string) $request->input('tema_titulacion', '')),
+                'escuela_egreso' => $this->panelNormalizaTexto($request->input('escuela_egreso')),
+                'id_area_conocimiento' => (int) $request->input('disciplina', 0),
+                'id_nivel_sni' => (int) $request->input('id_nivel_sni', 0),
+                'lengua_indigena' => $hablaLengua ? trim((string) $request->input('lengua_indigena', '')) : '',
+                'antiguedad_escuela' => $this->panelAnio($request->input('antiguedad_escuela')),
+                'antiguedad_docente' => $this->panelAnio($request->input('antiguedad_docente')),
+                'proyecto_investigacion' => $request->input('investigacion') === 's'
+                    ? mb_substr(trim((string) $request->input('proyecto_investigacion', '')), 0, 128)
+                    : '',
+                'estancia_investigacion' => $request->input('estancia_investigacion') === 's' ? 's' : 'n',
+                'forma_contratacion' => 0,
+                'tiempo_contratacion' => 0,
+                'grupo_investigacion' => '',
+            ]);
+        }
+
+        return redirect()->route('personal.menu')->with('mensaje_exito', 'Registro guardado correctamente.');
+    }
+
+    /**
+     * Formulario de edición para supervisor (nivel 3).
+     */
+    public function panelEdita(Request $request, int $id)
+    {
+        $ctx = $this->contexto();
+        $idEscuela = $ctx['id_escuela'] ?? null;
+
+        $personal = Personal::with('docente')
+            ->where('id_escuela', $idEscuela)
+            ->where('id', $id)
+            ->firstOrFail();
+
+        $docente = $personal->docente;
+        $hablaLengua = !empty($docente?->lengua_indigena) ? 's' : 'n';
+
+        $funciones = Funcion::whereIn('id', [2, 3, 4, 5, 6, 7, 8, 9, 10])->orderBy('id')->pluck('funcion', 'id');
+        $nivelesEstudio = NivelEstudio::orderBy('id')->pluck('nivel_estudio', 'id');
+        $areasConocimiento = AreaConocimiento::select('id_campo', 'campo')->distinct()->orderBy('id_campo')->pluck('campo', 'id_campo');
+        $disciplinas = AreaConocimiento::orderBy('disciplina')->pluck('disciplina', 'id');
+        $nivelesSni = NivelSni::orderBy('id')->pluck('nivel_sni', 'id');
+        $lenguas = LenguasIndigenas::orderBy('lengua')->pluck('lengua', 'lengua');
+        $anios = $this->panelAnios();
+        $discapacidades = $this->obtenerDiscapacidades();
+
+        return view('personal.edita', compact(
+            'personal',
+            'docente',
+            'hablaLengua',
+            'funciones',
+            'nivelesEstudio',
+            'areasConocimiento',
+            'disciplinas',
+            'nivelesSni',
+            'lenguas',
+            'anios',
+            'discapacidades'
+        ));
+    }
+
+    /**
+     * Guarda edición de personal para nivel 3.
+     */
+    public function panelActualizar(Request $request)
+    {
+        $ctx = $this->contexto();
+        $idEscuela = $ctx['id_escuela'] ?? null;
+
+        $idPersonal = (int) $request->input('id_personal');
+
+        $personal = Personal::where('id_escuela', $idEscuela)->where('id', $idPersonal)->firstOrFail();
+
+        $curp = $this->panelNormalizaTexto($request->input('curp'));
+        $duplicado = Personal::where('id_escuela', $idEscuela)
+            ->where('id', '<>', $personal->id)
+            ->where('curp', $curp)
+            ->exists();
+
+        if ($duplicado) {
+            return back()->withInput()->withErrors(['curp' => 'Ya existe un registro con esa CURP en su escuela.']);
+        }
+
+        $idFuncion = (int) $request->input('id_funcion');
+
+        $personal->update([
+            'apellido_paterno' => $this->panelNormalizaTexto($request->input('apellido_paterno')),
+            'apellido_materno' => $this->panelNormalizaTexto($request->input('apellido_materno')),
+            'nombre' => $this->panelNormalizaTexto($request->input('nombre')),
+            'curp' => $curp,
+            'edad' => (int) $request->input('edad', 0),
+            'genero' => strtoupper((string) $request->input('genero', 'H')),
+            'correo_electronico' => strtolower(trim((string) $request->input('correo_electronico', ''))),
+            'id_funcion' => $idFuncion,
+            'fecha_actualizacion' => now(),
+            'discapacidad' => $this->panelDiscapacidad($request),
+            'tipo_discapacidad' => $this->panelTipoDiscapacidad($request),
+        ]);
+
+        if ($idFuncion <= 6) {
+            $hablaLengua = $request->input('habla_lengua') === 's';
+            Docente::updateOrCreate(
+                ['id_personal' => $personal->id],
+                [
+                    'id_nivel_estudio' => (int) $request->input('id_nivel_estudio', 0),
+                    'titulo' => $request->input('titulado') === 's' ? 's' : 'n',
+                    'fecha_titulacion' => $request->input('titulado') === 's' && $request->filled('fecha_titulacion')
+                        ? $request->input('fecha_titulacion')
+                        : '0000-00-00',
+                    'tema_titulacion' => trim((string) $request->input('tema_titulacion', '')),
+                    'escuela_egreso' => $this->panelNormalizaTexto($request->input('escuela_egreso')),
+                    'id_area_conocimiento' => (int) $request->input('disciplina', 0),
+                    'id_nivel_sni' => (int) $request->input('id_nivel_sni', 0),
+                    'lengua_indigena' => $hablaLengua ? trim((string) $request->input('lengua_indigena', '')) : '',
+                    'antiguedad_escuela' => $this->panelAnio($request->input('antiguedad_escuela')),
+                    'antiguedad_docente' => $this->panelAnio($request->input('antiguedad_docente')),
+                    'proyecto_investigacion' => $request->input('investigacion') === 's'
+                        ? mb_substr(trim((string) $request->input('proyecto_investigacion', '')), 0, 128)
+                        : '',
+                    'estancia_investigacion' => $request->input('estancia_investigacion') === 's' ? 's' : 'n',
+                ]
+            );
+        }
+
+        return redirect()->route('personal.panel.index')->with('mensaje_exito', 'Registro actualizado correctamente.');
+    }
+
+    /**
+     * Baja de personal (nivel 4).
+     */
+    public function panelJubilacion(Request $request)
+    {
+        if ($res = $this->verificarAccesoAccion($request, 'jubilacion')) {
+            return $res;
+        }
+
+        $ctx = $this->contexto();
+        $idEscuela = $ctx['id_escuela'] ?? null;
+
+        $funciones = Funcion::whereIn('id', [2, 3, 4, 5, 6, 7, 8, 9, 10])->orderBy('id')->pluck('funcion', 'id');
+
+        $criterios = [
+            'apellido_paterno' => $this->panelNormalizaTexto($request->input('busca.apellido_paterno')),
+            'apellido_materno' => $this->panelNormalizaTexto($request->input('busca.apellido_materno')),
+            'nombre' => $this->panelNormalizaTexto($request->input('busca.nombre')),
+            'curp' => $this->panelNormalizaTexto($request->input('busca.curp')),
+            'id_funcion' => (string) $request->input('busca.id_funcion', ''),
+        ];
+
+        $hayBusqueda = collect($criterios)->filter(fn($v) => $v !== '')->isNotEmpty();
+        $resultados = collect();
+
+        if ($hayBusqueda && $idEscuela) {
+            $query = Personal::where('id_escuela', $idEscuela)
+                ->where('status', 'x')
+                ->whereIn('id_funcion', [2, 3, 4, 5, 6, 7, 8, 9, 10]);
+
+            if ($criterios['apellido_paterno'] !== '') {
+                $query->where('apellido_paterno', 'like', '%' . $criterios['apellido_paterno'] . '%');
+            }
+            if ($criterios['apellido_materno'] !== '') {
+                $query->where('apellido_materno', 'like', '%' . $criterios['apellido_materno'] . '%');
+            }
+            if ($criterios['nombre'] !== '') {
+                $query->where('nombre', 'like', '%' . $criterios['nombre'] . '%');
+            }
+            if ($criterios['curp'] !== '') {
+                $query->where('curp', 'like', '%' . $criterios['curp'] . '%');
+            }
+            if ($criterios['id_funcion'] !== '') {
+                $query->where('id_funcion', $criterios['id_funcion']);
+            }
+
+            $resultados = $query
+                ->orderBy('apellido_paterno')
+                ->orderBy('apellido_materno')
+                ->orderBy('nombre')
+                ->get();
+        }
+
+        return view('personal.jubilacion', compact('funciones', 'criterios', 'resultados'));
+    }
+
+    /**
+     * Formulario de tipo/fecha de baja.
+     */
+    public function panelJubilar(Request $request, int $id)
+    {
+        $ctx = $this->contexto();
+        $idEscuela = $ctx['id_escuela'] ?? null;
+
+        $personal = Personal::where('id_escuela', $idEscuela)
+            ->where('id', $id)
+            ->where('status', 'x')
+            ->firstOrFail();
+
+        $tipos = [
+            'j' => 'Jubilado',
+            'r' => 'Renuncia',
+            'b' => 'Baja Administrativa',
+        ];
+
+        return view('personal.jubilar', compact('personal', 'tipos'));
+    }
+
+    /**
+     * Guarda la baja en personal y jubilados.
+     */
+    public function panelGuardarBaja(Request $request)
+    {
+        $ctx = $this->contexto();
+        $idEscuela = $ctx['id_escuela'] ?? null;
+
+        $idPersonal = (int) $request->input('id_personal');
+        $tipo = (string) $request->input('tipo');
+        $fechaBaja = (string) $request->input('fecha_baja');
+
+        $personal = Personal::where('id_escuela', $idEscuela)->where('id', $idPersonal)->firstOrFail();
+
+        if (!in_array($tipo, ['j', 'r', 'b'], true)) {
+            return back()->withInput()->withErrors(['tipo' => 'Seleccione un tipo de baja válido.']);
+        }
+
+        $personal->status = $tipo;
+        $personal->fecha_actualizacion = now();
+        $personal->save();
+
+        Jubilado::updateOrCreate(
+            ['id_personal' => $personal->id],
+            ['fecha_jubilacion' => $fechaBaja]
+        );
+
+        return redirect()->route('personal.panel.jubilados')->with('mensaje_exito', 'La baja se registró correctamente.');
+    }
+
+    /**
+     * Lista de bajas para niveles 3 y 4.
+     */
+    public function panelJubilados(Request $request)
+    {
+        $ctx = $this->contexto();
+        $idEscuela = $ctx['id_escuela'] ?? null;
+
+        $tipos = [
+            'j' => 'Jubilado',
+            'r' => 'Renuncia',
+            'b' => 'Baja Administrativa',
+            'd' => 'Defunción',
+        ];
+
+        $funciones = Funcion::pluck('funcion', 'id');
+        $fechas = Jubilado::pluck('fecha_jubilacion', 'id_personal');
+
+        $resultados = Personal::where('id_escuela', $idEscuela)
+            ->whereIn('status', ['j', 'r', 'b', 'd'])
+            ->orderBy('apellido_paterno')
+            ->orderBy('apellido_materno')
+            ->orderBy('nombre')
+            ->get();
+
+        return view('personal.jubilados', compact('resultados', 'tipos', 'funciones', 'fechas'));
+    }
+
+    /**
+     * Reactiva una persona dada de baja (status = a).
+     */
+    public function panelReactivar(Request $request)
+    {
+        $ctx = $this->contexto();
+        $idEscuela = $ctx['id_escuela'] ?? null;
+        $idPersonal = (int) $request->input('id_personal');
+
+        $personal = Personal::where('id_escuela', $idEscuela)
+            ->where('id', $idPersonal)
+            ->whereIn('status', ['j', 'r', 'b', 'd'])
+            ->first();
+
+        if ($personal) {
+            $personal->status = 'a';
+            $personal->fecha_actualizacion = now();
+            $personal->save();
+        }
+
+        return redirect()->route('personal.panel.jubilados')->with('mensaje_exito', 'La persona fue reactivada correctamente.');
+    }
+
+    /**
+     * Activa o desactiva personal en la pantalla de búsqueda de nivel 4.
+     */
+    public function panelCambiarStatus(Request $request)
+    {
+        $ctx = $this->contexto();
+        $idEscuela = $ctx['id_escuela'] ?? null;
+        $idPersonal = (int) $request->input('id_personal');
+        $nuevoStatus = (string) $request->input('status');
+
+        if (!in_array($nuevoStatus, ['a', 'x'], true)) {
+            return back();
+        }
+
+        $personal = Personal::where('id_escuela', $idEscuela)
+            ->where('id', $idPersonal)
+            ->whereIn('status', ['a', 'x'])
+            ->first();
+
+        if ($personal) {
+            $personal->status = $nuevoStatus;
+            $personal->fecha_actualizacion = now();
+            $personal->save();
+        }
+
+        return back()->with('mensaje_exito', 'El estatus se actualizó correctamente.');
     }
 }
