@@ -278,6 +278,9 @@ Route::middleware('nivel:1,2,3,4')->match(['get', 'post'], '/consultasHistorico/
         Route::get('/informes/estadisticas', [InformesController::class, 'estadisticas'])->name('informes.estadisticas');
         Route::get('/informes/informe-nacional', [InformesController::class, 'informeNacional'])->name('informes.informe_nacional');
         Route::get('/informes/directorio', [InformesController::class, 'directorio'])->name('informes.directorio');
+        Route::get('/informes/estadistica-alumnos', [InformesController::class, 'estadisticaAlumnos'])->name('informes.estadistica_alumnos');
+        Route::get('/informes/estadistica-docentes', [InformesController::class, 'estadisticaDocentes'])->name('informes.estadistica_docentes');
+        Route::get('/informes/estadistica-personal', [InformesController::class, 'estadisticaPersonal'])->name('informes.estadistica_personal');
     });
 
     // Desactivar 2FA (bloqueado por política, requiere sesión para mostrar mensaje en flujo normal)

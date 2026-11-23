@@ -322,112 +322,375 @@ class InformesController extends sibenController
     /**
      * estadisticaAlumnos
      */
+    
     public function estadisticaAlumnos()
     {
         $ctx = $this->contexto();
-        $nombreEntidad = $ctx['id_renapo'] ?? null;
-        $id_escuela = $ctx['id_escuela'] ?? null;
+
+        $nivel = (int) ($ctx['nivel'] ?? 0);
+        $idEscuela = $ctx['id_escuela'] ?? null;
+        $idEntidad = $ctx['id_entidad'] ?? null;
         $modulo = $ctx['modulo'] ?? null;
 
-        $semestres = ['1' => '2', '2' => '4', '3' => '6', '4' => '8', '5' => '10', '6' => '12'];
+        // El reporte antiguo se generaba para una escuela seleccionada.
+        if (!$idEscuela) {
+            abort(403, 'No hay una escuela seleccionada para generar el reporte.');
+        }
+
+        if (!in_array($nivel, [1, 2, 3, 4, 6], true)) {
+            abort(403, 'No tienes permiso para consultar estas estadísticas.');
+        }
 
         $escuela = Escuela::with('entidad')
-            ->where('id', $id_escuela)
             ->select('id', 'escuela_key', 'escuela', 'clave_escuela', 'id_entidad')
-            ->first();
+            ->findOrFail($idEscuela);
 
-        $status = EscuelaStatus::where('id_escuela', $id_escuela)
+        // Los niveles estatales y de enlace deben respetar su entidad.
+        if (
+            in_array($nivel, [2, 6], true) &&
+            (string) $escuela->id_entidad !== (string) $idEntidad
+        ) {
+            abort(403, 'La escuela no pertenece a tu entidad.');
+        }
+
+        // Recuperar el estado de captura y oficialización.
+        $status = EscuelaStatus::where('id_escuela', $idEscuela)
             ->where('modulo', $modulo)
             ->first();
 
         $captura = $status->captura ?? null;
         $oficializar = $status->oficializar ?? null;
-        $oficializar_fecha = $status->oficializar_fecha ?? null;
+        $oficializarFecha = $status->oficializar_fecha ?? null;
 
-        $escuela_key = $escuela->escuela_key ?? '';
-        $id_renapo = $escuela->entidad->id_renapo ?? '';
-        $encargados = $this->obtenerEncargados($id_escuela, $modulo, $id_renapo);
-
-        $escuelaLicenciaturas = EscuelaLicenciatura::with(['licenciatura', 'especialidad'])
-            ->where('id_escuela', $id_escuela)
-            ->select('id_licenciatura', 'id_especialidad', 'modalidad')
-            ->distinct()
-            ->get()
-            ->toArray();
-
-        $cuenta_alumnos = Historia::where('id_escuela', $id_escuela)
-            ->where('id_licenciatura', '7')
-            ->where('id_especialidad', '0')
-            ->where('status', 'i')
-            ->where('captura', $this->captura_actual ?? null)
-            ->count();
-
-        if ($cuenta_alumnos > 0) {
-            $licenciatura = [
-                'EscuelaLicenciatura' => [
-                    'id_licenciatura' => '7',
-                    'id_especialidad' => '0',
-                    'modalidad' => 'e'
-                ],
-                'Licenciatura' => ['licenciatura' => 'Especial'],
-                'Especialidad' => ['especialidad' => '']
-            ];
-            $escuelaLicenciaturas[] = $licenciatura;
-        }
+        // El reporte antiguo utiliza estos seis semestres pares.
+        $semestres = ['2', '4', '6', '8', '10', '12'];
 
         $totales = [
             'hombres' => 0,
             'mujeres' => 0,
-            $semestres[1] => 0,
-            $semestres[2] => 0,
-            $semestres[3] => 0,
-            $semestres[4] => 0,
-            $semestres[5] => 0,
-            $semestres[6] => 0,
-            'general' => 0
+            'general' => 0,
         ];
 
-        foreach ($escuelaLicenciaturas as $i => $escuelaLicenciatura) {
-            $id_lic = $escuelaLicenciatura['EscuelaLicenciatura']['id_licenciatura'] ?? $escuelaLicenciatura['id_licenciatura'];
-            $id_esp = $escuelaLicenciatura['EscuelaLicenciatura']['id_especialidad'] ?? $escuelaLicenciatura['id_especialidad'];
-            $mod = $escuelaLicenciatura['EscuelaLicenciatura']['modalidad'] ?? $escuelaLicenciatura['modalidad'];
-
-            $queryBase = Historia::where('id_escuela', $id_escuela)
-                ->where('status', 'i')
-                ->where('id_licenciatura', $id_lic)
-                ->where('id_especialidad', $id_esp)
-                ->where('modalidad', $mod)
-                ->where('captura', $this->captura_actual ?? null);
-
-            $tHombres = (clone $queryBase)->where('genero', 'h')->count();
-            $tMujeres = (clone $queryBase)->where('genero', 'm')->count();
-
-            $escuelaLicenciaturas[$i]['Cuentas']['totalHombres'] = $tHombres;
-            $escuelaLicenciaturas[$i]['Cuentas']['totalMujeres'] = $tMujeres;
-
-            foreach ($semestres as $sKey => $sVal) {
-                $countSem = (clone $queryBase)->where('semestre', $sVal)->count();
-                $escuelaLicenciaturas[$i]['Cuentas'][$sVal] = $countSem;
-                $totales[$sVal] += $countSem;
-            }
-
-            $totales['hombres'] += $tHombres;
-            $totales['mujeres'] += $tMujeres;
-            $totales['general'] += ($tHombres + $tMujeres);
+        foreach ($semestres as $semestre) {
+            $totales[$semestre] = 0;
         }
 
-        $modalidades = ['e' => 'Escolarizada', 'm' => 'Mixta'];
-        $ancho = '900';
-        $firmasData = $this->obtenerStatusFirmas($id_escuela, $this->captura_actual ?? null);
+        // Obtener las licenciaturas y especialidades de la escuela.
+        $ofertas = EscuelaLicenciatura::with([
+            'licenciatura',
+            'especialidad'
+        ])
+            ->where('id_escuela', $idEscuela)
+            ->select(
+                'id_escuela',
+                'id_licenciatura',
+                'id_especialidad',
+                'modalidad'
+            )
+            ->distinct()
+            ->get();
 
-        return view('informes.estadistica_alumnos', array_merge(
-            compact(
-                'escuela', 'escuelaLicenciaturas', 'encargados', 'ancho', 'modalidades',
-                'totales', 'semestres', 'captura', 'oficializar', 'oficializar_fecha', 'nombreEntidad'
-            ),
-            $firmasData
-        ));
+        // Incluir Educación Especial sin especialidad cuando corresponda.
+        $cuentaEspecial = Historia::where('id_escuela', $idEscuela)
+            ->where('id_licenciatura', 7)
+            ->where('id_especialidad', 0)
+            ->where('status', 'i')
+            ->where('captura', $this->captura_actual)
+            ->count();
+
+        if ($cuentaEspecial > 0) {
+            $ofertas->push((object) [
+                'id_escuela' => $idEscuela,
+                'id_licenciatura' => 7,
+                'id_especialidad' => 0,
+                'modalidad' => 'e',
+                'licenciatura' => (object) [
+                    'licenciatura' => 'Especial',
+                ],
+                'especialidad' => (object) [
+                    'especialidad' => '',
+                ],
+            ]);
+        }
+
+        $modalidades = [
+            'e' => 'Escolarizada',
+            'm' => 'Mixta',
+        ];
+
+        $filas = [];
+
+        foreach ($ofertas as $oferta) {
+            $queryBase = Historia::where('id_escuela', $idEscuela)
+                ->where('status', 'i')
+                ->where('id_licenciatura', $oferta->id_licenciatura)
+                ->where('id_especialidad', $oferta->id_especialidad)
+                ->where('modalidad', $oferta->modalidad)
+                ->where('captura', $this->captura_actual);
+
+            $hombres = (clone $queryBase)
+                ->where('genero', 'h')
+                ->count();
+
+            $mujeres = (clone $queryBase)
+                ->where('genero', 'm')
+                ->count();
+
+            $cuentas = [
+                'hombres' => $hombres,
+                'mujeres' => $mujeres,
+                'general' => $hombres + $mujeres,
+            ];
+
+            foreach ($semestres as $semestre) {
+                $cantidad = (clone $queryBase)
+                    ->where('semestre', $semestre)
+                    ->count();
+
+                $cuentas[$semestre] = $cantidad;
+                $totales[$semestre] += $cantidad;
+            }
+
+            $totales['hombres'] += $hombres;
+            $totales['mujeres'] += $mujeres;
+            $totales['general'] += $cuentas['general'];
+
+            // No mostrar licenciaturas sin alumnos.
+            if ($cuentas['general'] === 0) {
+                continue;
+            }
+
+            $filas[] = [
+                'licenciatura' => $oferta->licenciatura->licenciatura
+                    ?? ($oferta->id_licenciatura == 7 ? 'Especial' : 'Sin nombre'),
+
+                'especialidad' => $oferta->especialidad->especialidad ?? '',
+
+                'modalidad' => $modalidades[$oferta->modalidad] ?? $oferta->modalidad,
+
+                'cuentas' => $cuentas,
+            ];
+        }
+
+        // Obtener los responsables de la escuela.
+        $idRenapo = $escuela->entidad->id_renapo ?? '';
+
+        $encargadosOriginales = $this->obtenerEncargados(
+            $idEscuela,
+            $modulo,
+            $idRenapo
+        );
+
+        $encargados = [
+            'capturista' => '',
+            'supervisor' => '',
+            'enlace' => '',
+        ];
+
+        if (is_array($encargadosOriginales)) {
+            $encargados['capturista'] =
+                $encargadosOriginales['capturista']
+                ?? $encargadosOriginales[4]
+                ?? '';
+
+            $encargados['supervisor'] =
+                $encargadosOriginales['supervisor']
+                ?? $encargadosOriginales[3]
+                ?? '';
+
+            $encargados['enlace'] =
+                $encargadosOriginales['enlace']
+                ?? $encargadosOriginales[2]
+                ?? '';
+        }
+
+        // Crear el documento PDF.
+        $pdf = new \TCPDF('L', 'mm', 'A4', true, 'UTF-8', false);
+
+        $pdf->SetCreator('SIBEN');
+        $pdf->SetAuthor('SIBEN');
+        $pdf->SetTitle('Listado Acumulado Estadístico de Alumnos');
+        $pdf->SetSubject('Estadística de alumnos');
+
+        $pdf->setPrintHeader(false);
+        $pdf->setPrintFooter(true);
+
+        $pdf->SetMargins(10, 10, 10);
+        $pdf->SetFooterMargin(8);
+        $pdf->SetAutoPageBreak(true, 15);
+        $pdf->SetFont('helvetica', '', 8);
+
+        $pdf->AddPage();
+
+        $escapar = function ($valor) {
+            return htmlspecialchars(
+                (string) $valor,
+                ENT_QUOTES,
+                'UTF-8'
+            );
+        };
+
+        $nombreEscuela = $escapar($escuela->escuela);
+        $claveEscuela = $escapar($escuela->clave_escuela);
+        $entidad = $escapar($escuela->entidad->entidad ?? '');
+
+        $html = '
+        <h2 style="text-align:center;">
+            Secretaría de Educación Pública
+        </h2>
+
+        <h3 style="text-align:center;">
+            Subsecretaría de Educación Superior<br>
+            Dirección General de Educación Superior para el Magisterio
+        </h3>
+
+        <h3 style="text-align:center;">
+            Sistema de Información Básica de la Educación Normal
+        </h3>
+
+        <h3 style="text-align:center;">
+            Listado Acumulado Estadístico de Alumnos
+        </h3>
+
+        <br>
+
+        <table cellpadding="4">
+            <tr>
+                <td><b>Fecha:</b> ' . date('d/m/Y') . '</td>
+                <td><b>Hora:</b> ' . date('H:i') . '</td>
+            </tr>
+            <tr>
+                <td colspan="2"><b>Estado:</b> ' . $entidad . '</td>
+            </tr>
+            <tr>
+                <td colspan="2"><b>Clave del Centro de Trabajo:</b> ' . $claveEscuela . '</td>
+            </tr>
+            <tr>
+                <td colspan="2"><b>Nombre de la Escuela:</b> ' . $nombreEscuela . '</td>
+            </tr>
+        </table>
+
+        <br>
+
+        <table border="1" cellpadding="4">
+            <thead>
+                <tr style="background-color:#e9ecef;">
+                    <th rowspan="2" width="19%"><b>LICENCIATURA</b></th>
+                    <th rowspan="2" width="15%"><b>ESPECIALIDAD O ÁREA</b></th>
+                    <th rowspan="2" width="11%"><b>MODALIDAD</b></th>
+                    <th colspan="2" width="10%"><b>SEXO</b></th>
+                    <th colspan="6" width="36%"><b>TOTAL DE INSCRITOS POR SEMESTRE</b></th>
+                    <th rowspan="2" width="9%"><b>TOTAL</b></th>
+                </tr>
+                <tr style="background-color:#e9ecef;">
+                    <th width="5%">H</th>
+                    <th width="5%">M</th>';
+
+        foreach ($semestres as $semestre) {
+            $html .= '<th width="6%">' . $semestre . 'o</th>';
+        }
+
+        $html .= '
+                </tr>
+            </thead>
+            <tbody>';
+
+        foreach ($filas as $fila) {
+            $html .= '
+                <tr>
+                    <td>EDUCACIÓN ' . $escapar(mb_strtoupper($fila['licenciatura'])) . '</td>
+                    <td>' . $escapar(mb_strtoupper($fila['especialidad'])) . '</td>
+                    <td>' . $escapar($fila['modalidad']) . '</td>
+                    <td align="center">' . $fila['cuentas']['hombres'] . '</td>
+                    <td align="center">' . $fila['cuentas']['mujeres'] . '</td>';
+
+            foreach ($semestres as $semestre) {
+                $html .= '
+                    <td align="center">' . $fila['cuentas'][$semestre] . '</td>';
+            }
+
+            $html .= '
+                    <td align="center"><b>' . $fila['cuentas']['general'] . '</b></td>
+                </tr>';
+        }
+
+        if (empty($filas)) {
+            $html .= '
+                <tr>
+                    <td colspan="11" align="center">
+                        No se encontraron alumnos inscritos para la captura actual.
+                    </td>
+                </tr>';
+        }
+
+        $html .= '
+                <tr style="background-color:#e9ecef;">
+                    <td colspan="3"><b>TOTALES</b></td>
+                    <td align="center"><b>' . $totales['hombres'] . '</b></td>
+                    <td align="center"><b>' . $totales['mujeres'] . '</b></td>';
+
+        foreach ($semestres as $semestre) {
+            $html .= '
+                    <td align="center"><b>' . $totales[$semestre] . '</b></td>';
+        }
+
+        $html .= '
+                    <td align="center"><b>' . $totales['general'] . '</b></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <br><br>';
+
+        // Aviso de captura abierta.
+        if ($captura) {
+            $html .= '
+            <p style="text-align:center;color:red;">
+                <b>Este informe no será admitido hasta que finalice la captura.</b>
+            </p>';
+        }
+
+        // Responsables.
+        $html .= '
+        <br>
+        <table cellpadding="5">
+            <tr>
+                <td><b>CAPTURÓ:</b> ' . $escapar($encargados['capturista']) . '</td>
+            </tr>
+            <tr>
+                <td><b>SUPERVISÓ:</b> ' . $escapar($encargados['supervisor']) . '</td>
+            </tr>
+            <tr>
+                <td><b>ENLACE DE LA AUTORIDAD EDUCATIVA ESTATAL:</b> '
+                    . $escapar($encargados['enlace']) . '</td>
+            </tr>
+        </table>';
+
+        if ($oficializar) {
+            $fechaOficializacion = $oficializarFecha
+                ? date('d/m/Y', strtotime($oficializarFecha))
+                : '';
+
+            $html .= '
+            <br>
+            <p style="text-align:center;">
+                Este informe fue oficializado por el supervisor de la escuela
+                el día: ' . $escapar($fechaOficializacion) . '
+            </p>';
+        }
+
+        $pdf->writeHTML($html, true, false, true, false, '');
+
+        $nombreArchivo = 'Estadistica_alumnos_' .
+            preg_replace('/[^A-Za-z0-9_-]/', '_', $escuela->clave_escuela) .
+            '.pdf';
+
+        return response($pdf->Output($nombreArchivo, 'S'), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="' . $nombreArchivo . '"',
+        ]);
     }
+
 
     /**
      * estadisticaDocentes
@@ -846,7 +1109,11 @@ class InformesController extends sibenController
      */
     public function estadisticas()
     {
-        return view('informes.estadisticas');
+        $ctx = $this->contexto();
+
+        $nivel = (int) ($ctx['nivel'] ?? 0);
+
+        return view('informes.estadisticas', compact('nivel'));
     }
 
     /**
