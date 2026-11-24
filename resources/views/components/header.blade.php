@@ -1,54 +1,10 @@
 <header class="header">
   {{-- Favicon y CSS institucional --}}
-  <link href="https://framework-gb.cdn.gob.mx/snd/v1.1.0/snd-guinda.css" rel="stylesheet">
-
-  <!-- Estipular el espaciado superior para evitar que la barra fija tape el contenido -->
-  <style>
-      body {
-          padding-top: 75px; /* Altura oficial del header fijo en escritorio */
-      }
-      @media (max-width: 767.9px) {
-          body {
-              padding-top: 56px; /* Altura oficial en dispositivos móviles */
-          }
-      }
-      .mexico__escudo .mexico__img.snd__icono {
-          width: auto !important;
-          height: 48px !important;
-      }
-      @media (max-width: 767.9px) {
-          .mexico__escudo .mexico__img.snd__icono {
-              height: 35px !important;
-          }
-      }
-  </style>
-  {{-- 1. Encabezado Institucional Gob.mx (Fijo arriba) --}}
-  <section class="mexico">
-    <div class="mexico__contenedor">
-      <div class="mexico__escudo">
-        <a href="https://www.gob.mx/" class="mexico__aescudo">
-          <i class="snd__icono snd-gobierno-mexico mexico__img color--origen" role="img" aria-label="Ir a la página de inicio del Gobierno de México"></i>
-        </a>
-      </div>
-      <div class="mexico__menu">
-        <details class="mexico__details">
-          <summary class="mexico__summary">
-            <span class="mexico__span">
-              Menú
-            </span>
-          </summary>
-          <div class="mexico__detailsCont">
-            <a href="https://www.gob.mx/tramites" class="mexico__a">
-              Trámites
-            </a>
-            <a href="https://www.gob.mx/gobierno" class="mexico__a">
-              Gobierno
-            </a>
-          </div>
-        </details>
-      </div>
-    </div>
-  </section>
+  <script src="https://framework-gb.cdn.gob.mx/snd/v1/carga.js"
+  integrity="sha384-co1XtMH+rcHM2juJRJdlpTdJfL9wAc1/EJ+71hoqFAIK4C7KEdcwhrtt8BPuwEWV"
+  crossorigin="anonymous"
+  data-tema="guinda"
+  defer></script>
 
   {{-- 2. Barra de Navegación del Sistema SIBEN --}}
   <section class="subheader">
@@ -63,7 +19,7 @@
         <nav class="navHeader">
           <ul class="navHeader__ul mexico__detailsCont">
             <li class="navHeader__li">
-              <a href="{{ route('home') }}" class="navHeader__a">
+              <a href="{{ route('home') }}" aria-current="page" class="navHeader__a">
                 Inicio
               </a>
             </li>

@@ -174,6 +174,5 @@
     </section>
 </div>
 
-<x-footer />
 </body>
 </html>
