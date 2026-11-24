@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>SIBEN - @yield('titulo', 'Sistema de Información Básica de Escuelas Normales')</title>
 
     {{-- CSS heredado del sistema original --}}

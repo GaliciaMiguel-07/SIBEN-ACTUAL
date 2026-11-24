@@ -13,6 +13,11 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // ConvertEmptyStringsToNull convierte campos vacíos a null antes de llegar
+        // al controlador. Las tablas de SIBEN tienen columnas NOT NULL sin DEFAULT,
+        // así que se desactiva para evitar errores de constraint en cada UPDATE.
+        $middleware->remove(\Illuminate\Foundation\Http\Middleware\ConvertEmptyStringsToNull::class);
+
         $middleware->alias([
             'verificar.sesion' => VerificarSesion::class,
             'no.cache'         => NoCacheHeaders::class,

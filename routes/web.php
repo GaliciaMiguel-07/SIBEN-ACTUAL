@@ -189,6 +189,8 @@ Route::post('/alumnos/municipiosNacimiento6', [AlumnosController::class, 'munici
     ->name('alumnos.municipiosNacimiento6');
 Route::post('/alumnos/renglonesAlta', [AlumnosController::class, 'renglonesAlta'])
     ->name('alumnos.renglonesAlta');
+Route::post('/alumnos/actualizaRenglon', [AlumnosController::class, 'actualizaRenglon'])
+    ->name('alumnos.actualizaRenglon');
 // ────────────────────────────────────────────────────────
 
 Route::get('/alumnos/cambio-escuela', [AlumnosController::class, 'opcionCambioEscuela'])

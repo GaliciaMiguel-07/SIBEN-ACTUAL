@@ -1,0 +1,9 @@
+<td style="background-color:#C0C0C0;">{{ data_get($info, 'Registro.clase', '') }}</td>
+<td style="background-color:#C0C0C0;">{{ data_get($info, 'Alumno.numero_identificador', '') }}</td>
+<td style="background-color:#C0C0C0;">{{ data_get($info, 'Alumno.apellido_paterno', '') }}</td>
+<td style="background-color:#C0C0C0;">{{ data_get($info, 'Alumno.apellido_materno', '') }}</td>
+<td style="background-color:#C0C0C0;">{{ data_get($info, 'Alumno.nombre', '') }}</td>
+<td style="background-color:#C0C0C0;">{{ data_get($info, 'Alumno.curp', '') }}</td>
+<td style="background-color:#C0C0C0;">{{ data_get($info, 'Registro.semestre', '') }}</td>
+<td style="background-color:#C0C0C0;">{!! data_get($info, 'Renglon.status', '') !!}</td>
+<td style="background-color:#C0C0C0;">{!! data_get($info, 'Renglon.accion', '') !!}</td>

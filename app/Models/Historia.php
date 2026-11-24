@@ -329,4 +329,36 @@ class Historia extends Model
 
         return true;
     }
+
+    /*
+     * Envoltorios estaticos.
+     * El controlador (AlumnosController) llama a estas variantes *Static,
+     * igual que el sistema original en CakePHP. Toda la logica vive en los
+     * metodos de instancia de arriba, aqui solo se delega.
+     */
+
+    public static function CalcularSemestreStatic($semestre = null, $capturaActual = null, $nombreEntidad = null, $id_escuela = null)
+    {
+        return (new static())->CalcularSemestre($semestre, $capturaActual, $nombreEntidad, $id_escuela);
+    }
+
+    public static function CalcSemSinLimitStatic($semestre = null, $capturaActual = null)
+    {
+        return (new static())->CalcSemSinLimit($semestre, $capturaActual);
+    }
+
+    public static function CriteriosBecadosStatic($sostenimiento = null, $semestre = null, $modalidad = null, $licenciatura = null)
+    {
+        return (new static())->CriteriosBecados($sostenimiento, $semestre, $modalidad, $licenciatura);
+    }
+
+    public static function isEspecialStatic($id_licenciatura = null, $semestre = null, $id_especialidad = null)
+    {
+        return (new static())->isEspecial($id_licenciatura, $semestre, $id_especialidad);
+    }
+
+    public static function permisosUsuariosStatic($nivel = null)
+    {
+        return (new static())->permisosUsuarios($nivel);
+    }
 }

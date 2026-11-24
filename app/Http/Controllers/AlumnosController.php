@@ -156,14 +156,68 @@ class AlumnosController extends sibenController
 
     /**
      * setIdEscuela
-     * Fija el id_escuela en la variable de sesión.
+     * Fija el id_escuela en sesión (solo para nivel 2, validando pertenencia a la entidad).
      */
     public function setIdEscuela(Request $request)
     {
-        $id_escuela = $request->input('Escuela.id', $request->input('id_escuela'));
-        session(['Usuario.id_escuela' => $id_escuela]);
+        $ctx = $this->contexto();
+        $nivel = (int) ($ctx['nivel'] ?? 0);
+        $idEntidad = $ctx['id_entidad'] ?? null;
+        $modulo = $ctx['modulo'] ?? null;
+
+        $id_escuela = (int) $request->input('Escuela.id', $request->input('id_escuela'));
+
+        if ($id_escuela <= 0) {
+            return response('Escuela inválida', 400);
+        }
+
+        if ($nivel === 2) {
+            $permitida = Escuela2::where('id', $id_escuela)
+                ->where('id_entidad', $idEntidad)
+                ->where('modulo', $modulo)
+                ->where('status', 'a')
+                ->where('unica', '<', 2)
+                ->exists();
+
+            if (!$permitida) {
+                return response('No autorizado para seleccionar esta escuela', 403);
+            }
+
+            session(['Usuario.id_escuela' => $id_escuela]);
+        }
 
         return view('elements.vacio');
+    }
+
+    /**
+     * Obtiene la escuela efectiva para el flujo de alumnos.
+     * Prioridad: parámetro de ruta ?? contexto ?? sesión.
+     * En niveles 3 y 4 siempre se fuerza la escuela del usuario autenticado.
+     */
+    private function resolverEscuelaTrabajo($id_escuela_param, array $ctx): ?int
+    {
+        $nivel = (int) ($ctx['nivel'] ?? 0);
+
+        if (in_array($nivel, [3, 4], true)) {
+            return !empty($ctx['id_escuela']) ? (int) $ctx['id_escuela'] : null;
+        }
+
+        $resuelta = $id_escuela_param ?? ($ctx['id_escuela'] ?? session('Usuario.id_escuela'));
+
+        return !empty($resuelta) ? (int) $resuelta : null;
+    }
+
+    /**
+     * Valida que la escuela pertenezca a la entidad del enlace estatal (nivel 2).
+     */
+    private function escuelaEnEntidadNivel2(int $id_escuela, array $ctx): bool
+    {
+        return Escuela2::where('id', $id_escuela)
+            ->where('id_entidad', $ctx['id_entidad'] ?? 0)
+            ->where('modulo', $ctx['modulo'] ?? null)
+            ->where('status', 'a')
+            ->where('unica', '<', 2)
+            ->exists();
     }
 
     /**
@@ -177,10 +231,22 @@ class AlumnosController extends sibenController
         }
 
         $ctx           = $this->contexto();
-        $id_escuela    = $id_escuela ?? ($ctx['id_escuela'] ?? null);
+        $nivel         = (int) ($ctx['nivel'] ?? 0);
+        $id_escuela    = $this->resolverEscuelaTrabajo($id_escuela, $ctx);
         $nombreEntidad = $ctx['id_renapo'] ?? null;
 
-        $licenciaturas = EscuelaLicenciatura::with(['licenciaturaModel', 'especialidadModel'])
+        if (!$id_escuela) {
+            if ($nivel === 2) {
+                return redirect()->route('alumnos.listaEscuelas');
+            }
+            return response('Escuela no definida', 400);
+        }
+
+        if ($nivel === 2 && !$this->escuelaEnEntidadNivel2($id_escuela, $ctx)) {
+            return response('No autorizado para consultar esa escuela', 403);
+        }
+
+        $licenciaturas = EscuelaLicenciatura::with(['licenciatura', 'especialidad'])
             ->where('id_escuela', $id_escuela)
             ->get();
 
@@ -193,11 +259,11 @@ class AlumnosController extends sibenController
         $tur = [];
 
         foreach ($licenciaturas as $l) {
-            if ($l->licenciaturaModel) {
-                $lic[$l->licenciaturaModel->id] = $l->licenciaturaModel->licenciatura;
+            if ($l->licenciatura) {
+                $lic[$l->licenciatura->id] = $l->licenciatura->licenciatura;
             }
-            if ($l->especialidadModel) {
-                $esp[$l->especialidadModel->id] = $l->especialidadModel->especialidad;
+            if ($l->especialidad) {
+                $esp[$l->especialidad->id] = $l->especialidad->especialidad;
             }
             if (isset($modalidadMap[$l->modalidad])) {
                 $mod[$l->modalidad] = $modalidadMap[$l->modalidad];
@@ -257,13 +323,33 @@ class AlumnosController extends sibenController
      */
     public function listasAlumnos(Request $request, $opc = null, $id_escuela = null)
     {
+        $ctx        = $this->contexto();
+        $nivel      = (int) ($ctx['nivel'] ?? 0);
         $buscaData  = $request->input('Busca', []);
-        $id_escuela = $id_escuela ?? session('Usuario.id_escuela');
+        $id_escuela = $this->resolverEscuelaTrabajo($id_escuela, $ctx);
 
-        $query = DB::table('historias')
-            ->where('id_escuela', $id_escuela)
-            ->where('captura', $this->captura_actual)
-            ->where('status', '!=', 's');
+        if (!$id_escuela) {
+            return response('Escuela no definida', 400);
+        }
+
+        if ($nivel === 2 && !$this->escuelaEnEntidadNivel2($id_escuela, $ctx)) {
+            return response('No autorizado para consultar esa escuela', 403);
+        }
+
+        // 'registros' es la tabla real (no 'historias').
+        // apellido_paterno/apellido_materno/nombre/curp viven en 'alumnos'.
+        // status_conflictos viene de LEFT JOIN con 'conflictos'.
+        $query = DB::table('registros')
+            ->join('alumnos', 'registros.nid', '=', 'alumnos.numero_identificador')
+            ->leftJoin('conflictos', 'conflictos.id_registro', '=', 'registros.id')
+            ->where('registros.id_escuela', $id_escuela)
+            ->where('registros.captura', $this->captura_actual)
+            ->where('registros.status', '!=', 's');
+
+        // Mapeo de campos Busca a su tabla real
+        $camposAlumnos   = ['curp'];
+        $camposRegistros = ['id_licenciatura', 'id_especialidad', 'modalidad', 'turno',
+                            'semestre', 'status', 'nid', 'grupo'];
 
         $contador = 0;
         foreach ($buscaData as $valor) {
@@ -275,18 +361,29 @@ class AlumnosController extends sibenController
         if ($contador < 8) {
             foreach ($buscaData as $campo => $valor) {
                 if (!empty($valor)) {
-                    $query->where($campo, $valor);
+                    if (in_array($campo, $camposAlumnos, true)) {
+                        $query->where('alumnos.' . $campo, $valor);
+                    } elseif (in_array($campo, $camposRegistros, true)) {
+                        $query->where('registros.' . $campo, $valor);
+                    }
                 }
             }
         }
 
-        $alumnos = $query->orderBy('apellido_paterno')
-            ->orderBy('apellido_materno')
-            ->orderBy('nombre')
+        $alumnos = $query->orderBy('alumnos.apellido_paterno')
+            ->orderBy('alumnos.apellido_materno')
+            ->orderBy('alumnos.nombre')
             ->get([
-                'nid', 'apellido_paterno', 'apellido_materno', 'nombre',
-                'curp', 'semestre', 'status', 'id_registro',
-                'status_conflictos', 'modalidad'
+                'registros.id as id_registro',
+                'registros.nid',
+                'alumnos.apellido_paterno',
+                'alumnos.apellido_materno',
+                'alumnos.nombre',
+                'alumnos.curp',
+                'registros.semestre',
+                'registros.status',
+                'conflictos.status as status_conflictos',
+                'registros.modalidad',
             ]);
 
         $url = ($opc === 'i')
@@ -399,10 +496,28 @@ class AlumnosController extends sibenController
                 if ($regModel) {
                     $apoyos = (new Registro())->uneApoyos($datosRegistro);
                     $datosRegistro['apoyos'] = $apoyos;
+                    // Saneado: ConvertEmptyStringsToNull convierte "" → null;
+                    // registros.turno/modalidad/grupo/etc. son NOT NULL → error al hacer UPDATE con null.
+                    foreach (['turno', 'modalidad', 'grupo', 'nid', 'sepa_ingles', 'status'] as $_f) {
+                        if (array_key_exists($_f, $datosRegistro) && $datosRegistro[$_f] === null) {
+                            $datosRegistro[$_f] = '';
+                        }
+                    }
                     $regModel->update($datosRegistro);
                 }
 
                 if (!empty($datosAlumno['numero_identificador'])) {
+                    // Mismo saneado: ConvertEmptyStringsToNull → NOT NULL constraint en alumnos.
+                    foreach (['correo', 'telefono', 'cp'] as $_f) {
+                        if (array_key_exists($_f, $datosAlumno) && $datosAlumno[$_f] === null) {
+                            $datosAlumno[$_f] = '';
+                        }
+                    }
+                    foreach (['municipio_nacimiento', 'pais', 'pais_procedencia', 'entidad_procedencia', 'segunda_lengua'] as $_f) {
+                        if (array_key_exists($_f, $datosAlumno) && $datosAlumno[$_f] === null) {
+                            $datosAlumno[$_f] = 0;
+                        }
+                    }
                     $alumModel = Alumno::find($datosAlumno['numero_identificador']);
                     if ($alumModel) {
                         $alumModel->update($datosAlumno);
@@ -426,10 +541,10 @@ class AlumnosController extends sibenController
             }
         }
 
-        $infoAlumno = DB::table('historias')
+        $infoAlumno = DB::table('registros')
             ->where('id_escuela', $id_escuela)
             ->where('captura', $this->captura_actual)
-            ->where('id_registro', $id_registro)
+            ->where('id', $id_registro)
             ->first();
 
         if (!$infoAlumno) {
@@ -440,7 +555,7 @@ class AlumnosController extends sibenController
         $infoBachillerato = AlumnoBachillerato::where('nid', $infoAlumno->nid)->first();
         $infoBecado       = BecasPractica::where('nid', $infoAlumno->nid)->first();
 
-        $municipio_nacimiento = Municipio::where('id_entidad', $infoAlumno->entidad_nacimiento ?? 0)->pluck('municipio', 'id');
+        $municipio_nacimiento = Municipio::where('id_entidad', $infoAlumno2->entidad_nacimiento ?? 0)->pluck('municipio', 'id');
         $entidades = Entidad::where('id', '<', 33)->pluck('entidad', 'id')->toArray();
         $entidades[33] = 'Extranjero';
         $municipios_bach = Municipio::where('id_entidad', $infoBachillerato->id_entidad ?? 0)->pluck('municipio', 'id');
@@ -529,14 +644,48 @@ class AlumnosController extends sibenController
     public function actualizarAlumno(Request $request)
     {
         $ctx           = $this->contexto();
-        $id_escuela    = $ctx['id_escuela'] ?? null;
-        $nivel         = $ctx['nivel'] ?? null;
+        $nivel         = (int) ($ctx['nivel'] ?? 0);
         $nombreEntidad = $ctx['id_renapo'] ?? null;
+
+        // El botón "Editar" envía data[Historia][id_registro]=X
+        // PHP lo parsea como $_POST['data']['Historia']['id_registro'],
+        // que en dot-notation de Laravel es 'data.Historia.id_registro'.
+        $id_registro = (int) $request->input('data.Historia.id_registro',
+            $request->input('Historia.id_registro',
+                $request->input('id_registro',
+                    $request->input('Registro.id'))));
+        if ($id_registro <= 0) {
+            return response('Registro no encontrado', 404);
+        }
+
+        $registroBase = Registro::where('id', $id_registro)
+            ->where('captura', $this->captura_actual)
+            ->first(['id', 'id_escuela']);
+
+        if (!$registroBase) {
+            return response('Registro no encontrado', 404);
+        }
+
+        if (in_array($nivel, [3, 4], true)) {
+            $escuelaUsuario = (int) ($ctx['id_escuela'] ?? 0);
+            if ($escuelaUsuario <= 0 || $escuelaUsuario !== (int) $registroBase->id_escuela) {
+                return response('No autorizado', 403);
+            }
+            $id_escuela = $escuelaUsuario;
+        } elseif ($nivel === 2) {
+            $id_escuela = (int) $registroBase->id_escuela;
+            if (!$this->escuelaEnEntidadNivel2($id_escuela, $ctx)) {
+                return response('No autorizado', 403);
+            }
+        } else {
+            $id_escuela = (int) $this->resolverEscuelaTrabajo(null, $ctx);
+            if ($id_escuela <= 0) {
+                return response('Escuela no definida', 400);
+            }
+        }
 
         $escuela       = Escuela::find($id_escuela);
         $sostenimiento = $escuela->sostenimiento ?? null;
-
-        $id_registro = $request->input('Historia.id_registro', $request->input('id_registro', $request->input('Registro.id')));
 
         if ($request->isMethod('post') && $request->has('Alumno')) {
             $datosAlumno   = $request->input('Alumno', []);
@@ -582,10 +731,28 @@ class AlumnosController extends sibenController
                 }
 
                 if (!empty($datosRegistro['id'])) {
+                    // Saneado registros: mismo problema de ConvertEmptyStringsToNull.
+                    foreach (['turno', 'modalidad', 'grupo', 'nid', 'sepa_ingles', 'status'] as $_f) {
+                        if (array_key_exists($_f, $datosRegistro) && $datosRegistro[$_f] === null) {
+                            $datosRegistro[$_f] = '';
+                        }
+                    }
                     Registro::where('id', $datosRegistro['id'])->update($datosRegistro);
                 }
 
                 if (!empty($datosAlumno['numero_identificador'])) {
+                    // ConvertEmptyStringsToNull convierte campos vacíos a null.
+                    // alumnos.correo, .telefono, .cp son NOT NULL sin DEFAULT → hay que sanear.
+                    foreach (['correo', 'telefono', 'cp'] as $_f) {
+                        if (array_key_exists($_f, $datosAlumno) && $datosAlumno[$_f] === null) {
+                            $datosAlumno[$_f] = '';
+                        }
+                    }
+                    foreach (['municipio_nacimiento', 'pais', 'pais_procedencia', 'entidad_procedencia', 'segunda_lengua'] as $_f) {
+                        if (array_key_exists($_f, $datosAlumno) && $datosAlumno[$_f] === null) {
+                            $datosAlumno[$_f] = 0;
+                        }
+                    }
                     Alumno::where('numero_identificador', $datosAlumno['numero_identificador'])->update($datosAlumno);
                     if (!empty($datosBach)) {
                         if (($datosBach['id_bachillerato'] ?? 0) != 0) {
@@ -611,7 +778,7 @@ class AlumnosController extends sibenController
             }
         }
 
-        $infoAlumno = Registro::with(['alumno', 'escuelaPractica', 'alumnoBachillerato'])
+        $infoAlumno = Registro::with(['alumno', 'alumnoBachillerato'])
             ->where('id_escuela', $id_escuela)
             ->where('captura', $this->captura_actual)
             ->where('id', $id_registro)
@@ -733,13 +900,18 @@ class AlumnosController extends sibenController
 
         $permiso = Historia::permisosUsuariosStatic($nivel);
 
+        // En el sistema original (CakePHP) la variable "actualiza" solo se enviaba
+        // para el nivel 2 y activa las cascadas licenciatura -> especialidad ->
+        // modalidad -> turno dentro del formulario de edición.
+        $actualiza = ($nivel === 2);
+
         return view('alumnos.actualizar_alumno', compact(
             'infoAlumno', 'infoBecado', 'infoBachillerato', 'entidad_nacimiento',
             'entidad_nac', 'entidades', 'municipios_nacimiento', 'municipios_bach',
             'bachilleratos', 'permiso', 'modalidad', 'licenciatura', 'especialidad',
             'discapacidad', 'documentos', 'semestre', 'turnos', 'becado',
             'paises', 'lenguas', 'necesidad', 'entidadesnal', 'entidadesnal2',
-            'entidadesnal3', 'municipios2'
+            'entidadesnal3', 'municipios2', 'actualiza'
         ));
     }
 
